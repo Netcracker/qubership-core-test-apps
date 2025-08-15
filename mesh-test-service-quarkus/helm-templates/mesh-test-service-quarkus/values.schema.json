@@ -1,0 +1,92 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "$id": "http://example.com/example.json",
+  "type": "object",
+  "title": "The json schema for mesh-test-service-quarkus",
+  "description": "The example of json schema for mesh-test-service-quarkus.",
+  "default": {},
+  "examples": [
+    {
+      "CLIENT_SECRET": "/etc/secret",
+      "CPU_REQUEST": "100m",
+      "IMAGE_REPOSITORY": "",
+      "TAG": "",
+      "MEMORY_LIMIT": "250Mi",
+      "MEM_ARGS": "-Xms64m -Xmx64m -Xss256k -XX:MetaspaceSize=60m -XX:MaxMetaspaceSize=64m -XX:ReservedCodeCacheSize=64M -XX:CompressedClassSpaceSize=32M -XX:MinMetaspaceExpansion=1M -XX:MaxMetaspaceExpansion=8M -XX:CodeCacheExpansionSize=256k",
+      "NAMESPACE": "",
+      "OPENSHIFT_SERVICE_NAME": "mesh-test-service-quarkus",
+      "RC_REVISIONS": 3,
+      "REPLICAS": 1,
+      "SERVICE": "mesh-test-service-quarkus"
+    }
+  ],
+  "required": [
+    "TAG",
+    "IMAGE_REPOSITORY",
+    "NAMESPACE"
+  ],
+  "properties": {
+    "CLIENT_SECRET": {
+      "$id": "#/properties/CLIENT_SECRET",
+      "type": "string",
+      "title": "The CLIENT_SECRET schema",
+      "description": "Client secret volume path.",
+      "examples": [
+        "/etc/secret"
+      ],
+      "internal": true
+    },
+    "CPU_REQUEST": {
+      "$id": "#/properties/CPU_REQUEST",
+      "type": "string",
+      "title": "The CPU_REQUEST schema",
+      "internal": true
+    },
+    "IMAGE_REPOSITORY": {
+      "$id": "#/properties/IMAGE_REPOSITORY",
+      "type": "string",
+      "title": "The IMAGE_REPOSITORY schema",
+      "default": "",
+      "internal": true
+    },
+    "TAG": {
+      "$id": "#/properties/TAG",
+      "type": "string",
+      "title": "The TAG schema",
+      "default": "",
+      "internal": true
+    },
+    "MEMORY_LIMIT": {
+      "$id": "#/properties/MEMORY_LIMIT",
+      "type": "string",
+      "title": "The MEMORY_LIMIT schema",
+      "description": "An explanation about the purpose of this instance.",
+      "default": "",
+      "examples": [
+        "250Mi"
+      ]
+    },
+    "NAMESPACE": {
+      "$id": "#/properties/NAMESPACE",
+      "type": "string",
+      "title": "The NAMESPACE schema",
+      "description": "The namespace it is going to be deployed.",
+      "default": "",
+      "internal": true
+    },
+    "RC_REVISIONS": {
+      "$id": "#/properties/RC_REVISIONS",
+      "type": "integer",
+      "title": "The RC_REVISIONS schema",
+      "description": "revisionHistoryLimit value for DC.",
+      "internal": true
+    },
+    "REPLICAS": {
+      "$id": "#/properties/REPLICAS",
+      "type": "integer",
+      "title": "The REPLICAS schema",
+      "internal": true
+    }
+  },
+  "additionalProperties": true
+}

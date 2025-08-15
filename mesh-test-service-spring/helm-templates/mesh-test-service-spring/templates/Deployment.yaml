@@ -1,0 +1,148 @@
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+    name: '{{ .Values.DEPLOYMENT_RESOURCE_NAME }}'
+    labels:
+        name: '{{ .Values.DEPLOYMENT_RESOURCE_NAME }}'
+        app.kubernetes.io/instance: '{{ cat .Values.SERVICE "-" .Values.NAMESPACE | nospace | trunc 63 }}'
+        app.kubernetes.io/part-of: 'mesh-test-app'
+    annotations:
+        qubership.cloud/start.stage: '0'
+spec:
+    replicas: {{ .Values.REPLICAS }}
+    revisionHistoryLimit: {{ .Values.RC_REVISIONS }}
+    strategy:
+        type: RollingUpdate
+        rollingUpdate:
+            maxSurge: 25%
+            maxUnavailable: 25%
+    template:
+        metadata:
+            labels:
+                name: '{{ .Values.DEPLOYMENT_RESOURCE_NAME }}'
+                app.kubernetes.io/instance: '{{ cat .Values.SERVICE "-" .Values.NAMESPACE | nospace | trunc 63 }}'
+                app.kubernetes.io/part-of: 'mesh-test-app'
+        spec:
+            serviceAccountName: '{{ .Values.SERVICE }}'
+            volumes:
+            -   name: client-credentials
+                secret:
+                    secretName: '{{ .Values.SERVICE }}-client-credentials'
+      {{ if .Values.INTERNAL_TLS_ENABLED }}
+            -   name: tls
+                secret:
+                    secretName: '{{ .Values.SERVICE }}-tls'
+      {{ end }}
+            -   name: '{{ .Values.SSL_SECRET }}'
+                secret:
+                    secretName: '{{ .Values.SSL_SECRET }}'
+            containers:
+            -   name: '{{ .Values.SERVICE }}'
+                image: '{{ .Values.IMAGE_REPOSITORY }}:{{ .Values.TAG }}'
+                volumeMounts:
+                -   name: client-credentials
+                    mountPath: '{{ .Values.CLIENT_SECRET }}'
+                    readOnly: true
+      {{ if .Values.INTERNAL_TLS_ENABLED }}
+                - name: tls
+                  mountPath: '{{ .Values.TLS_SECRET }}'
+                  readOnly: true
+      {{ end }}
+                -   name: '{{ .Values.SSL_SECRET }}'
+                    mountPath: /tmp/cert/{{ .Values.SSL_SECRET }}
+                args:
+                - /usr/bin/java
+                - -Djava.security.egd=file:/dev/./urandom
+      {{ if .Values.INTERNAL_TLS_ENABLED }}
+                - -Dspring.profiles.active=tls
+      {{ end }}
+                - -jar
+                - /app/test-service-spring-1.0.0-SNAPSHOT.jar
+                securityContext:
+    {{ if eq .Values.PAAS_PLATFORM "KUBERNETES" }}
+                    runAsGroup: 10001
+    {{ end }}
+                    runAsNonRoot: true
+                    seccompProfile:
+                        type: RuntimeDefault
+                    allowPrivilegeEscalation: false
+                    capabilities:
+                        drop:
+                            - ALL
+                ports:
+                -   name: web
+                    containerPort: {{ if .Values.INTERNAL_TLS_ENABLED }} 8443 {{ else }} 8080 {{ end }}
+                    protocol: TCP
+                env:
+                -   name: CERTIFICATE_BUNDLE_{{ .Values.SSL_SECRET }}_MD5SUM
+                    value: '{{ .Values.CERTIFICATE_BUNDLE_MD5SUM }}'
+                -   name: MICROSERVICE_NAME
+                    value: '{{ .Values.SERVICE }}'
+                -   name: CLOUD_SERVICE_NAME
+                    value: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
+                -   name: DEPLOYMENT_VERSION
+                    value: "{{ .Values.DEPLOYMENT_VERSION }}"
+                -   name: CLOUD_NAMESPACE
+                    valueFrom:
+                        fieldRef:
+                            fieldPath: metadata.namespace
+                - name: INTERNAL_TLS_ENABLED
+                  value: '{{ .Values.INTERNAL_TLS_ENABLED }}'
+      {{ if .Values.INTERNAL_TLS_ENABLED }}
+                - name: CERTIFICATE_FILE_PASSWORD
+                  valueFrom:
+                      secretKeyRef:
+                          name: '{{ .Values.TLS_PASSWORD_SECRET_NAME }}'
+                          key: '{{ .Values.TLS_PASSWORD_KEY }}'
+                - name: CERTIFICATE_FILE_PATH
+                  value: '{{ .Values.TLS_SECRET }}'
+      {{ end }}
+                -   name: NAMESPACE
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.namespace
+                -   name: XNIO_IO_THREAD
+                    value: '{{ .Values.XNIO_IO_THREAD }}'
+                -   name: XNIO_WORK_THREAD
+                    value: '{{ .Values.XNIO_WORK_THREAD }}'
+                -   name: DEPLOY_SECOND_INGRESS
+                    value: '{{ .Values.DEPLOY_SECOND_INGRESS }}'
+                -   name: GLOWROOT_CLUSTER
+                    value: '{{ .Values.GLOWROOT_CLUSTER }}'
+                -   name: X_JAVA_ARGS
+                    value: '{{ .Values.X_JAVA_ARGS }}'
+                -   name: ALLOWED_HEADERS
+                    value: '{{ .Values.ALLOWED_HEADERS }}'
+                -   name: SERVER_HOSTNAME
+                    value: '{{ .Values.SERVER_HOSTNAME }}'
+                -   name: CUSTOM_HOST
+                    value: '{{ .Values.CUSTOM_HOST }}'
+                -   name: PRIVATE_GATEWAY_URL
+                    value: {{ if .Values.INTERNAL_TLS_ENABLED }} "https://internal-gateway-service:8443" {{ else }} "http://internal-gateway-service:8080" {{ end }}
+                -   name: PUBLIC_GATEWAY_URL
+                    value: '{{ .Values.PUBLIC_GATEWAY_URL }}'
+                -   name: OPENSHIFT_SERVER
+                    value: '{{ .Values.OPENSHIFT_SERVER }}'
+                resources:
+                    requests:
+                        cpu: '{{ .Values.CPU_REQUEST }}'
+                        memory: '{{ .Values.MEMORY_LIMIT }}'
+                    limits:
+                        cpu: '{{ .Values.CPU_LIMIT }}'
+                        memory: '{{ .Values.MEMORY_LIMIT }}'
+            affinity:
+                podAntiAffinity:
+                    preferredDuringSchedulingIgnoredDuringExecution:
+                    -   weight: 100
+                        podAffinityTerm:
+                            labelSelector:
+                                matchExpressions:
+                                -   key: name
+                                    operator: In
+                                    values:
+                                    - '{{ .Values.DEPLOYMENT_RESOURCE_NAME }}'
+                            topologyKey: {{ .Values.CLOUD_TOPOLOGY_KEY }}
+    selector:
+        matchLabels:
+            name: '{{ .Values.DEPLOYMENT_RESOURCE_NAME }}'

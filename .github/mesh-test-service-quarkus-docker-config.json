@@ -1,0 +1,11 @@
+{
+    "components" : [
+      {
+        "name": "qubership-core-mesh-test-service-quarkus",
+        "file": "./mesh-test-service-quarkus/Dockerfile",
+        "context": "./artifacts/pre-built-artifact/",
+        "download-artifact": true
+      }
+    ],
+    "platforms" : "linux/amd64"
+  }

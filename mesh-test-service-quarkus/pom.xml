@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.netcracker.cloud</groupId>
+    <packaging>pom</packaging>
+    <artifactId>mesh-test-service-quarkus</artifactId>
+    <version>1.0-SNAPSHOT</version>
+
+    <profiles>
+        <profile>
+            <id>default</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <modules>
+                <module>test-service-quarkus</module>
+                <module>test-service-quarkus-parent</module>
+                <module>test-service-quarkus-integration-tests</module>
+            </modules>
+        </profile>
+        <profile>
+            <id>integration-test</id>
+            <activation>
+                <property>
+                    <name>skipIT</name>
+                    <value>false</value>
+                </property>
+            </activation>
+            <modules>
+                <module>test-service-quarkus-integration-tests</module>
+            </modules>
+        </profile>
+    </profiles>
+
+
+    <repositories>
+        <repository>
+            <id>github</id>
+            <url>https://maven.pkg.github.com/netcracker/*</url>
+            <snapshots />
+        </repository>
+    </repositories>
+
+    <scm>
+        <connection>scm:git:https://github.com/Netcracker/qubership-core-core-operator.git</connection>
+        <developerConnection>scm:git:https://github.com/Netcracker/qubership-core-mesh-test-service.git
+        </developerConnection>
+        <url>https://github.com/Netcracker/qubership-core-mesh-test-service</url>
+        <tag>HEAD</tag>
+    </scm>
+
+    <distributionManagement>
+        <repository>
+            <id>github</id>
+            <url>https://maven.pkg.github.com/netcracker/qubership-core-mesh-test-service</url>
+        </repository>
+    </distributionManagement>
+
+</project>

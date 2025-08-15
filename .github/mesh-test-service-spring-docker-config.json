@@ -1,0 +1,11 @@
+{
+    "components" : [
+      {
+        "name": "qubership-core-mesh-test-service-spring",
+        "file": "./mesh-test-service-spring/Dockerfile",
+        "context": "./artifacts/pre-built-artifact/",
+        "download-artifact": true
+      }
+    ],
+    "platforms" : "linux/amd64"
+  }

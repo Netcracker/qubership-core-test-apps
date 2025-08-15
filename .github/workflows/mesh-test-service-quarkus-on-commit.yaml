@@ -1,0 +1,30 @@
+name: Maven build
+
+on:
+  push:
+    paths:
+      - 'mesh-test-service-quarkus/**'
+  pull_request:
+    types: [ opened, synchronize, reopened ]
+    paths:
+      - 'mesh-test-service-quarkus/**'
+
+jobs:
+  mvn:
+    uses: netcracker/qubership-core-infra/.github/workflows/maven-build-with-sonar.yaml@feature/java-service-workflow
+    with:
+      event-name: ${{ github.event_name }}
+      actor: ${{ github.actor }}
+      sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
+      upload-artifact: true
+      pom-file-path: mesh-test-service-quarkus/pom.xml
+    secrets:
+      sonar-token: ${{ secrets.SONAR_TOKEN }}
+
+  docker-build:
+    needs: [mvn]
+    uses: netcracker/qubership-core-infra/.github/workflows/docker-build.yaml@feature/java-service-workflow
+    with:
+      dry-run: false
+      config-filename: mesh-test-service-quarkus-docker-config.json
+      
