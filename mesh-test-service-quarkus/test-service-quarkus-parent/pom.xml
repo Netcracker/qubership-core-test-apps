@@ -10,6 +10,14 @@
     <artifactId>test-service-quarkus-parent</artifactId>
     <version>1.0.0-SNAPSHOT</version>
 
+    <licenses>
+        <license>
+            <name>Apache-2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
     <properties>
         <quarkus.version>3.15.2</quarkus.version>
         <quarkus-plugin.version>${quarkus.version}</quarkus-plugin.version>
