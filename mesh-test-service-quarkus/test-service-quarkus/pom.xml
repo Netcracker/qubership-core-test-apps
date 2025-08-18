@@ -13,24 +13,20 @@
     <artifactId>test-service-quarkus</artifactId>
     <version>1.0.0-SNAPSHOT</version>
 
-
     <properties>
         <quarkus.platform.artifact-id>quarkus-universe-bom</quarkus.platform.artifact-id>
         <quarkus.platform.group-id>io.quarkus</quarkus.platform.group-id>
-        <openshift-restclient-java.version>9.0.5.Final</openshift-restclient-java.version>
         <jacoco.plugin.version>0.8.12</jacoco.plugin.version>
         <sonar.coverage.exclusions>src/main/java/com/netcracker/quarkus/Main.java</sonar.coverage.exclusions>
-
-        <!--Netcracker's ext-->
-        <nc.quarkus.core.version>7.1.2-SNAPSHOT</nc.quarkus.core.version>
-
+        <quarkus.core.version>7.1.2-SNAPSHOT</quarkus.core.version>
     </properties>
+
     <dependencyManagement>
         <dependencies>
             <dependency>
                 <groupId>com.netcracker.cloud.quarkus</groupId>
                 <artifactId>cloud-core-quarkus-bom-publish</artifactId>
-                <version>${nc.quarkus.core.version}</version>
+                <version>${quarkus.core.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -43,8 +39,12 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
-    <dependencies>
 
+    <dependencies>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-jsonb</artifactId>
+        </dependency>
         <dependency>
             <groupId>com.netcracker.cloud.quarkus</groupId>
             <artifactId>springcloud-config-source</artifactId>
@@ -60,17 +60,6 @@
         <dependency>
             <groupId>com.netcracker.cloud.quarkus</groupId>
             <artifactId>context-propagation</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.openshift</groupId>
-            <artifactId>openshift-restclient-java</artifactId>
-            <version>${openshift-restclient-java.version}</version>
-            <exclusions>
-                <exclusion>
-                    <artifactId>slf4j-log4j12</artifactId>
-                    <groupId>org.slf4j</groupId>
-                </exclusion>
-            </exclusions>
         </dependency>
         <dependency>
             <groupId>io.quarkus</groupId>

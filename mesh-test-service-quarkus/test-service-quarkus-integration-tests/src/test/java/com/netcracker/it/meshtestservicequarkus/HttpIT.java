@@ -21,43 +21,25 @@ import static org.junit.jupiter.api.Assertions.*;
 @Tag("Mesh")
 public class HttpIT {
 
-//    @Named(PUBLIC_GW_SERVICE_NAME)
-//    @Scheme("http")
-//    @PortForward
     @PortForward(serviceName = @Value(PUBLIC_GW_SERVICE_NAME))
     private static URL publicGWServerUrl;
 
-//    @Named(INTERNAL_GW_SERVICE_NAME)
-//    @Scheme("http")
-//    @PortForward
     @PortForward(serviceName = @Value(INTERNAL_GW_SERVICE_NAME))
     private static URL internalGWServerUrl;
 
-//    @Named(SERVICE_NAME)
-//    @Scheme("http")
-//    @PortForward
     @PortForward(serviceName = @Value(SERVICE_NAME))
     private static URL compositeGWServerUrl;
-
-//    @Client
-//    private static KubernetesClientFactory platformClient;
-
-//    private static ITHelper itHelper;
 
     @BeforeAll
     public static void init() throws Exception {
         assertNotNull(publicGWServerUrl);
         assertNotNull(internalGWServerUrl);
-//        assertNotNull(platformClient);
-//        itHelper = new ITHelper(internalGWServerUrl, platformClient);
-//        itHelper.loginAsCloudAdmin();
     }
 
     @Test
     public void testRouteRegisteredByLib() throws IOException {
         Request request = new Request.Builder()
                 .url(publicGWServerUrl + "/api/v1/" + SERVICE_NAME + "/hello")
-//                .addHeader("Authorization", "Bearer " + itHelper.getCloudAdminToken())
                 .get()
                 .build();
         try (Response response = okHttpClient.newCall(request).execute()) {
@@ -72,7 +54,6 @@ public class HttpIT {
     public void testContextPropagation() throws IOException {
         Request request = new Request.Builder()
                 .url(publicGWServerUrl + "/api/v1/" + SERVICE_NAME + "/hello/go")
-//                .addHeader("Authorization", "Bearer " + itHelper.getCloudAdminToken())
                 .addHeader("X-Version","v999")
                 .get()
                 .build();
@@ -89,7 +70,6 @@ public class HttpIT {
     public void testRouteToGoService() throws IOException {
         Request request = new Request.Builder()
                 .url(publicGWServerUrl + "/api/v1/" + SERVICE_NAME + "/hello/go")
-//                .addHeader("Authorization", "Bearer " + itHelper.getCloudAdminToken())
                 .get()
                 .build();
         try (Response response = okHttpClient.newCall(request).execute()) {
