@@ -7,8 +7,9 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"test-service-go/domain"
-	"test-service-go/utils"
+
+	"github.com/netcracker/qubership-mesh-test-service-go/domain"
+	"github.com/netcracker/qubership-mesh-test-service-go/utils"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"

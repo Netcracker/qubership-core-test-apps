@@ -6,8 +6,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"test-service-go/domain"
 	"testing"
+
+	"github.com/netcracker/qubership-mesh-test-service-go/domain"
 
 	"github.com/gofiber/fiber/v2"
 	fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2"

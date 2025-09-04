@@ -1,8 +1,9 @@
 package main
 
 import (
-	"test-service-go/controller"
 	"time"
+
+	"github.com/netcracker/qubership-mesh-test-service-go/controller"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/health"
