@@ -18,7 +18,7 @@
         <quarkus.platform.group-id>io.quarkus</quarkus.platform.group-id>
         <jacoco.plugin.version>0.8.12</jacoco.plugin.version>
         <sonar.coverage.exclusions>src/main/java/com/netcracker/quarkus/Main.java</sonar.coverage.exclusions>
-        <quarkus.core.version>7.1.2-SNAPSHOT</quarkus.core.version>
+        <quarkus.core.version>7.1.2</quarkus.core.version>
     </properties>
 
     <dependencyManagement>
