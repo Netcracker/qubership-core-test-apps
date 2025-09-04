@@ -1,0 +1,11 @@
+{
+    "components" : [
+      {
+        "name": "qubership-core-mesh-test-service-go",
+        "file": "./mesh-test-service-go/Dockerfile",
+        "context": "./artifacts/pre-built-artifact/mesh-test-service-go/",
+        "download-artifact": true
+      }
+    ],
+    "platforms" : "linux/amd64"
+  }
