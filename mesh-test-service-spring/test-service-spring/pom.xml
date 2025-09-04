@@ -10,7 +10,7 @@
     <parent>
         <groupId>com.netcracker.cloud</groupId>
         <artifactId>qubership-spring-boot-starter-parent</artifactId>
-        <version>11.1.2-SNAPSHOT</version>
+        <version>11.1.2</version>
     </parent>
 
     <licenses>
@@ -58,7 +58,7 @@
             <dependency>
                 <groupId>com.netcracker.cloud</groupId>
                 <artifactId>cloud-core-java-bom</artifactId>
-                <version>11.1.2-SNAPSHOT</version>
+                <version>11.1.2</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
