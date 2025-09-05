@@ -20,6 +20,8 @@ jobs:
 
   docker-build:
     needs: [build]
-    uses: netcracker/qubership-core-infra/.github/workflows/docker-build.yaml@v1.0.5
+    uses: netcracker/qubership-core-infra/.github/workflows/docker-build.yaml@feature/java-service-workflow
     with:
       dry-run: false
+      config-filename: mesh-test-service-go-docker-config.json    
+  
