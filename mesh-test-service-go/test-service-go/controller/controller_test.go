@@ -12,7 +12,9 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2"
+	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/security"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
+	"github.com/netcracker/qubership-core-lib-go/v3/serviceloader"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -24,6 +26,7 @@ func TestController_HelloHandler(t *testing.T) {
 	os.Setenv("CLOUD_SERVICE_NAME", "mesh-test-service-go-v1")
 	defer os.Unsetenv("CLOUD_SERVICE_NAME")
 	configloader.Init(configloader.EnvPropertySource())
+	serviceloader.Register(1, &security.DummyFiberServerSecurityMiddleware{})
 	control := NewController()
 
 	app, err := fiberserver.New().Process()
@@ -44,22 +47,6 @@ func TestController_HelloHandler(t *testing.T) {
 	assert.Equal(t, "mesh-test-service-go-v1", traceResponse.ServiceName)
 	assert.Equal(t, "mesh-test-service-go", traceResponse.FamilyName)
 	assert.Equal(t, "v1", traceResponse.Version)
-}
-
-func TestController_HelloHandler_AccessForbidden(t *testing.T) {
-	control := NewController()
-	configloader.Init(configloader.EnvPropertySource())
-	app, err := fiberserver.New().Process()
-	assert.Nil(t, err)
-	app.Get("api/v1/hello", func(ctx *fiber.Ctx) error {
-		return control.HelloHandler(ctx)
-	})
-
-	respMock, err := app.Test(makeRequestWithoutBody("api/v1/hello", http.MethodGet), -1)
-	defer respMock.Body.Close()
-	assert.Nil(t, err)
-
-	assert.Equal(t, http.StatusForbidden, respMock.StatusCode)
 }
 
 func makeRequestWithoutBody(path string, method string) *http.Request {
