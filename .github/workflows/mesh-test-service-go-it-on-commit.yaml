@@ -1,4 +1,4 @@
-name: Maven build
+name: Mesh-test-service-go-integration-tests build
 
 on:
   push:

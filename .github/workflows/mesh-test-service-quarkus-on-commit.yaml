@@ -1,4 +1,4 @@
-name: Maven build
+name: Mesh-test-service-quarkus build
 
 on:
   push:
