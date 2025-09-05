@@ -41,3 +41,14 @@ nb-configuration.xml
 
 # Plugin directory
 /.quarkus/cli/plugins/
+
+
+/Gopkg.lock
+/vendor
+
+/mesh-test-service-go/mesh-test-service-go
+
+# Binaries for programs and plugins
+*.exe
+
+**/coverage.out
