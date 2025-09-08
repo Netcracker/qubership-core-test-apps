@@ -7,7 +7,7 @@ metadata:
   namespace: {{controller-namespace}}
   labels:
     app.kubernetes.io/managed-by: operator
-    app.kubernetes.io/part-of: "bg-plugin-example" # Must match to CMDB/config.xml application name or .Values.APPLICATION_NAME parameter propagated from CMDB (case-sensitive).
+    app.kubernetes.io/part-of: "bg-plugin-example"
     app.kubernetes.io/processed-by-operator: "bg-operator"
 spec:
   api:

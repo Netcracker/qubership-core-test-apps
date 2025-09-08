@@ -2,10 +2,9 @@ apiVersion: core.qubership.org/v1
 kind: Gateway
 metadata:
   name: {{ .Values.INGRESS_GATEWAY_NAME }}
-  namespace: "{{ .Values.NAMESPACE }}"
   labels:
     app.kubernetes.io/part-of: 'mesh-test-app'
-    app.kubernetes.io/name: '{{ .Values.SERVICE_NAME }}' # needed for finalyzer check
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
     app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
     app.kubernetes.io/managed-by: "{{ .Values.MANAGED_BY }}"
     deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
@@ -17,7 +16,7 @@ spec:
   env:
     facadeGatewayMemoryLimit: 128Mi
   ingresses:
-    - hostname: {{ .Values.INGRESS_GATEWAY_NAME }}-{{ .Values.ORIGIN_NAMESPACE }}.{{ .Values.CLOUD_PUBLIC_HOST }}
+    - hostname: {{ .Values.INGRESS_GATEWAY_NAME }}-{{ .Release.Namespace }}.{{ .Values.CLOUD_PUBLIC_HOST }}
       gatewayPort: 8080
 {{ if .Values.DEPLOY_SECOND_INGRESS }}
 ---
@@ -25,10 +24,9 @@ apiVersion: core.qubership.org/v1
 kind: Gateway
 metadata:
   name: '{{ .Values.INGRESS_GATEWAY_NAME }}-2'
-  namespace: "{{ .Values.NAMESPACE }}"
   labels:
     app.kubernetes.io/part-of: 'mesh-test-app'
-    app.kubernetes.io/name: '{{ .Values.SERVICE_NAME }}' # needed for finalyzer check
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
     app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
     app.kubernetes.io/managed-by: "{{ .Values.MANAGED_BY }}"
     deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
@@ -40,6 +38,6 @@ spec:
   env:
     facadeGatewayMemoryLimit: 128Mi
   ingresses:
-    - hostname: {{ .Values.INGRESS_GATEWAY_NAME }}-2-{{ .Values.ORIGIN_NAMESPACE }}.{{ .Values.CLOUD_PUBLIC_HOST }}
+    - hostname: {{ .Values.INGRESS_GATEWAY_NAME }}-2-{{ .Release.Namespace }}.{{ .Values.CLOUD_PUBLIC_HOST }}
       gatewayPort: 8080
 {{ end }}

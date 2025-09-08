@@ -19,7 +19,6 @@
       "IMAGE_REPOSITORY": "",
       "MEMORY_LIMIT": "808Mi",
       "NAMESPACE": "",
-      "OPENSHIFT_SERVER": "",
       "PRIVATE_GATEWAY_URL": "",
       "PUBLIC_GATEWAY_URL": "",
       "RC_REVISIONS": 3,

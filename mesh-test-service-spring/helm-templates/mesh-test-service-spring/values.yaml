@@ -14,14 +14,11 @@ CUSTOM_HOST: '' # TO_BE_REPLACED
 # Host:Port for central glow root
 GLOWROOT_CLUSTER: "glowroot:8181"
 # Docker repository with images
-IMAGE_REPOSITORY: '' # TO_BE_REPLACED 
+IMAGE_REPOSITORY: 'ghcr.io/netcracker/qubership-core-mesh-test-service-spring'
 MEMORY_LIMIT: '' # TO_BE_REPLACED
-# The namespace it is going to be deployed
-NAMESPACE: '' # TO_BE_REPLACED 
-# Openshift server url
-OPENSHIFT_SERVER: '' # TO_BE_REPLACED 
 # Service Name. For example: contact-management-backend
 SERVICE: 'mesh-test-service-spring'
+APPLICATION_NAME: 'mesh-test-app'
 DEPLOYMENT_VERSION: "v1"
 DEPLOYMENT_RESOURCE_NAME: 'mesh-test-service-spring-v1'
 # Private gateway url
@@ -37,7 +34,7 @@ SERVER_HOSTNAME: '' # TO_BE_REPLACED
 SSL_SECRET: "defaultsslcertificate"
 # Variable 'SYM_KEY' was never used
 # Which docker image tag should be used to deploy
-TAG: '' # TO_BE_REPLACED 
+TAG: 'chore-initial-snapshot'
 # Number of IO threads in Undertow server
 XNIO_IO_THREAD: 14
 # Number of working threads in Undertow server
@@ -60,3 +57,5 @@ PEER_NAMESPACE: ""
 INGRESS_CLASS: ""
 K8S_SERVICE_TYPE: 'HEADLESS'
 MANAGED_BY: "core-operator"
+CLOUD_PUBLIC_HOST: "svc.cluster.local"
+CLOUD_PRIVATE_HOST: "svc.cluster.local"

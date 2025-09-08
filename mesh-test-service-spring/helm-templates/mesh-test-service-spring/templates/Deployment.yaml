@@ -5,7 +5,7 @@ metadata:
     name: '{{ .Values.DEPLOYMENT_RESOURCE_NAME }}'
     labels:
         name: '{{ .Values.DEPLOYMENT_RESOURCE_NAME }}'
-        app.kubernetes.io/instance: '{{ cat .Values.SERVICE "-" .Values.NAMESPACE | nospace | trunc 63 }}'
+        app.kubernetes.io/instance: '{{ cat .Values.SERVICE | nospace | trunc 63 }}'
         app.kubernetes.io/part-of: 'mesh-test-app'
     annotations:
         qubership.cloud/start.stage: '0'
@@ -21,7 +21,7 @@ spec:
         metadata:
             labels:
                 name: '{{ .Values.DEPLOYMENT_RESOURCE_NAME }}'
-                app.kubernetes.io/instance: '{{ cat .Values.SERVICE "-" .Values.NAMESPACE | nospace | trunc 63 }}'
+                app.kubernetes.io/instance: '{{ cat .Values.SERVICE "-" .Release.Namespace | nospace | trunc 63 }}'
                 app.kubernetes.io/part-of: 'mesh-test-app'
         spec:
             serviceAccountName: '{{ .Values.SERVICE }}'
@@ -40,25 +40,6 @@ spec:
             containers:
             -   name: '{{ .Values.SERVICE }}'
                 image: '{{ .Values.IMAGE_REPOSITORY }}:{{ .Values.TAG }}'
-                volumeMounts:
-                -   name: client-credentials
-                    mountPath: '{{ .Values.CLIENT_SECRET }}'
-                    readOnly: true
-      {{ if .Values.INTERNAL_TLS_ENABLED }}
-                - name: tls
-                  mountPath: '{{ .Values.TLS_SECRET }}'
-                  readOnly: true
-      {{ end }}
-                -   name: '{{ .Values.SSL_SECRET }}'
-                    mountPath: /tmp/cert/{{ .Values.SSL_SECRET }}
-                args:
-                - /usr/bin/java
-                - -Djava.security.egd=file:/dev/./urandom
-      {{ if .Values.INTERNAL_TLS_ENABLED }}
-                - -Dspring.profiles.active=tls
-      {{ end }}
-                - -jar
-                - /app/test-service-spring-1.0.0-SNAPSHOT.jar
                 securityContext:
     {{ if eq .Values.PAAS_PLATFORM "KUBERNETES" }}
                     runAsGroup: 10001
@@ -122,8 +103,6 @@ spec:
                     value: {{ if .Values.INTERNAL_TLS_ENABLED }} "https://internal-gateway-service:8443" {{ else }} "http://internal-gateway-service:8080" {{ end }}
                 -   name: PUBLIC_GATEWAY_URL
                     value: '{{ .Values.PUBLIC_GATEWAY_URL }}'
-                -   name: OPENSHIFT_SERVER
-                    value: '{{ .Values.OPENSHIFT_SERVER }}'
                 resources:
                     requests:
                         cpu: '{{ .Values.CPU_REQUEST }}'

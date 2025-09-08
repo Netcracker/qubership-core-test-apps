@@ -9,4 +9,4 @@ WORKDIR /app
 
 USER 10001:10001
 
-CMD ["/usr/bin/java", "-Xmx64m", "-jar", "/app/test-service-spring"]
+CMD ["/usr/bin/java", "-Xmx64m", "-jar", "/app/test-service-spring.jar"]

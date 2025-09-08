@@ -4,12 +4,11 @@ kind: Mesh
 subKind: RouteConfiguration
 metadata:
   name: mesh-test-service-spring-public-routes
-  namespace: "{{ .Values.NAMESPACE }}"
   labels:
     app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
-    app.kubernetes.io/name: '{{ .Values.SERVICE_NAME }}' # needed for finalyzer check
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
     app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
-        app.kubernetes.io/managed-by: "{{ .Values.MANAGED_BY }}"
+    app.kubernetes.io/managed-by: "{{ .Values.MANAGED_BY }}"
     deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
 spec:
   gateways: ["public-gateway-service"]
@@ -34,12 +33,11 @@ kind: Mesh
 subKind: RouteConfiguration
 metadata:
   name: mesh-test-app-gateway-spring-routes
-  namespace: "{{ .Values.NAMESPACE }}"
   labels:
     app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
-    app.kubernetes.io/name: '{{ .Values.SERVICE_NAME }}' # needed for finalyzer check
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
     app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
-        app.kubernetes.io/managed-by: "{{ .Values.MANAGED_BY }}"
+    app.kubernetes.io/managed-by: "{{ .Values.MANAGED_BY }}"
     deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
 spec:
   gateways: [ "mesh-test-app-gateway" ]
@@ -81,12 +79,11 @@ kind: Mesh
 subKind: RouteConfiguration
 metadata:
   name: egress-routes-spring-control-plane-routes
-  namespace: "{{ .Values.NAMESPACE }}"
   labels:
     app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
-    app.kubernetes.io/name: '{{ .Values.SERVICE_NAME }}' # needed for finalyzer check
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
     app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
-        app.kubernetes.io/managed-by: "{{ .Values.MANAGED_BY }}"
+    app.kubernetes.io/managed-by: "{{ .Values.MANAGED_BY }}"
     deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
 spec:
   gateways: ["egress-gateway"]
@@ -109,10 +106,9 @@ kind: Mesh
 subKind: RouteConfiguration
 metadata:
   name: egress-routes-spring
-  namespace: "{{ .Values.NAMESPACE }}"
   labels:
     app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
-    app.kubernetes.io/name: '{{ .Values.SERVICE_NAME }}' # needed for finalyzer check
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
     app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
     app.kubernetes.io/managed-by: "{{ .Values.MANAGED_BY }}"
     deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
@@ -141,10 +137,10 @@ kind: Mesh
 subKind: RouteConfiguration
 metadata:
   name: test-ingress-gateway-spring-routes
-  namespace: "{{ .Values.NAMESPACE }}"
+
   labels:
     app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
-    app.kubernetes.io/name: '{{ .Values.SERVICE_NAME }}' # needed for finalyzer check
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
     app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
     app.kubernetes.io/managed-by: "{{ .Values.MANAGED_BY }}"
     deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
@@ -177,10 +173,9 @@ kind: Mesh
 subKind: RouteConfiguration
 metadata:
   name: test-ingress-gateway-2-spring-routes
-  namespace: "{{ .Values.NAMESPACE }}"
   labels:
     app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
-    app.kubernetes.io/name: '{{ .Values.SERVICE_NAME }}' # needed for finalyzer check
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
     app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
     app.kubernetes.io/managed-by: "{{ .Values.MANAGED_BY }}"
     deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
