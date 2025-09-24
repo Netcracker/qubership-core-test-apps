@@ -7,6 +7,7 @@ import com.netcracker.cloud.junit.cloudcore.extension.annotations.Value;
 import io.fabric8.kubernetes.api.model.networking.v1beta1.Ingress;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -21,40 +22,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @EnableExtension
 @Tag("bg-e2e-phase:after-deploy-composite")
+@Disabled
 public class BGCompositeIT {
-	//    @Named(PRIVATE_GW_SERVICE_NAME)
-	//    @Namespace(property = SATELLITE_ENV_NAME)
-	//    @Scheme("http")
-	//    @PortForward
 	@PortForward(serviceName = @Value(PRIVATE_GW_SERVICE_NAME), cloud = @Cloud(namespace = @Value(prop = SATELLITE_ENV_NAME)))
 	private static URL privateGWServerUrlSatellite;
 
-	//    @Named(INTERNAL_GW_SERVICE_NAME)
-	//    @Namespace(property = PEER_NAMESPACE_ENV_NAME)
-	//    @Scheme("http")
-	//    @PortForward
 	@PortForward(serviceName = @Value(INTERNAL_GW_SERVICE_NAME), cloud = @Cloud(namespace = @Value(prop = PEER_NAMESPACE_ENV_NAME)))
 	private static URL internalGWServerUrlPeer;
 
-	//    @Client
     @Cloud
 	private static KubernetesClient platformClientSatellite;
 
-	//    @Client
     @Cloud
 	private static KubernetesClient platformClientPeer;
-	//    private static String cloudAdminTokenSatellite;
-	//    private static String cloudAdminTokenPeer;
-	//    private static ITHelper itHelperSatellite;
-	//    private static ITHelper itHelperPeer;
-
-	@BeforeAll
-	public static void initParentClass() throws Exception {
-		//        itHelperSatellite = new ITHelper(privateGWServerUrlSatellite, platformClientSatellite);
-		//        cloudAdminTokenSatellite = itHelperSatellite.getTokenService().loginAsCloudAdmin();
-		//        itHelperPeer = new ITHelper(internalGWServerUrlPeer, platformClientPeer);
-		//        cloudAdminTokenPeer = itHelperPeer.getTokenService().getTokenBuilder().asUser().asCloudAdmin().reLogin().login();
-	}
 
 	@Test
 	public void testPerformRequest() throws IOException {

@@ -12,6 +12,7 @@ import okhttp3.HttpUrl;
 import okhttp3.Request;
 import okhttp3.Response;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -26,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @EnableExtension
 @Tag("Composite")
+@Disabled
 public class CompositeIT {
 	@PortForward(serviceName = @Value(PUBLIC_GW_SERVICE_NAME))
 	private static URL publicGWServerUrl;

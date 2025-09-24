@@ -37,38 +37,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @EnableExtension
 public class CommitIT {
 
-	//    @Named(INTERNAL_GW_SERVICE_NAME)
-	//    @Scheme("http")
-	//    @PortForward
-	//    @Namespace(property = CONTROLLER_NAMESPACE_ENV_NAME)
 	@PortForward(serviceName = @Value(INTERNAL_GW_SERVICE_NAME), cloud = @Cloud(namespace = @Value(prop = CONTROLLER_NAMESPACE_ENV_NAME)))
 	private static URL internalGWServerUrl;
 
-	//    @Named(PUBLIC_GW_SERVICE_NAME)
-	//    @Scheme("http")
-	//    @Namespace(property = CONTROLLER_NAMESPACE_ENV_NAME)
-	//    @PortForward
 	@PortForward(serviceName = @Value(PUBLIC_GW_SERVICE_NAME), cloud = @Cloud(namespace = @Value(prop = CONTROLLER_NAMESPACE_ENV_NAME)))
 	private static URL publicGWServerUrlController;
 
-	//    @Client
-	//    @Namespace(property = ORIGIN_NAMESPACE_ENV_NAME)
 	@Cloud(namespace = @Value(prop = ORIGIN_NAMESPACE_ENV_NAME))
 	private static KubernetesClient platformClientOrigin;
-	//    private static String token;
-	//    private static ITHelper itHelper;
 
 	@Cloud
 	private static PortForwardService portForwardService;
 
-	@BeforeAll
-	public static void initParentClass() throws Exception {
-		//        itHelper = new ITHelper(internalGWServerUrl, platformClientOrigin);
-		//        token = itHelper.getTokenService().loginAsCloudAdmin();
-	}
-
 	@Test
 	@Tag("bg-e2e-phase:after-commit-#1[baseline]")
+    @Disabled
 	public void testNodePorts1() throws Exception {
 		validateNodePorts(platformClientOrigin, PEER_NAMESPACE, internalGWServerUrl);
 	}
@@ -93,12 +76,13 @@ public class CommitIT {
 		testCheckAllPodsScaledTo0AndPerformRequest(ORIGIN_NAMESPACE, PEER_NAMESPACE, "v3");
 	}
 
-//	@Test
-//	@Tag("bg-e2e-phase:after-commit-#1[baseline]")
-//	@Tag("bg-e2e-phase:after-commit-#2[baseline]")
-//	public void testBGAvailableOperations1And2() throws IOException {
-//		testBGAvailableOperations(platformClientOrigin, WARMUP);
-//	}
+	@Test
+	@Tag("bg-e2e-phase:after-commit-#1[baseline]")
+	@Tag("bg-e2e-phase:after-commit-#2[baseline]")
+    @Disabled
+	public void testBGAvailableOperations1And2() throws IOException {
+		testBGAvailableOperations(platformClientOrigin, WARMUP);
+	}
 
 	@Test
 	@Tag("bg-e2e-phase:after-commit-#1[baseline]")

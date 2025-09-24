@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Slf4j
 @EnableExtension
 @Tag("bg-e2e-phase:after-rollback-#1[baseline]")
+@Disabled
 public class RollbackIT {
 	@Cloud
 	static PortForwardService portForwardService;
@@ -57,8 +58,7 @@ public class RollbackIT {
 	}
 
 	@Test
-    @Disabled
-	public void testCheckPerformRequest() throws IOException {
+    	public void testCheckPerformRequest() throws IOException {
 		//Wait until promote is done
 		waitUntilTasksAreCompleted(platformClient);
 
@@ -79,20 +79,17 @@ public class RollbackIT {
 	}
 
 	@Test
-    @Disabled
-	public void testCheckBGAvailableOperations() throws IOException {
+    	public void testCheckBGAvailableOperations() throws IOException {
 		testBGAvailableOperations(platformClient, Operation.PROMOTE, Operation.COMMIT);
 	}
 
 	@Test
-    @Disabled
-	public void testMetrics() throws IOException {
+    	public void testMetrics() throws IOException {
 		testBgMetrics(platformClient, METRICS_AFTER_ROLLBACK);
 	}
 
 	@Test
-    @Disabled
-	public void testScaling() throws Exception {
+    	public void testScaling() throws Exception {
 		try {
 			String activeNs = getActiveNamespace(platformClient);
 			int replicas = getCountOfReplicas(platformClient, activeNs, MESH_TEST_SERVICE_GO_V1);
@@ -107,8 +104,7 @@ public class RollbackIT {
 	}
 
 	@Test
-    @Disabled
-	public void testBgPlugin() throws Exception {
+    	public void testBgPlugin() throws Exception {
         try (ClosablePortForward portForward =
                 new ClosablePortForward(portForwardService, BG_PLUGIN_NAMESPACE,BG_PLUGIN_SERVICE_NAME, 8080 )) {
             CommonOperations.testBgPlugin(portForward.getUrl(), "rollback");

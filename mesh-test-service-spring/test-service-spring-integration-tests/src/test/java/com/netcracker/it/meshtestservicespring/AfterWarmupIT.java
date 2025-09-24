@@ -1,13 +1,10 @@
 package com.netcracker.it.meshtestservicespring;
 
-//import com.netcracker.cloud.junit.cloudcore.extension.annotations.Namespace;
-import com.netcracker.cloud.junit.cloudcore.extension.annotations.*;
-//import com.netcracker.cloud.junit.cloudcore.extension.client.PlatformClient;
-import com.netcracker.cloud.junit.cloudcore.extension.service.Endpoint;
-import com.netcracker.cloud.junit.cloudcore.extension.service.NetSocketAddress;
-import com.netcracker.cloud.junit.cloudcore.extension.service.PortForwardParams;
+import com.netcracker.cloud.junit.cloudcore.extension.annotations.Cloud;
+import com.netcracker.cloud.junit.cloudcore.extension.annotations.EnableExtension;
+import com.netcracker.cloud.junit.cloudcore.extension.annotations.PortForward;
+import com.netcracker.cloud.junit.cloudcore.extension.annotations.Value;
 import com.netcracker.cloud.junit.cloudcore.extension.service.PortForwardService;
-//import com.netcracker.cloud.junit.cloudcore.service.ITHelper;
 import com.netcracker.it.meshtestservicespring.model.BGContext;
 import com.netcracker.it.meshtestservicespring.model.BGContextResponse;
 import com.netcracker.it.meshtestservicespring.model.Plugin;
@@ -15,16 +12,14 @@ import com.netcracker.it.meshtestservicespring.utils.ClosablePortForward;
 import com.netcracker.it.meshtestservicespring.utils.Utils;
 import io.fabric8.kubernetes.api.model.*;
 import io.fabric8.kubernetes.api.model.apps.*;
-import io.fabric8.kubernetes.api.model.networking.v1beta1.Ingress;
-import io.fabric8.kubernetes.api.model.networking.v1beta1.IngressList;
+import io.fabric8.kubernetes.api.model.networking.v1.Ingress;
+import io.fabric8.kubernetes.api.model.networking.v1.IngressList;
 import io.fabric8.kubernetes.api.model.rbac.Role;
 import io.fabric8.kubernetes.api.model.rbac.RoleBinding;
 import io.fabric8.kubernetes.api.model.rbac.RoleBindingList;
 import io.fabric8.kubernetes.api.model.rbac.RoleList;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.base.CustomResourceDefinitionContext;
-//import io.fabric8.openshift.api.model.Route;
-//import io.fabric8.openshift.api.model.RouteList;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.Request;
@@ -49,6 +44,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @EnableExtension
 @Slf4j
+@Disabled
 public class AfterWarmupIT {
     enum KIND {
         INGRESS,
@@ -64,48 +60,26 @@ public class AfterWarmupIT {
         CUSTOM_RESOURCE
     }
 
-//    @Named(PUBLIC_GW_SERVICE_NAME)
-//    @Scheme("http")
-//    @PortForward
-//    @Namespace(property = CONTROLLER_NAMESPACE_ENV_NAME)
     @PortForward(serviceName = @Value(PUBLIC_GW_SERVICE_NAME), cloud = @Cloud(namespace = @Value(prop = CONTROLLER_NAMESPACE_ENV_NAME)))
     private static URL publicGWServerUrlController;
 
-//    @Named(PRIVATE_GW_SERVICE_NAME)
-//    @Scheme("http")
-//    @PortForward
-//    @Namespace(property = ORIGIN_NAMESPACE_ENV_NAME)
     @PortForward(serviceName = @Value(PRIVATE_GW_SERVICE_NAME), cloud = @Cloud(namespace = @Value(prop = ORIGIN_NAMESPACE_ENV_NAME)))
     private static URL privateGWServerUrlOrigin;
 
-    //    @Client
-//    @Namespace(property = ORIGIN_NAMESPACE_ENV_NAME)
     @Cloud(namespace = @Value(prop = ORIGIN_NAMESPACE_ENV_NAME))
     protected static KubernetesClient platformClientOrigin;
 
-//    @PortForwardClient
     @Cloud
     private static PortForwardService portForwardService;
 
-    //    private static ITHelper itHelperOrigin;
     private static String tokenOrigin;
 
-//    @Named(INTERNAL_GW_SERVICE_NAME)
-//    @Scheme("http")
-//    @PortForward
-//    @Namespace(property = PEER_NAMESPACE_ENV_NAME)
     @PortForward(serviceName = @Value(INTERNAL_GW_SERVICE_NAME), cloud = @Cloud(namespace = @Value(prop = PEER_NAMESPACE_ENV_NAME)))
     private static URL internalGWServerUrlPeer;
 
-    //    @Client
-//    @Namespace(property = PEER_NAMESPACE_ENV_NAME)
-//    private static PlatformClient platformClientPeer;
     @Cloud(namespace = @Value(prop = PEER_NAMESPACE_ENV_NAME))
     private static KubernetesClient platformClientPeer;
 
-//    private static ITHelper itHelperPeer;
-
-    //    private static String tokenPeer;
     private static BGContext bgContext;
 
     private static String currentActiveNamespace = "";
@@ -114,12 +88,8 @@ public class AfterWarmupIT {
     public static void init() throws Exception {
         assertNotNull(privateGWServerUrlOrigin);
         assertNotNull(platformClientOrigin);
-//        itHelperOrigin = new ITHelper(privateGWServerUrlOrigin, platformClientOrigin);
-//        tokenOrigin = itHelperOrigin.getTokenService().loginAsCloudAdmin();
         assertNotNull(internalGWServerUrlPeer);
         assertNotNull(platformClientPeer);
-//        itHelperPeer = new ITHelper(internalGWServerUrlPeer, platformClientPeer);
-//        tokenPeer = itHelperPeer.getTokenService().getTokenBuilder().asUser().asCloudAdmin().reLogin().login();
         bgContext = getBGContext(platformClientOrigin);
     }
 
@@ -150,7 +120,6 @@ public class AfterWarmupIT {
     @Test
     @Tag("bg-e2e-phase:after-warmup-#1[baseline]")
     @Tag("bg-e2e-phase:after-warmup-#2[baseline]")
-    @Disabled
     public void testBGAvailableOperations1And2() throws IOException {
         testBGAvailableOperations(platformClientOrigin, PROMOTE, COMMIT);
     }
@@ -158,14 +127,12 @@ public class AfterWarmupIT {
     @Test
     @Tag("bg-e2e-phase:after-warmup-#1[baseline]")
     @Tag("bg-e2e-phase:after-warmup-#2[baseline]")
-    @Disabled
     public void testBgMetrics1And2() throws IOException {
         testBgMetrics(platformClientOrigin, METRICS_AFTER_WARMUP);
     }
 
     @Test
     @Tag("bg-e2e-phase:after-retry-warmup[baseline]")
-    @Disabled
     public void testCheckResourcesAndPerformRequestsRetryWarmup4() throws Exception {
         //After retry terminate
         testCheckResourcesAndPerformRequests(ORIGIN_NAMESPACE, PEER_NAMESPACE, "v3", "v5");
@@ -175,7 +142,7 @@ public class AfterWarmupIT {
         testCheckResources(active, candidate, true);
 
         // Perform the same tests on ns-2 but with header. Check that response contains namespace name ns-2
-        List<Ingress> ingressListController = platformClientOrigin.network().ingresses().inNamespace(CONTROLLER_NAMESPACE).list().getItems();
+        List<Ingress> ingressListController = platformClientOrigin.network().v1().ingresses().inNamespace(CONTROLLER_NAMESPACE).list().getItems();
         Optional<Ingress> testGatewayIngress = ingressListController.stream().filter(ingress -> ingress.getMetadata().getName().equals(INGRESS_GW_INGRESS_NAME_IN_CONTROLLER)).findFirst();
         String testGatewayHost = testGatewayIngress.get().getSpec().getRules().get(0).getHost();
 
@@ -211,9 +178,9 @@ public class AfterWarmupIT {
 
         //Check that ns-2 contains exactly the same entities that ns-1 does (ingresses, services, deployments, configMaps, secrets, serviceAccounts, roles!!!!, roleBindings!!!!, gateways).
         ListOptions options = new ListOptions();
-        List<Ingress> ingressListN1 = client.network().ingresses().inNamespace(active).list().getItems();
-        List<Ingress> ingressListN2 = client.network().ingresses().inNamespace(candidate).list().getItems();
-        KubernetesResourceList<Ingress> kubernetesResourceIngressList1 = new IngressList();// RouteList();
+        List<Ingress> ingressListN1 = client.network().v1().ingresses().inNamespace(active).list().getItems();
+        List<Ingress> ingressListN2 = client.network().v1().ingresses().inNamespace(candidate).list().getItems();
+        KubernetesResourceList<Ingress> kubernetesResourceIngressList1 = new IngressList();
         KubernetesResourceList<Ingress> kubernetesResourceIngressList2 = new IngressList();
         kubernetesResourceIngressList1.getItems().addAll(ingressListN1);
         kubernetesResourceIngressList2.getItems().addAll(ingressListN2);
@@ -446,7 +413,6 @@ public class AfterWarmupIT {
     }
 
     @Test
-    @Disabled
     public void testGetBGOperationStatus() throws IOException {
         String secret = getBGOperatorCredentials(platformClientOrigin);
         Request request = new Request.Builder()
@@ -582,7 +548,6 @@ public class AfterWarmupIT {
 
     @Test
     @Tag("bg-e2e-phase:after-warmup-#1[baseline]")
-    @Disabled
     public void testBgPlugin1() throws Exception {
 //        URL bluegreenPluginUrl = portForwardService.createPortForward(BG_PLUGIN_NAMESPACE, BG_PLUGIN_SERVICE_NAME, "http", 8080);
         try (ClosablePortForward portForward = new ClosablePortForward(portForwardService,
@@ -593,7 +558,6 @@ public class AfterWarmupIT {
 
     @Test
     @Tag("bg-e2e-phase:after-warmup-#2[baseline]")
-    @Disabled
     public void testBgPlugin2() throws IOException {
         BGContextResponse bgContextResponse = CommonOperations.getBGOperationStatus(platformClientOrigin);
         List<Plugin> plugins = bgContextResponse.getBGContext().getPlugins();

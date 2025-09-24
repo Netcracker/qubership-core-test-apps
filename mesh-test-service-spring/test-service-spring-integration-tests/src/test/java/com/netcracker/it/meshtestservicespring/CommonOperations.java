@@ -9,17 +9,18 @@ import com.google.gson.Gson;
 import com.netcracker.cloud.security.core.utils.tls.TlsUtils;
 import com.netcracker.it.meshtestservicespring.model.*;
 import com.netcracker.it.meshtestservicespring.utils.TCPUtils;
-import io.fabric8.kubernetes.api.model.*;
+import io.fabric8.kubernetes.api.model.ConfigMap;
+import io.fabric8.kubernetes.api.model.Pod;
+import io.fabric8.kubernetes.api.model.PodList;
+import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.api.model.apps.DeploymentList;
-import io.fabric8.kubernetes.api.model.networking.v1beta1.Ingress;
+import io.fabric8.kubernetes.api.model.networking.v1.Ingress;
 import io.fabric8.kubernetes.client.KubernetesClient;
-
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.junit.jupiter.api.Assertions;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -74,28 +75,6 @@ public class CommonOperations {
         BGContext bgContext = objectMapper.readValue(json, BGContext.class);
         log.info("Parsed {} configMap content: {}", BG_CONTEXT_CONFIG_MAP_NAME, bgContext);
         return bgContext;
-    }
-
-    public static String getToken(StateName state, BGContext bgContext, String tokenOrigin, String tokenPeer) throws Exception {
-        String stateOrigin = bgContext.getBGState().getOriginNamespace().getState();
-        String statePeer = bgContext.getBGState().getPeerNamespace().getState();
-        if (state.getName().equals(stateOrigin)) {
-            System.out.println("1");
-            return tokenOrigin;
-        }
-        if (state.getName().equals(statePeer)) {
-            System.out.println("2");
-            return tokenPeer;
-        }
-        if (stateOrigin.equals(ACTIVE.getName())) {
-            System.out.println("3");
-            return tokenOrigin;
-        }
-        if (statePeer.equals(ACTIVE.getName())) {
-            System.out.println("3");
-            return tokenPeer;
-        }
-        throw new Exception("no matches and no active namespace! ");
     }
 
     public static OkHttpClient okHttpClient = new OkHttpClient.Builder()
@@ -294,7 +273,6 @@ public class CommonOperations {
     public static void testRequestWithHeader(String url, int expectedCode, String expectedNamespace, String expectedXVersion, String expectedService, String headerXVersionNameValue) {
         Request request = new Request.Builder()
                 .url(url)
-//                .addHeader("Authorization", "Bearer " + token)
                 .addHeader(X_VERSION_NAME_HEADER, headerXVersionNameValue)
                 .addHeader(X_VERSION_HEADER, X_VERSION_VALUE_V99)
                 .get()
@@ -335,7 +313,6 @@ public class CommonOperations {
     public static void testRequestWithoutHeader(String url, int expectedCode, String expectedNamespace, String expectedService, boolean checkXVersionAbsence) {
         Request request = new Request.Builder()
                 .url(url)
-//                .addHeader("Authorization", "Bearer " + token)
                 .addHeader(X_VERSION_HEADER, X_VERSION_VALUE_V99)
                 .get()
                 .build();
@@ -574,7 +551,7 @@ public class CommonOperations {
         if (StringUtils.isNotBlank(BG_OPERATOR_INGRESS_HOST)) {
             return BG_OPERATOR_INGRESS_HOST;
         }
-        List<Ingress> ingresses = platformClient.network().ingresses().list().getItems();
+        List<Ingress> ingresses = platformClient.network().v1().ingresses().list().getItems();
         Optional<Ingress> bgOperatorIngress = ingresses.stream().filter(ingress -> ingress.getMetadata().getName().equals(BG_OPERATOR_INGRESS_NAME)).findFirst();
         BG_OPERATOR_INGRESS_HOST = bgOperatorIngress.get().getSpec().getRules().get(0).getHost();
         return BG_OPERATOR_INGRESS_HOST;

@@ -81,7 +81,6 @@ public class Const {
     public static final String FAIL_STATUS = "failed";
     public static final String SERVICE_NAME = "mesh-test-service-spring";
     public static final String EGRESS_GW_SERVICE_NAME = "egress-gateway";
-    public static final String APPLY_CONFIG_API_V3 = "api/v3/control-plane/apply-config";
     public static final String BLUEGREEN_CONTROLLER_SECRET_NAME = "bluegreen-controller-credentials";
     public static final String BG_GET_METRICS_URL = "/q/metrics";
     public static final String SPRING_TO_QUARKUS_URL = "/api/v1/" + SPRING_SERVICE_NAME + "/hello/quarkus";

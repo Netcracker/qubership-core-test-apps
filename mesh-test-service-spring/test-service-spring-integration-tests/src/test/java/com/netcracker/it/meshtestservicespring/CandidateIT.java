@@ -31,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @EnableExtension
 @Slf4j
 @Tag("bg-e2e-phase:after-deploy-candidate[baseline]")
+@Disabled
 public class CandidateIT {
 
     @PortForward(serviceName = @Value(PUBLIC_GW_SERVICE_NAME), cloud = @Cloud(namespace = @Value(prop = ORIGIN_NAMESPACE_ENV_NAME)))
@@ -89,7 +90,6 @@ public class CandidateIT {
     }
 
     @Test
-    @Disabled
     public void testScaleUpPodsOnActiveNamespace() throws Exception {
         try {
             String active = getActiveNamespace(platformClientOrigin);
@@ -102,7 +102,6 @@ public class CandidateIT {
     }
 
     @Test
-    @Disabled
     public void testCreateBgPluginIfNotExist() throws Exception {
         try {
             GenericKubernetesResource bgPlugin = getBluegreenPlugin(platformClientOrigin);

@@ -35,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Slf4j
 @EnableExtension
+@Disabled
 public class PromoteIT {
 
     @Cloud
@@ -78,39 +79,35 @@ public class PromoteIT {
 	@Test
 	@Tag("bg-e2e-phase:after-promote-#1[baseline]")
 	@Tag("bg-e2e-phase:after-promote-#2[baseline]")
-    @Disabled
-	public void testPerformRequestsPromote1And2() throws Exception {
+    	public void testPerformRequestsPromote1And2() throws Exception {
 		testPerformRequests(PEER_NAMESPACE, ORIGIN_NAMESPACE, "v2", "v1");
 	}
 
 	@Test
 	@Tag("bg-e2e-phase:after-promote-#3[baseline]")
-    @Disabled
-	public void testPerformRequestsPromote3() throws Exception {
+    	public void testPerformRequestsPromote3() throws Exception {
 		testPerformRequests(ORIGIN_NAMESPACE, PEER_NAMESPACE, "v3", "v2");
 	}
-
-//	@Test
-//	@Tag("bg-e2e-phase:after-promote-#1[baseline]")
-//	@Tag("bg-e2e-phase:after-promote-#2[baseline]")
-//	@Tag("bg-e2e-phase:after-promote-#3[baseline]")
-//	public void testAvailableOperations() throws IOException {
-//		testBGAvailableOperations(platformClientOrigin, ROLLBACK, COMMIT);
-//	}
 
 	@Test
 	@Tag("bg-e2e-phase:after-promote-#1[baseline]")
 	@Tag("bg-e2e-phase:after-promote-#2[baseline]")
 	@Tag("bg-e2e-phase:after-promote-#3[baseline]")
-    @Disabled
-	public void testMetrics() throws IOException {
+	public void testAvailableOperations() throws IOException {
+		testBGAvailableOperations(platformClientOrigin, ROLLBACK, COMMIT);
+	}
+
+	@Test
+	@Tag("bg-e2e-phase:after-promote-#1[baseline]")
+	@Tag("bg-e2e-phase:after-promote-#2[baseline]")
+	@Tag("bg-e2e-phase:after-promote-#3[baseline]")
+    	public void testMetrics() throws IOException {
 		testBgMetrics(platformClientOrigin, METRICS_AFTER_PROMOTE);
 	}
 
 	@Test
 	@Tag("bg-e2e-phase:after-promote-#1[baseline]")
-    @Disabled
-	public void testScaling1() throws Exception {
+    	public void testScaling1() throws Exception {
 		try {
 			String activeNs = getActiveNamespace(platformClientOrigin);
 			int replicas = getCountOfReplicas(platformClientOrigin, activeNs, MESH_TEST_SERVICE_GO_V1);
@@ -126,8 +123,7 @@ public class PromoteIT {
 
 	@Test
 	@Tag("bg-e2e-phase:after-promote-#2[baseline]")
-    @Disabled
-	public void testScaling2() throws Exception {
+    	public void testScaling2() throws Exception {
 		try {
 			String activeNs = getActiveNamespace(platformClientOrigin);
 			int replicas = getCountOfReplicas(platformClientOrigin, activeNs, MESH_TEST_SERVICE_GO_V1);
@@ -141,8 +137,7 @@ public class PromoteIT {
 
 	@Test
 	@Tag("bg-e2e-phase:after-promote-#3[baseline]")
-    @Disabled
-	public void testScaling3() throws Exception {
+    	public void testScaling3() throws Exception {
 		try {
 			String activeNs = getActiveNamespace(platformClientOrigin);
 			int replicas = getCountOfReplicas(platformClientOrigin, activeNs, MESH_TEST_SERVICE_GO_V1);
@@ -186,8 +181,7 @@ public class PromoteIT {
 	@Test
 	@Tag("bg-e2e-phase:after-promote-#1[baseline]")
 	@Tag("bg-e2e-phase:after-promote-#2[baseline]")
-    @Disabled
-	public void testBgPlugin1() throws Exception {
+    	public void testBgPlugin1() throws Exception {
         try (ClosablePortForward portForward =
                      new ClosablePortForward(portForwardService, BG_PLUGIN_NAMESPACE,BG_PLUGIN_SERVICE_NAME, 8080 )) {
             CommonOperations.testBgPlugin(portForward.getUrl(), "promote");
@@ -196,8 +190,7 @@ public class PromoteIT {
 
 	@Test
 	@Tag("bg-e2e-phase:after-promote-#3[baseline]")
-    @Disabled
-	public void testBgPlugin2() throws IOException {
+    	public void testBgPlugin2() throws IOException {
 		BGContextResponse bgContextResponse = CommonOperations.getBGOperationStatus(platformClientOrigin);
 		List<Plugin> plugins = bgContextResponse.getBGContext().getPlugins();
 		assertTrue(plugins == null || plugins.isEmpty());

@@ -22,17 +22,9 @@ public class ClosablePortForward implements CloseableUrl {
 
     public ClosablePortForward(PortForwardService portForwardService, String namespace, String serviceName, int containerPort) {
         this.portForwardService = portForwardService;
-
         PortForwardParams params = new PortForwardParams(serviceName, containerPort).withNamespace(namespace);
         address = portForwardService.portForward(params);
-        String endpoint = address.getEndpoint();
-        try {
-            url =  new java.net.URI(endpoint).toURL();
-        } catch (MalformedURLException e) {
-            throw new RuntimeException(e);
-        } catch (URISyntaxException e) {
-            throw new RuntimeException(e);
-        }
+        url =  address.toHttpUrl();
     }
 
     public ClosablePortForward(PortForwardService portForwardService, String namespace, String serviceName) {

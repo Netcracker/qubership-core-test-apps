@@ -34,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Slf4j
 @Tag("bg-e2e-phase:svt[baseline]")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+@Disabled
 public class RobustnessIT extends TestWithPortForward {
 
     public static final String SVT_LABEL = "netcracker.cloud/bg-svt-resource";

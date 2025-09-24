@@ -28,7 +28,6 @@ import static org.junit.jupiter.api.Assertions.*;
 public class HttpIT {
 
 	static String NAMESPACE = System.getenv("ENV_NAMESPACE");
-//    static String CLOUD_NAME = System.getenv("CLOUD_NAME");
 
 	@PortForward(serviceName = @Value(PUBLIC_GW_SERVICE_NAME))
 	private static URL publicGWServerUrl;

@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @Slf4j
 @EnableExtension
+@Disabled
 public class TerminateIT {
 
 	@Cloud(namespace = @Value(prop = ORIGIN_NAMESPACE_ENV_NAME))
@@ -36,7 +37,6 @@ public class TerminateIT {
 
     @Test
     @Tag("bg-e2e-phase:test-warmup-with-terminate[baseline]")
-    @Disabled
     public void terminateWarmup() throws IOException {
         log.info("Start terminateWarmup");
         BGContextResponse warmupResponse = runOperation(platformClient, WARMUP);

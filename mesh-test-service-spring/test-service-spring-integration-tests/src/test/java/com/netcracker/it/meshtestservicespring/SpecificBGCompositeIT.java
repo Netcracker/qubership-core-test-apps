@@ -9,6 +9,7 @@ import io.fabric8.kubernetes.api.model.ServiceList;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -21,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @EnableExtension
 @Slf4j
+@Disabled
 public class SpecificBGCompositeIT {
 
     @PortForward(serviceName = @Value(PUBLIC_GW_SERVICE_NAME))

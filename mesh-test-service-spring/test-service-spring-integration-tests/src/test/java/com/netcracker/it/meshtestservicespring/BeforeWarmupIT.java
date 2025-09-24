@@ -49,37 +49,21 @@ public class BeforeWarmupIT {
     protected static final ObjectMapper objectMapper = initObjectMapper();
     private static final MediaType JSON = MediaType.parse("application/json");
 
-    //    @Named(INTERNAL_GW_SERVICE_NAME)
-//    @Scheme("http")
-//    @PortForward
-//    @Namespace(property = ORIGIN_NAMESPACE_ENV_NAME)
     @PortForward(serviceName = @Value(INTERNAL_GW_SERVICE_NAME), cloud = @Cloud(namespace = @Value(prop = ORIGIN_NAMESPACE_ENV_NAME)))
     private static URL internalGWServerUrl;
 
-    //    @Named(PAAS_MEDIATION_SERVICE_NAME)
-//    @PortForward
-//    @Namespace(property = ORIGIN_NAMESPACE_ENV_NAME)
     @PortForward(serviceName = @Value(PAAS_MEDIATION_SERVICE_NAME), cloud = @Cloud(namespace = @Value(prop = ORIGIN_NAMESPACE_ENV_NAME)))
     private static URL paasMediationService;
 
-    //    @Named(PUBLIC_GW_SERVICE_NAME)
-//    @Scheme("http")
-//    @PortForward
     @PortForward(serviceName = @Value(PUBLIC_GW_SERVICE_NAME))
     private static URL publicGWServerUrl;
 
-    //    @Client
-//    @Namespace(property = ORIGIN_NAMESPACE_ENV_NAME)
     @Cloud(namespace = @Value(prop = ORIGIN_NAMESPACE_ENV_NAME))
     private static KubernetesClient platformClient;
 
-    //    @PortForwardClient
     @Cloud
     private static PortForwardService portForwardService;
 
-//    private static ITHelper itHelper;
-
-    //    private static String token;
     private static String namespace;
     private static String ingressName;
     private static String ingressHost;
@@ -89,9 +73,6 @@ public class BeforeWarmupIT {
     public static void init() throws Exception {
         assertNotNull(internalGWServerUrl);
         assertNotNull(platformClient);
-//        itHelper = new ITHelper(internalGWServerUrl, platformClient);
-//        token = itHelper.getTokenService().loginAsCloudAdmin();
-//        m2mToken = itHelper.getTokenService().loginAsM2M("paas-mediation");
         namespace = platformClient.getNamespace();
         ingressName = INGRESS_GW_INGRESS_NAME + "-from-paas-mediation";
         ingressHost = ingressName + "-" + namespace + "." + ENV_CLOUD_PUBLIC_HOST;
@@ -108,13 +89,14 @@ public class BeforeWarmupIT {
         createDaemonSet(platformClient, ORIGIN_NAMESPACE, "test-daemon-set");
     }
 
-//    @Test
-//    public void testCheckResourcesAndPerformRequests() throws Exception {
-//        validatePeerNamespace();
-//        validateServices();
-//        validateRoutes();
-//        testBGAvailableOperations(platformClient, WARMUP);
-//    }
+    @Test
+    @Disabled
+    public void testCheckResourcesAndPerformRequests() throws Exception {
+        validatePeerNamespace();
+        validateServices();
+        validateRoutes();
+        testBGAvailableOperations(platformClient, WARMUP);
+    }
 
     @Test
     @Disabled
@@ -138,15 +120,16 @@ public class BeforeWarmupIT {
         }
     }
 
-//    @Test
-//    public void testCreateBgPlugin() throws Exception {
-//        try {
-//            createBluegreenPlugin(platformClient);
-//        } catch (Exception e) {
-//            log.error(ExceptionUtils.getStackTrace(e));
-//            throw e;
-//        }
-//    }
+    @Test
+    @Disabled
+    public void testCreateBgPlugin() throws Exception {
+        try {
+            createBluegreenPlugin(platformClient);
+        } catch (Exception e) {
+            log.error(ExceptionUtils.getStackTrace(e));
+            throw e;
+        }
+    }
 
     private void validateServices() {
         final List<Service> controllerServices = platformClient.services().inNamespace(CONTROLLER_NAMESPACE).list().getItems();
@@ -236,7 +219,6 @@ public class BeforeWarmupIT {
         RequestBody body = RequestBody.create(toJson, JSON);
         Request request = new Request.Builder()
                 .url(paasMediationService + "api/v2/namespaces/" + namespace + "/routes")
-//                .addHeader("Authorization", "Bearer " + m2mToken)
                 .put(body)
                 .build();
         try (Response response = okHttpClient.newCall(request).execute()) {
@@ -270,7 +252,6 @@ public class BeforeWarmupIT {
         objectMeta.setName(ingressName);
         objectMeta.setNamespace(namespace);
         objectMeta.setLabels(Collections.singletonMap("it", "edge-router-controller"));
-        objectMeta.setAnnotations(Collections.singletonMap("owner", "Nectracker-company"));
 
         IngressRule rule = new IngressRule();
         rule.setHost(ingressHost);
@@ -280,12 +261,6 @@ public class BeforeWarmupIT {
         path.setPathType("Prefix");
 
         IngressBackend backend = new IngressBackend();
-//        IngressServiceBackend serviceBackend = new IngressServiceBackend();
-//        serviceBackend.setName(INGRESS_GW_SERVICE_NAME);
-//        ServiceBackendPort port = new ServiceBackendPort();
-//        port.setName("web");
-//        serviceBackend.setPort(port);
-
         backend.setServiceName(INGRESS_GW_SERVICE_NAME);
         backend.setServicePort(new IntOrString("web"));
 

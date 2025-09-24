@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import okhttp3.Request;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -40,8 +41,8 @@ public class ThresholdIT {
 	@PortForward(serviceName = @Value(QUARKUS_SERVICE_NAME), cloud = @Cloud(namespace = @Value(prop = ORIGIN_NAMESPACE_ENV_NAME)))
     private static URL quarkusCompositeGWServerUrl;
 
-//	@Cloud
-//    static PortForwardService portForwardService;
+	@Cloud
+    static PortForwardService portForwardService;
 
     private static final int REQUESTS_NUMBER = 6;
     private static final int LIMIT_VALUE = 2;
@@ -56,13 +57,6 @@ public class ThresholdIT {
         assertNotNull(internalGWServerUrl);
         assertNotNull(egressGatewayUrl);
         assertNotNull(compositeGWServerUrl);
-    }
-
-    @AfterAll
-    public void cleanUp() {
-//        portForwardService.closePortForward(publicGatewayUrl);
-//        portForwardService.closePortForward(internalGWServerUrl);
-//        portForwardService.closePortForward(egressGatewayUrl);
     }
 
     @Test
