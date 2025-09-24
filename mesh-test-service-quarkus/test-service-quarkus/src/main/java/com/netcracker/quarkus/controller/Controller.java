@@ -7,17 +7,18 @@ import com.netcracker.cloud.routesregistration.common.gateway.route.RouteType;
 import com.netcracker.quarkus.ApiVersions;
 import com.netcracker.quarkus.client.HelloGoService;
 import com.netcracker.quarkus.model.TraceResponse;
+import jakarta.inject.Inject;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.UriInfo;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
-import jakarta.inject.Inject;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.ws.rs.GET;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.core.Context;
-import jakarta.ws.rs.core.MediaType;
 import java.util.UUID;
 
 @Produces(MediaType.TEXT_PLAIN)
@@ -47,11 +48,11 @@ public class Controller {
     private String namespace;
 
 
-    private String podId = UUID.randomUUID().toString();
+    private final String podId = UUID.randomUUID().toString();
 
 
     @GET
-    public String hello(@Context HttpServletRequest request) {
+    public String hello( @Context ContainerRequestContext request, @Context UriInfo uriInfo) {
         log.info("hello");
         TraceResponse response = new TraceResponse();
         response.setServiceName(serviceName);
@@ -59,9 +60,9 @@ public class Controller {
         response.setVersion(deploymentVersion);
         response.setNamespace(namespace);
         response.setPodId(podId);
-        response.setXversion(request.getHeader("X-Version"));
-        response.setXVersionName(request.getHeader("x-version-name"));
-        response.setRemoteAddr(request.getRemoteHost());
+        response.setXversion(request.getHeaderString("X-Version"));
+        response.setXVersionName(request.getHeaderString("x-version-name"));
+        response.setRemoteAddr(uriInfo.getPath());
         response.setServerHost(hostName);
         log.info("Responding with service name:{} version:{}", response.getServiceName(), response.getVersion());
         return new Gson().toJson(response);

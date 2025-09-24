@@ -46,6 +46,10 @@
             <artifactId>quarkus-jsonb</artifactId>
         </dependency>
         <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-rest-jsonb</artifactId>
+        </dependency>
+        <dependency>
             <groupId>com.netcracker.cloud.quarkus</groupId>
             <artifactId>springcloud-config-source</artifactId>
         </dependency>
