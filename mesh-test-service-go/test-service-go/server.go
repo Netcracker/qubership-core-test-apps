@@ -9,6 +9,7 @@ import (
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/health"
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/tracing"
 	fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2"
+	fibersecurity "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/security"
 	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/server"
 	routeregistration "github.com/netcracker/qubership-core-lib-go-rest-utils/v2/route-registration"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
@@ -25,6 +26,7 @@ func init() {
 	configloader.Init(configloader.BasePropertySources()...)
 	logger = logging.GetLogger("server")
 	serviceloader.Register(1, &security.DummyToken{})
+	serviceloader.Register(1, &fibersecurity.DummyFiberServerSecurityMiddleware{})
 }
 
 func main() {
