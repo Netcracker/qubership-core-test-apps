@@ -7,14 +7,10 @@
   "default": {},
   "examples": [
     {
-      "CLIENT_SECRET": "/etc/secret",
       "CPU_REQUEST": "100m",
       "IMAGE_REPOSITORY": "",
       "TAG": "",
       "MEMORY_LIMIT": "250Mi",
-      "MEM_ARGS": "-Xms64m -Xmx64m -Xss256k -XX:MetaspaceSize=60m -XX:MaxMetaspaceSize=64m -XX:ReservedCodeCacheSize=64M -XX:CompressedClassSpaceSize=32M -XX:MinMetaspaceExpansion=1M -XX:MaxMetaspaceExpansion=8M -XX:CodeCacheExpansionSize=256k",
-      "NAMESPACE": "",
-      "OPENSHIFT_SERVICE_NAME": "mesh-test-service-quarkus",
       "RC_REVISIONS": 3,
       "REPLICAS": 1,
       "SERVICE": "mesh-test-service-quarkus"
@@ -22,20 +18,9 @@
   ],
   "required": [
     "TAG",
-    "IMAGE_REPOSITORY",
-    "NAMESPACE"
+    "IMAGE_REPOSITORY"
   ],
   "properties": {
-    "CLIENT_SECRET": {
-      "$id": "#/properties/CLIENT_SECRET",
-      "type": "string",
-      "title": "The CLIENT_SECRET schema",
-      "description": "Client secret volume path.",
-      "examples": [
-        "/etc/secret"
-      ],
-      "internal": true
-    },
     "CPU_REQUEST": {
       "$id": "#/properties/CPU_REQUEST",
       "type": "string",
@@ -65,14 +50,6 @@
       "examples": [
         "250Mi"
       ]
-    },
-    "NAMESPACE": {
-      "$id": "#/properties/NAMESPACE",
-      "type": "string",
-      "title": "The NAMESPACE schema",
-      "description": "The namespace it is going to be deployed.",
-      "default": "",
-      "internal": true
     },
     "RC_REVISIONS": {
       "$id": "#/properties/RC_REVISIONS",

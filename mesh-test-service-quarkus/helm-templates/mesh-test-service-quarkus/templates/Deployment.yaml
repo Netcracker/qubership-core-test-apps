@@ -5,7 +5,7 @@ metadata:
     name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
     labels:
         name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
-        app.kubernetes.io/instance: '{{ cat .Values.SERVICE "-" .Values.NAMESPACE | nospace | trunc 63 }}'
+        app.kubernetes.io/instance: '{{ cat .Values.SERVICE "-" .Release.Namespace | nospace | trunc 63 }}'
         app.kubernetes.io/part-of: 'mesh-test-app'
     annotations:
         qubership.cloud/start.stage: '2'
@@ -24,31 +24,18 @@ spec:
         metadata:
             labels:
                 name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
-                app.kubernetes.io/instance: '{{ cat .Values.SERVICE "-" .Values.NAMESPACE | nospace | trunc 63 }}'
+                app.kubernetes.io/instance: '{{ cat .Values.SERVICE "-" .Release.Namespace | nospace | trunc 63 }}'
                 app.kubernetes.io/part-of: 'mesh-test-app'
         spec:
-            volumes:
-                - name: client-credentials
-                  secret:
-                      secretName: "{{ .Values.SERVICE }}-client-credentials"
-                - name: "{{ .Values.SSL_SECRET }}"
-                  secret:
-                      secretName: "{{ .Values.SSL_SECRET }}"
             containers:
                 - name: "{{ .Values.SERVICE }}"
                   image: "{{ .Values.IMAGE_REPOSITORY}}:{{ .Values.TAG }}"
-                  args:
-                    - /usr/bin/java
-                    - -Djava.security.egd=file:/dev/./urandom
-                    - -jar
-                    - /app/test-service-quarkus-1.0.0-SNAPSHOT-runner.jar
+                  imagePullPolicy: IfNotPresent
                   ports:
                       - name: web
                         containerPort: 8080
                         protocol: TCP
                   env:
-                      - name: CERTIFICATE_BUNDLE_{{ .Values.SSL_SECRET}}_MD5SUM
-                        value: "{{ .Values.CERTIFICATE_BUNDLE_MD5SUM }}"
                       - name: CONFIG_SERVER
                         value: http://config-server:8080
                       - name: CLOUD_NAMESPACE
@@ -73,6 +60,11 @@ spec:
                         value: '{{ .Values.NC_DIAGNOSTIC_MODE }}'
                       - name: NC_DIAGNOSTIC_AGENT_SERVICE
                         value: '{{ .Values.NC_DIAGNOSTIC_AGENT_SERVICE }}'
+                      - name: HOSTNAME
+                        valueFrom:
+                          fieldRef:
+                            apiVersion: v1
+                            fieldPath: metadata.name
                   resources:
                       requests:
                           cpu: "{{ .Values.CPU_REQUEST }}"
@@ -94,12 +86,6 @@ spec:
                       scheme: HTTP
                     initialDelaySeconds: 60
                     timeoutSeconds: 15
-                  volumeMounts:
-                      - name: client-credentials
-                        mountPath: "{{ .Values.CLIENT_SECRET }}"
-                        readOnly: true
-                      - name: "{{ .Values.SSL_SECRET }}"
-                        mountPath: "/tmp/cert/{{ .Values.SSL_SECRET }}"
             affinity:
                 podAntiAffinity:
                     preferredDuringSchedulingIgnoredDuringExecution:

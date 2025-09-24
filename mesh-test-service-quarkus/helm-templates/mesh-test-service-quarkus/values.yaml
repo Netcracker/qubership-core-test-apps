@@ -1,20 +1,15 @@
-CLIENT_SECRET: "/etc/secret"
 CPU_REQUEST: "100m"
 CPU_LIMIT: "350m"
 MEMORY_REQUEST: "100Mi"
 MEMORY_LIMIT: "350Mi"
-IMAGE_REPOSITORY: '' # TO_BE_REPLACED
-TAG: '' # TO_BE_REPLACED
-MEM_ARGS: "-Xms128m -Xmx128m -Xss512k -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=128m -XX:ReservedCodeCacheSize=64M -XX:CompressedClassSpaceSize=32M -XX:MinMetaspaceExpansion=1M -XX:MaxMetaspaceExpansion=8M -XX:CodeCacheExpansionSize=256k"
-NAMESPACE: '' # TO_BE_REPLACED
+IMAGE_REPOSITORY: 'ghcr.io/netcracker/qubership-core-mesh-test-service-quarkus'
+TAG: 'latest'
 # revisionHistoryLimit value for DC
 RC_REVISIONS: 3
 REPLICAS: 1
-# Service Name. For example: contact-management-backend
 SERVICE: "mesh-test-service-quarkus"
 DEPLOYMENT_RESOURCE_NAME: "mesh-test-service-quarkus-v1"
 DEPLOYMENT_VERSION: "v1"
-# delta-5
 K8S_SERVICE_TYPE: 'HEADLESS'
 TRACING_ENABLED: false
 TRACING_HOST: 'nc-diagnostic-agent'

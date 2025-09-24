@@ -1,0 +1,12 @@
+apiVersion: qubership.org/v1alpha
+kind: FacadeService
+metadata:
+  name: '{{ .Values.SERVICE }}'
+spec:
+  port: 8080
+  env:
+    facadeGatewayCpuLimit: 100m
+    facadeGatewayCpuRequest: 100m
+    facadeGatewayMemoryLimit: 128Mi
+    facadeGatewayMemoryRequest: 128Mi
+  gateway: '{{ .Values.SERVICE }}'

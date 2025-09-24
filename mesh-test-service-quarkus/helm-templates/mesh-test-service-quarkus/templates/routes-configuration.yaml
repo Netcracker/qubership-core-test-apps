@@ -4,12 +4,11 @@ kind: Mesh
 subKind: RouteConfiguration
 metadata:
   name: mesh-test-app-gateway-quarkus-routes
-  namespace: "{{ .Values.NAMESPACE }}"
   labels:
     app.kubernetes.io/instance: "{{ .Values.SERVICE }}"
     app.kubernetes.io/managed-by: core-operator
 spec:
-  gateways: [ "mesh-test-app-gateway" ]
+  gateways: [ "mesh-test-app-gateway", "mesh-test-service-quarkus" ]
   listenerPort: 8080
   virtualServices:
     - name: "{{ .Values.SERVICE }}"
@@ -20,7 +19,6 @@ spec:
           - destination:
               cluster: "{{ .Values.SERVICE }}"
               endpoint: http://{{ .Values.DEPLOYMENT_RESOURCE_NAME }}:8080
-              tlsEndpoint: https://{{ .Values.DEPLOYMENT_RESOURCE_NAME }}:8443
             rules:
               - match:
                   prefix: /api/v1/mesh-test-service-quarkus/hello
@@ -36,7 +34,6 @@ kind: Mesh
 subKind: RouteConfiguration
 metadata:
   name: egress-routes-quarkus
-  namespace: "{{ .Values.NAMESPACE }}"
   labels:
     app.kubernetes.io/instance: "{{ .Values.SERVICE }}"
     app.kubernetes.io/managed-by: core-operator
@@ -62,7 +59,6 @@ kind: Mesh
 subKind: RouteConfiguration
 metadata:
   name: test-ingress-gateway-quarkus-routes
-  namespace: "{{ .Values.NAMESPACE }}"
   labels:
     app.kubernetes.io/instance: "{{ .Values.SERVICE }}"
     app.kubernetes.io/managed-by: core-operator
@@ -91,7 +87,6 @@ kind: Mesh
 subKind: RouteConfiguration
 metadata:
   name: test-ingress-gateway-2-quarkus-routes
-  namespace: "{{ .Values.NAMESPACE }}"
   labels:
     app.kubernetes.io/instance: "{{ .Values.SERVICE }}"
     app.kubernetes.io/managed-by: core-operator
