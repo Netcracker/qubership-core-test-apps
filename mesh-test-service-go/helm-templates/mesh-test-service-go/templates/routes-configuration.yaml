@@ -5,11 +5,10 @@ subKind: RouteConfiguration
 metadata:
   name: mesh-test-app-gateway-go-routes
   labels:
-    deployer.cleanup/allow: "true"
     app.kubernetes.io/instance: "{{ .Values.SERVICE }}"
     app.kubernetes.io/managed-by: core-operator
 spec:
-  gateways: [ "mesh-test-app-gateway" ]
+  gateways: [ "mesh-test-app-gateway", "mesh-test-service-go" ]
   listenerPort: 8080
   tlsSupported: false
   virtualServices:
@@ -21,7 +20,6 @@ spec:
           - destination:
               cluster: "{{ .Values.SERVICE }}"
               endpoint: http://{{ .Values.DEPLOYMENT_RESOURCE_NAME }}:8080
-              tlsEndpoint: https://{{ .Values.DEPLOYMENT_RESOURCE_NAME }}:8443
             rules:
               - match:
                   prefix: /api/v1/mesh-test-service-go
@@ -34,7 +32,6 @@ subKind: RouteConfiguration
 metadata:
   name: test-ingress-gateway-go-routes
   labels:
-    deployer.cleanup/allow: "true"
     app.kubernetes.io/instance: "{{ .Values.SERVICE }}"
     app.kubernetes.io/managed-by: core-operator
 spec:
@@ -59,7 +56,6 @@ subKind: RouteConfiguration
 metadata:
   name: test-ingress-gateway-2-go-routes
   labels:
-    deployer.cleanup/allow: "true"
     app.kubernetes.io/instance: "{{ .Values.SERVICE }}"
     app.kubernetes.io/managed-by: core-operator
 spec:
@@ -84,11 +80,10 @@ subKind: RouteConfiguration
 metadata:
   name: mesh-test-app-gateway-go-routes-1234
   labels:
-    deployer.cleanup/allow: "true"
     app.kubernetes.io/instance: "{{ .Values.SERVICE }}"
     app.kubernetes.io/managed-by: core-operator
 spec:
-  gateways: [ "mesh-test-app-gateway" ]
+  gateways: [ "mesh-test-app-gateway", "mesh-test-service-go" ]
   listenerPort: 1234
   tlsSupported: false
   virtualServices:
@@ -100,7 +95,6 @@ spec:
           - destination:
               cluster: "{{ .Values.SERVICE }}"
               endpoint: http://{{ .Values.DEPLOYMENT_RESOURCE_NAME }}:1234
-              tlsEndpoint: https://{{ .Values.DEPLOYMENT_RESOURCE_NAME }}:1234
             rules:
               - match:
                   prefix: /api/v1/mesh-test-service-go/1234

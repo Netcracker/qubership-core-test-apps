@@ -5,7 +5,7 @@ metadata:
     name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
     labels:
         name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
-        app.kubernetes.io/instance: '{{ cat .Values.SERVICE "-" metadata.namespace | nospace | trunc 63 }}'
+        app.kubernetes.io/instance: '{{ cat .Values.SERVICE "-" .Release.Namespace | nospace | trunc 63 }}'
         app.kubernetes.io/part-of: 'mesh-test-app'
 spec:
     selector:
@@ -22,7 +22,7 @@ spec:
         metadata:
             labels:
                 name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
-                app.kubernetes.io/instance: '{{ cat .Values.SERVICE "-" metadata.namespace | nospace | trunc 63 }}'
+                app.kubernetes.io/instance: '{{ cat .Values.SERVICE "-" .Release.Namespace | nospace | trunc 63 }}'
                 app.kubernetes.io/part-of: 'mesh-test-app'
         spec:
             containers:

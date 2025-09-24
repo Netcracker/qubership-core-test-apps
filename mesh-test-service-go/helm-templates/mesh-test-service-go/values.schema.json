@@ -13,13 +13,12 @@
       "IMAGE_REPOSITORY": "",
       "MEMORY_LIMIT": "100Mi",
       "NAMESPACE": "",
-      "OPENSHIFT_SERVICE_NAME": "site-management",
       "RC_REVISIONS": 3,
       "REPLICAS": 1,
       "SERVICE": "mesh-test-service-go",
       "TAG": "",
       "TRACING_ENABLED": false,
-      "TRACING_HOST": 0,
+      "TRACING_HOST": 0
     }
   ],
   "properties": {
