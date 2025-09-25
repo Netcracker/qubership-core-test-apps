@@ -11,7 +11,7 @@ on:
 
 jobs:
   mvn:
-    uses: netcracker/qubership-core-infra/.github/workflows/maven-build-with-sonar.yaml@feature/java-service-workflow
+    uses: netcracker/qubership-core-infra/.github/workflows/maven-build-with-sonar.yaml@v1.1.0
     with:
       event-name: ${{ github.event_name }}
       actor: ${{ github.actor }}
@@ -23,7 +23,7 @@ jobs:
 
   docker-build:
     needs: [mvn]
-    uses: netcracker/qubership-core-infra/.github/workflows/docker-build.yaml@feature/java-service-workflow
+    uses: netcracker/qubership-core-infra/.github/workflows/docker-build.yaml@v1.1.0
     with:
       dry-run: false
       config-filename: mesh-test-service-quarkus-docker-config.json
