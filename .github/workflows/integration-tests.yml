@@ -1,8 +1,7 @@
 name: Run IT
 
 on:
-  push:
-    branches: [ main ]
+  push: #TODO for test purpose. change to main only
   pull_request:
     branches: [ main ]
 
