@@ -1,6 +1,3 @@
 {
-  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "assignAutomerge": true,
-  "assigneesFromCodeOwners": true,
-  "reviewersFromCodeOwners": true
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json"
 }
