@@ -38,7 +38,7 @@ func init() {
 	logger = logging.GetLogger("controller")
 }
 
-func (с *Controller) ProxyTCP(fiberCtx *fiber.Ctx) error {
+func (c *Controller) ProxyTCP(fiberCtx *fiber.Ctx) error {
 	requestURL := string(fiberCtx.Body())
 	logger.Infof("Received proxy tcp request to: %s", requestURL)
 
