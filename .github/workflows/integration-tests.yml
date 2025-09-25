@@ -1,4 +1,4 @@
-name: Run IT
+name: Run integration tests
 
 on:
   push: #TODO for test purpose. change to main only
