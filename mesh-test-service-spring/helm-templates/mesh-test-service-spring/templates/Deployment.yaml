@@ -25,18 +25,6 @@ spec:
                 app.kubernetes.io/part-of: 'mesh-test-app'
         spec:
             serviceAccountName: '{{ .Values.SERVICE }}'
-            volumes:
-            -   name: client-credentials
-                secret:
-                    secretName: '{{ .Values.SERVICE }}-client-credentials'
-      {{ if .Values.INTERNAL_TLS_ENABLED }}
-            -   name: tls
-                secret:
-                    secretName: '{{ .Values.SERVICE }}-tls'
-      {{ end }}
-            -   name: '{{ .Values.SSL_SECRET }}'
-                secret:
-                    secretName: '{{ .Values.SSL_SECRET }}'
             containers:
             -   name: '{{ .Values.SERVICE }}'
                 image: '{{ .Values.IMAGE_REPOSITORY }}:{{ .Values.TAG }}'
@@ -56,8 +44,6 @@ spec:
                     containerPort: {{ if .Values.INTERNAL_TLS_ENABLED }} 8443 {{ else }} 8080 {{ end }}
                     protocol: TCP
                 env:
-                -   name: CERTIFICATE_BUNDLE_{{ .Values.SSL_SECRET }}_MD5SUM
-                    value: '{{ .Values.CERTIFICATE_BUNDLE_MD5SUM }}'
                 -   name: MICROSERVICE_NAME
                     value: '{{ .Values.SERVICE }}'
                 -   name: CLOUD_SERVICE_NAME
@@ -68,17 +54,6 @@ spec:
                     valueFrom:
                         fieldRef:
                             fieldPath: metadata.namespace
-                - name: INTERNAL_TLS_ENABLED
-                  value: '{{ .Values.INTERNAL_TLS_ENABLED }}'
-      {{ if .Values.INTERNAL_TLS_ENABLED }}
-                - name: CERTIFICATE_FILE_PASSWORD
-                  valueFrom:
-                      secretKeyRef:
-                          name: '{{ .Values.TLS_PASSWORD_SECRET_NAME }}'
-                          key: '{{ .Values.TLS_PASSWORD_KEY }}'
-                - name: CERTIFICATE_FILE_PATH
-                  value: '{{ .Values.TLS_SECRET }}'
-      {{ end }}
                 -   name: NAMESPACE
                     valueFrom:
                       fieldRef:
@@ -100,7 +75,7 @@ spec:
                 -   name: CUSTOM_HOST
                     value: '{{ .Values.CUSTOM_HOST }}'
                 -   name: PRIVATE_GATEWAY_URL
-                    value: {{ if .Values.INTERNAL_TLS_ENABLED }} "https://internal-gateway-service:8443" {{ else }} "http://internal-gateway-service:8080" {{ end }}
+                    value: "http://internal-gateway-service:8080"
                 -   name: PUBLIC_GATEWAY_URL
                     value: '{{ .Values.PUBLIC_GATEWAY_URL }}'
                 resources:

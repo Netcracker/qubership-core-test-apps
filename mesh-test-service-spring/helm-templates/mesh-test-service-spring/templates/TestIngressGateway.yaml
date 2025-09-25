@@ -6,7 +6,6 @@ metadata:
     app.kubernetes.io/part-of: 'mesh-test-app'
     app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
     app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
-    app.kubernetes.io/managed-by: "{{ .Values.MANAGED_BY }}"
     deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
 spec:
   gateway: {{ .Values.INGRESS_GATEWAY_NAME }}
@@ -14,7 +13,10 @@ spec:
   gatewayType: ingress
   allowVirtualHosts: false
   env:
-    facadeGatewayMemoryLimit: 128Mi
+    facadeGatewayCpuLimit: 100m
+    facadeGatewayCpuRequest: 50m
+    facadeGatewayMemoryLimit: 64Mi
+    facadeGatewayMemoryRequest: 64Mi
   ingresses:
     - hostname: {{ .Values.INGRESS_GATEWAY_NAME }}-{{ .Release.Namespace }}.{{ .Values.CLOUD_PUBLIC_HOST }}
       gatewayPort: 8080
@@ -28,7 +30,6 @@ metadata:
     app.kubernetes.io/part-of: 'mesh-test-app'
     app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
     app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
-    app.kubernetes.io/managed-by: "{{ .Values.MANAGED_BY }}"
     deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
 spec:
   gateway: '{{ .Values.INGRESS_GATEWAY_NAME }}-2'
@@ -36,7 +37,10 @@ spec:
   gatewayType: ingress
   allowVirtualHosts: false
   env:
-    facadeGatewayMemoryLimit: 128Mi
+    facadeGatewayCpuLimit: 100m
+    facadeGatewayCpuRequest: 50m
+    facadeGatewayMemoryLimit: 64Mi
+    facadeGatewayMemoryRequest: 64Mi
   ingresses:
     - hostname: {{ .Values.INGRESS_GATEWAY_NAME }}-2-{{ .Release.Namespace }}.{{ .Values.CLOUD_PUBLIC_HOST }}
       gatewayPort: 8080

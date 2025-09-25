@@ -8,10 +8,9 @@ metadata:
     app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
     app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
     app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
-    app.kubernetes.io/managed-by: "{{ .Values.MANAGED_BY }}"
     deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
 spec:
-  gateways: ["public-gateway-service"]
+  gateways: ["public-gateway-service", "mesh-test-service-spring"]
   virtualServices:
     - name: public-gateway-service
       hosts: ["*"]
@@ -21,7 +20,6 @@ spec:
           - destination:
               cluster: "{{ .Values.SERVICE }}"
               endpoint: http://{{ .Values.DEPLOYMENT_RESOURCE_NAME }}:8080
-              tlsEndpoint: https://{{ .Values.DEPLOYMENT_RESOURCE_NAME }}:8443
             rules:
               - match:
                   prefix: /api/v1/mesh-test-service-spring/declarative_hello
@@ -37,12 +35,11 @@ metadata:
     app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
     app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
     app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
-    app.kubernetes.io/managed-by: "{{ .Values.MANAGED_BY }}"
     deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
 spec:
   gateways: [ "mesh-test-app-gateway" ]
   listenerPort: 8080
-  tlsSupported: {{ .Values.INTERNAL_TLS_ENABLED }}
+  tlsSupported: false
   virtualServices:
     - name: "{{ .Values.SERVICE }}"
       hosts: ["{{ .Values.SERVICE }}"]
@@ -52,7 +49,6 @@ spec:
           - destination:
               cluster: "{{ .Values.SERVICE }}"
               endpoint: http://{{ .Values.DEPLOYMENT_RESOURCE_NAME }}:8080
-              tlsEndpoint: https://{{ .Values.DEPLOYMENT_RESOURCE_NAME }}:8443
               circuitBreaker:
                 threshold:
                   maxConnections: 2
@@ -83,7 +79,6 @@ metadata:
     app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
     app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
     app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
-    app.kubernetes.io/managed-by: "{{ .Values.MANAGED_BY }}"
     deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
 spec:
   gateways: ["egress-gateway"]
@@ -110,7 +105,6 @@ metadata:
     app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
     app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
     app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
-    app.kubernetes.io/managed-by: "{{ .Values.MANAGED_BY }}"
     deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
 spec:
   gateways: ["egress-gateway"]
@@ -142,7 +136,6 @@ metadata:
     app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
     app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
     app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
-    app.kubernetes.io/managed-by: "{{ .Values.MANAGED_BY }}"
     deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
 spec:
   gateways: [ "test-ingress-gateway" ]
@@ -177,7 +170,6 @@ metadata:
     app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
     app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
     app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
-    app.kubernetes.io/managed-by: "{{ .Values.MANAGED_BY }}"
     deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
 spec:
   gateways: [ "test-ingress-gateway-2" ]

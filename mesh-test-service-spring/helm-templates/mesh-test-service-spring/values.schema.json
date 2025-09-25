@@ -10,26 +10,21 @@
       "PAAS_PLATFORM": "KUBERNETES",
       "ALLOWED_HEADERS": "",
       "API_DBAAS_ADDRESS": "http://dbaas-aggregator.dbaas:8080",
-      "CERTIFICATE_BUNDLE_MD5SUM": "d41d8cd98f00b204e9800998ecf8427e",
-      "CLIENT_SECRET": "/etc/secret",
       "CPU_REQUEST": "100m",
       "CPU_LIMIT": "4",
       "CUSTOM_HOST": "",
       "GLOWROOT_CLUSTER": "glowroot:8181",
       "IMAGE_REPOSITORY": "",
       "MEMORY_LIMIT": "808Mi",
-      "NAMESPACE": "",
       "PRIVATE_GATEWAY_URL": "",
       "PUBLIC_GATEWAY_URL": "",
       "RC_REVISIONS": 3,
       "REPLICAS": 1,
       "SERVER_HOSTNAME": "",
-      "SSL_SECRET": "defaultsslcertificate",
       "TAG": "",
       "XNIO_IO_THREAD": 14,
       "XNIO_WORK_THREAD": 112,
       "X_JAVA_ARGS": "",
-      "ARTIFACT_DESCRIPTOR_VERSION": "",
       "MONITORING_INSTALL": false,
       "CLOUD_TOPOLOGY_KEY": "kubernetes.io/hostname"
     }
@@ -44,25 +39,6 @@
       "examples": [
         "x-request-id,acceptlanguage"
       ]
-    },
-    "CERTIFICATE_BUNDLE_MD5SUM": {
-      "$id": "#/properties/CERTIFICATE_BUNDLE_MD5SUM",
-      "type": "string",
-      "title": "The CERTIFICATE_BUNDLE_MD5SUM schema",
-      "examples": [
-        "d41d8cd98f00b204e9800998ecf8427e"
-      ],
-      "internal": true
-    },
-    "CLIENT_SECRET": {
-      "$id": "#/properties/CLIENT_SECRET",
-      "type": "string",
-      "title": "The CLIENT_SECRET schema",
-      "description": "Client secret volume path.",
-      "examples": [
-        "/etc/secret"
-      ],
-      "internal": true
     },
     "CPU_REQUEST": {
       "$id": "#/properties/CPU_REQUEST",
@@ -94,14 +70,6 @@
       "default": "",
       "internal": true
     },
-    "NAMESPACE": {
-      "$id": "#/properties/NAMESPACE",
-      "type": "string",
-      "title": "The NAMESPACE schema",
-      "description": "The namespace it is going to be deployed.",
-      "default": "",
-      "internal": true
-    },
     "PRIVATE_GATEWAY_URL": {
       "$id": "#/properties/PRIVATE_GATEWAY_URL",
       "type": "string",
@@ -127,16 +95,6 @@
       "$id": "#/properties/REPLICAS",
       "type": "integer",
       "title": "The REPLICAS schema",
-      "internal": true
-    },
-    "SSL_SECRET": {
-      "$id": "#/properties/SSL_SECRET",
-      "type": "string",
-      "title": "The SSL_SECRET schema",
-      "description": "SSL secret name.",
-      "examples": [
-        "defaultsslcertificate"
-      ],
       "internal": true
     },
     "TAG": {
@@ -168,14 +126,6 @@
       "default": "",
       "internal": true
     },
-    "ARTIFACT_DESCRIPTOR_VERSION": {
-      "$id": "#/properties/ARTIFACT_DESCRIPTOR_VERSION",
-      "type": "string",
-      "title": "The ARTIFACT_DESCRIPTOR_VERSION schema",
-      "description": "Artifact descriptor version which is installed.",
-      "default": "",
-      "internal": true
-    },
     "MONITORING_INSTALL": {
       "$id": "#/properties/MONITORING_INSTALL",
       "type": "boolean",
@@ -193,46 +143,6 @@
       "examples": [
         "kubernetes.io/hostname"
       ]
-    },
-    "TLS_SECRET": {
-      "$id": "#/properties/TLS_SECRET",
-      "type": "string",
-      "title": "The TLS_SECRET schema",
-      "description": "TLS secret volume path.",
-      "examples": [
-        "/etc/tls"
-      ],
-      "internal": true
-    },
-    "INTERNAL_TLS_ENABLED": {
-      "$id": "#/properties/INTERNAL_TLS_ENABLED",
-      "type": "boolean",
-      "title": "The INTERNAL_TLS_ENABLED schema",
-      "description": "Is TLS enabled",
-      "examples": [
-        false
-      ],
-      "internal": true
-    },
-    "TLS_PASSWORD_SECRET_NAME": {
-      "$id": "#/properties/TLS_PASSWORD_SECRET_NAME",
-      "type": "string",
-      "title": "The TLS_PASSWORD_SECRET_NAME schema",
-      "description": "TLS password secret name",
-      "examples": [
-        "tls-password-secret"
-      ],
-      "internal": true
-    },
-    "TLS_PASSWORD_KEY": {
-      "$id": "#/properties/TLS_PASSWORD_KEY",
-      "type": "string",
-      "title": "The TLS_PASSWORD_KEY schema",
-      "description": "TLS password key",
-      "examples": [
-        "tls-password"
-      ],
-      "internal": true
     }
   },
   "additionalProperties": true

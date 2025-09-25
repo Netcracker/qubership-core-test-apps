@@ -1,23 +1,19 @@
 PAAS_PLATFORM: "KUBERNETES"
 # headers allowed for forwarding
 ALLOWED_HEADERS: '' # TO_BE_REPLACED
-# Which git application development branch should be used to deploy
-# Variable 'BRANCH' was never used
-# SSL secret name
-CERTIFICATE_BUNDLE_MD5SUM: "d41d8cd98f00b204e9800998ecf8427e"
-# Client secret volume path
-CLIENT_SECRET: "/etc/secret"
 CPU_REQUEST: "100m"
 CPU_LIMIT: "4"
+MEMORY_LIMIT: '' # TO_BE_REPLACED
 # Openshift custom host name
 CUSTOM_HOST: '' # TO_BE_REPLACED
 # Host:Port for central glow root
 GLOWROOT_CLUSTER: "glowroot:8181"
 # Docker repository with images
 IMAGE_REPOSITORY: 'ghcr.io/netcracker/qubership-core-mesh-test-service-spring'
-MEMORY_LIMIT: '' # TO_BE_REPLACED
+TAG: 'chore-initial-snapshot'
 # Service Name. For example: contact-management-backend
 SERVICE: 'mesh-test-service-spring'
+SERVICE_NAME: 'mesh-test-service-spring'
 APPLICATION_NAME: 'mesh-test-app'
 DEPLOYMENT_VERSION: "v1"
 DEPLOYMENT_RESOURCE_NAME: 'mesh-test-service-spring-v1'
@@ -30,32 +26,22 @@ RC_REVISIONS: 3
 REPLICAS: 1
 # Openshift server host name
 SERVER_HOSTNAME: '' # TO_BE_REPLACED 
-# SSL secret name
-SSL_SECRET: "defaultsslcertificate"
-# Variable 'SYM_KEY' was never used
-# Which docker image tag should be used to deploy
-TAG: 'chore-initial-snapshot'
 # Number of IO threads in Undertow server
 XNIO_IO_THREAD: 14
 # Number of working threads in Undertow server
 XNIO_WORK_THREAD: 112
 # Additional params to pass to Java process
 X_JAVA_ARGS: '' # TO_BE_REPLACED
-# Artifact descriptor version which is installed
-ARTIFACT_DESCRIPTOR_VERSION: '' # TO_BE_REPLACED
 # Flag to install dashboard and podmonitor
 MONITORING_INSTALL: false
 CLOUD_TOPOLOGY_KEY: kubernetes.io/hostname
-TLS_SECRET: "/etc/tls"
-INTERNAL_TLS_ENABLED: false
-TLS_PASSWORD_SECRET_NAME: "tls-password-secret"
-TLS_PASSWORD_KEY: "tls-password"
 INGRESS_GATEWAY_NAME: "test-ingress-gateway"
 DEPLOY_SECOND_INGRESS: false
 INGRESS_GATEWAY_NAME_SECOND: "test-ingress-gateway-2"
 PEER_NAMESPACE: ""
 INGRESS_CLASS: ""
 K8S_SERVICE_TYPE: 'HEADLESS'
-MANAGED_BY: "core-operator"
 CLOUD_PUBLIC_HOST: "svc.cluster.local"
 CLOUD_PRIVATE_HOST: "svc.cluster.local"
+CR_SYNCHRONIZER_IMAGE: "ghcr.io/netcracker/cr-synchronizer:latest"
+EXTERNAL_IPS: '' # TO_BE_REPLACED
