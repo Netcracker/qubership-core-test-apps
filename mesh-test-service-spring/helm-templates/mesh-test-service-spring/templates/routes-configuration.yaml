@@ -10,7 +10,7 @@ metadata:
     app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
     deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
 spec:
-  gateways: ["public-gateway-service", "mesh-test-service-spring"]
+  gateways: ["public-gateway-service"]
   virtualServices:
     - name: public-gateway-service
       hosts: ["*"]
@@ -37,7 +37,7 @@ metadata:
     app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
     deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
 spec:
-  gateways: [ "mesh-test-app-gateway" ]
+  gateways: [ "mesh-test-app-gateway", "mesh-test-service-spring" ]
   listenerPort: 8080
   tlsSupported: false
   virtualServices:
