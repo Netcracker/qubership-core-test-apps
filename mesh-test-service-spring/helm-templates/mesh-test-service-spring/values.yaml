@@ -10,7 +10,7 @@ CUSTOM_HOST: '' # TO_BE_REPLACED
 GLOWROOT_CLUSTER: "glowroot:8181"
 # Docker repository with images
 IMAGE_REPOSITORY: 'ghcr.io/netcracker/qubership-core-mesh-test-service-spring'
-TAG: 'chore-initial-snapshot'
+TAG: 'latest'
 # Service Name. For example: contact-management-backend
 SERVICE: 'mesh-test-service-spring'
 SERVICE_NAME: 'mesh-test-service-spring'
