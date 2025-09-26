@@ -2,8 +2,8 @@ PAAS_PLATFORM: "KUBERNETES"
 # headers allowed for forwarding
 ALLOWED_HEADERS: '' # TO_BE_REPLACED
 CPU_REQUEST: "100m"
-CPU_LIMIT: "4"
-MEMORY_LIMIT: '' # TO_BE_REPLACED
+CPU_LIMIT: "1"
+MEMORY_LIMIT: '360Mi'
 # Openshift custom host name
 CUSTOM_HOST: '' # TO_BE_REPLACED
 # Host:Port for central glow root
