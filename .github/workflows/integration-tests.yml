@@ -33,6 +33,7 @@ jobs:
       - name: Run integration tests
         run: |
           echo "Running tests..."
+          kubectl cluster-info --context kind-kind
           kubectl get nodes
           kubectl get pods -A
           free -h
