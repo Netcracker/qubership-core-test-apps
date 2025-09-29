@@ -1,14 +1,57 @@
 # Mesh Test Applications Management
 
-This directory contains a bash script to manage (install/uninstall) the mesh test services helm packages in the correct order.
+This directory contains bash scripts to manage the mesh test services:
+- **mesh-test-apps.sh** - Install/uninstall helm packages in the correct order
+- **run-integration-tests.sh** - Run integration tests sequentially for all services
 
 ## Prerequisites
 
+### For Service Management (mesh-test-apps.sh)
 - [Helm](https://helm.sh/docs/intro/install/) must be installed
 - [kubectl](https://kubernetes.io/docs/tasks/tools/) must be installed and configured
 - Access to a Kubernetes cluster
 
+### For Integration Tests (run-integration-tests.sh)
+- [Maven](https://maven.apache.org/install.html) must be installed
+- [kubectl](https://kubernetes.io/docs/tasks/tools/) must be installed and configured
+- Access to a Kubernetes cluster with deployed services
+- **GitHub Packages authentication** configured for [https://maven.pkg.github.com/](https://maven.pkg.github.com/)
+- Proper KUBECONFIG environment variable set (if needed)
+
+## GitHub Packages Authentication
+
+The integration tests require access to GitHub Packages Maven registry at [https://maven.pkg.github.com/](https://maven.pkg.github.com/). You must configure authentication using one of these methods:
+
+### Method 1: Environment Variable (Recommended)
+```bash
+export GITHUB_TOKEN=your_personal_access_token
+```
+
+### Method 2: Maven Settings File
+Create or update `~/.m2/settings.xml`:
+```xml
+<settings>
+  <servers>
+    <server>
+      <id>github</id>
+      <username>your-github-username</username>
+      <password>your_personal_access_token</password>
+    </server>
+  </servers>
+</settings>
+```
+
+### Creating a Personal Access Token
+1. Go to [GitHub Settings > Developer settings > Personal access tokens](https://github.com/settings/tokens)
+2. Click "Generate new token (classic)"
+3. Select scope: `read:packages`
+4. Copy the generated token
+
+**Note**: The integration test script will check for proper authentication and prompt you if it's not configured.
+
 ## Usage
+
+### Service Management (mesh-test-apps.sh)
 
 Run the script with required operation, namespace, and optional tag arguments:
 
@@ -49,6 +92,31 @@ bash mesh-test-apps.sh uninstall mesh-test
 ./mesh-test-apps.sh --help
 ```
 
+### Integration Tests (run-integration-tests.sh)
+
+Run integration tests sequentially for all mesh test services (all parameters required):
+
+```bash
+# Run with all required parameters
+./run-integration-tests.sh minikube core minikube:10.244.0.1
+
+# Run with different context and namespace
+./run-integration-tests.sh docker-desktop test-ns docker-desktop:10.0.0.1
+```
+
+Or with bash directly:
+
+```bash
+# All parameters required
+bash run-integration-tests.sh minikube core minikube:10.244.0.1
+```
+
+Show help:
+
+```bash
+./run-integration-tests.sh --help
+```
+
 ## Service Order
 
 ### Installation Order
@@ -63,13 +131,29 @@ The script uninstalls the services in reverse order:
 2. **mesh-test-service-quarkus** - Quarkus service
 3. **mesh-test-service-spring** - Spring Boot service
 
+### Integration Tests Execution Order
+The integration tests are executed sequentially in this order:
+1. **mesh-test-service-spring** - Spring Boot integration tests
+2. **mesh-test-service-quarkus** - Quarkus integration tests
+3. **mesh-test-service-go** - Go service integration tests
+
+**Note**: The script continues running all tests even if one service fails, then provides a comprehensive final report with detailed statistics from all modules.
+
 ## Configuration
 
+### Service Management Configuration
 - **Operation**: Required first argument - must be 'install' or 'uninstall'
 - **Namespace**: Required second argument - must be specified
 - **TAG**: Optional third argument for Docker image tag (only used for install, defaults to 'latest')
 - **Timeout**: Each operation has a 300-second timeout
 - **Dependencies**: The script automatically handles helm dependencies for install operations
+
+### Integration Tests Configuration
+- **Kube Context**: Required first argument - Kubernetes context for tests
+- **Namespace**: Required second argument - Kubernetes namespace for tests
+- **Node IP Mapping**: Required third argument - Node IP mapping for tests
+- **Test Execution**: Sequential execution with fail-fast behavior
+- **Maven Profiles**: Uses 'integration-test' profile with skipIT=false
 
 ## Verification
 
@@ -96,6 +180,64 @@ helm list -n <namespace>
 
 # Check that pods are terminated
 kubectl get pods -n <namespace>
+```
+
+### Integration Tests Results
+
+The script automatically generates a comprehensive final report that includes:
+
+#### Individual Service Results
+- Tests run, passed, failed, errors, and skipped for each service
+- Success/failure status for each service
+
+#### Overall Summary  
+- Total tests across all services
+- Aggregated pass/fail/error/skip counts
+- Service execution summary
+
+#### Success Rate
+- Percentage of services that completed successfully
+- Clear indication of which services succeeded or failed
+
+#### Sample Report Output
+```
+🎯 FINAL INTEGRATION TESTS REPORT
+========================================
+
+📊 Individual Service Results:
+----------------------------------------
+mesh-test-service-spring       ✅
+  Tests Run:              15
+  Passed:                 14
+  Failed:                  1
+  Errors:                  0
+  Skipped:                 0
+
+📈 OVERALL SUMMARY
+========================================
+Total Tests Run:           45
+Total Passed:              42
+Total Failed:               3
+Total Errors:               0
+Total Skipped:              0
+
+🏆 SERVICE EXECUTION SUMMARY
+========================================
+Successful Services:         2
+Failed Services:             1
+Total Services:              3
+
+📊 SUCCESS RATE: 67% (2/3 services)
+```
+
+You can also manually check individual service reports:
+
+```bash
+# Check Maven surefire reports (example for Spring service)
+ls -la mesh-test-service-spring/test-service-spring-integration-tests/target/surefire-reports/
+
+# View test results
+cat mesh-test-service-spring/test-service-spring-integration-tests/target/surefire-reports/TEST-*.xml
 ```
 
 ## Troubleshooting
@@ -129,4 +271,34 @@ helm uninstall mesh-test-service-spring --namespace <namespace> --timeout=600s -
 
 # If still stuck, you may need to manually delete resources
 kubectl delete all -l app.kubernetes.io/instance=mesh-test-service-spring -n <namespace>
+```
+
+### Integration Tests Issues
+If integration tests fail:
+
+1. **Check Prerequisites**: Ensure Maven is installed and services are deployed
+2. **Verify GitHub Packages Access**: Ensure authentication is properly configured
+3. **Verify Cluster Access**: Ensure kubectl can connect to your cluster
+4. **Check Service Status**: Verify all services are running: `kubectl get pods -n <namespace>`
+5. **Review Test Logs**: Check Maven output and surefire reports
+6. **Environment Variables**: Ensure KUBECONFIG is set correctly if needed
+
+Common integration test fixes:
+
+```bash
+# Set GitHub token for packages access
+export GITHUB_TOKEN=your_personal_access_token
+
+# Set KUBECONFIG if needed (example for minikube)
+export KUBECONFIG=/path/to/your/kubeconfig
+
+# Check if services are accessible
+kubectl get services -n <namespace>
+
+# Test GitHub Packages access
+mvn dependency:resolve -U
+
+# Run tests for individual service (example)
+cd mesh-test-service-spring
+mvn clean install -P integration-test -DskipIT=false -Dclouds.cloud.name=minikube -Dclouds.cloud.namespaces.namespace=core
 ```
