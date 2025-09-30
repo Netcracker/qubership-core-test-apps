@@ -29,7 +29,6 @@ jobs:
 #
 #      - name: Deploy cloud core
 #        run: make -C core-bootstrap-repo/cloud-core-local-dev/ install
-
       - name: Run integration tests
         run: |
 #          kubectl get nodes -o wide
