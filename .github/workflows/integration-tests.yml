@@ -27,8 +27,8 @@ jobs:
           repository: Netcracker/qubership-core-bootstrap
           path: core-bootstrap-repo
 
-#      - name: Deploy cloud core
-#        run: make -C core-bootstrap-repo/cloud-core-local-dev/ install
+      - name: Deploy cloud core
+        run: make -C core-bootstrap-repo/cloud-core-local-dev/ install
 
       - name: Run integration tests
         run: |
