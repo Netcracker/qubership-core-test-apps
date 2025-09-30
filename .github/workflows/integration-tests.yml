@@ -33,4 +33,5 @@ jobs:
       - name: Run integration tests
         run: |
           kubectl cluster-info --context kind-kind
+          helm dependency build
           ./mesh-test-install/mesh-test-apps.sh install core chore-initial-snapshot
