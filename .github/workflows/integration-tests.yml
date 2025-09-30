@@ -21,22 +21,8 @@ jobs:
       - name: Set up kubectl
         uses: azure/setup-kubectl@v4
 
-#      - name: Checkout cloud core bootstrap repo
-#        uses: actions/checkout@v4
-#        with:
-#          repository: Netcracker/qubership-core-bootstrap
-#          path: core-bootstrap-repo
-#
-#      - name: Deploy cloud core
-#        run: make -C core-bootstrap-repo/cloud-core-local-dev/ install
       - name: Run integration tests
         run: |
-#          kubectl get nodes -o wide
-#          kubectl cluster-info --context kind-kind
-#          cd mesh-test-service-spring/helm-templates/mesh-test-service-spring
-#          helm dependency build
-#          cd -
-#          ./mesh-test-install/mesh-test-apps.sh install core chore-initial-snapshot
           ./mesh-test-install/run-integration-tests.sh kind-kind core kind-control-plane:172.18.0.2
         env:
           GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
