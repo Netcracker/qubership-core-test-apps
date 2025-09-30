@@ -30,4 +30,4 @@ jobs:
         run: |
           ./mesh-test-install/run-integration-tests.sh kind-kind core kind-control-plane:172.18.0.2
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
