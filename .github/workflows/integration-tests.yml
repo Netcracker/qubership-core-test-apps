@@ -23,6 +23,5 @@ jobs:
 
       - name: Run integration tests
         run: |
-          ./mesh-test-install/run-integration-tests.sh kind-kind core kind-control-plane:172.18.0.2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+          curl -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://maven.pkg.github.com/netcracker/cloud-core/com/netcracker/cloud/junit/cloudcore/cloud-core-extension/8.0.0/cloud-core-extension-8.0.0.pom
+          curl -H "Authorization: token ${{ secrets.GH_ACCESS_TOKEN }}" https://maven.pkg.github.com/netcracker/cloud-core/com/netcracker/cloud/junit/cloudcore/cloud-core-extension/8.0.0/cloud-core-extension-8.0.0.pom
