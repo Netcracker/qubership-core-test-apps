@@ -1,0 +1,36 @@
+name: Run integration tests
+
+on:
+  push: #TODO for test purpose. change to main only
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  integration-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Kind
+        uses: helm/kind-action@v1.12.0
+        with:
+          cluster_name: kind
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Checkout cloud core bootstrap repo
+        uses: actions/checkout@v4
+        with:
+          repository: Netcracker/qubership-core-bootstrap
+          path: core-bootstrap-repo
+
+#      - name: Deploy cloud core
+#        run: make -C core-bootstrap-repo/cloud-core-local-dev/ install
+
+      - name: Run integration tests
+        run: |
+          kubectl cluster-info --context kind-kind
+          ./mesh-test-install-mesh-test-apps.sh install core chore-initial-snapshot

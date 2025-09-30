@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/bin/bash
 
 # Integration tests runner script
 # Runs integration tests sequentially for all mesh test services
@@ -228,7 +228,7 @@ run_integration_tests() {
     
     echo "Running Maven integration tests..."
     local maven_exit_code=0
-    mvn clean install -P integration-test \
+    mvn clean surefire-report:report -P integration-test \
         -DskipIT=false \
         -Dclouds.cloud.name="$KUBE_CONTEXT" \
         -Dclouds.cloud.namespaces.namespace="$NAMESPACE" \
