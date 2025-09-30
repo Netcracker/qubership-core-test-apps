@@ -88,39 +88,39 @@ check_maven() {
         fi
     fi
     
-#    if [[ "$github_server_configured" == false ]] && [[ -z "$GITHUB_TOKEN" ]]; then
-#        echo ""
-#        echo "❌ GitHub Packages access may not be properly configured!"
-#        echo ""
-#        echo "This project requires access to GitHub Packages at https://maven.pkg.github.com/"
-#        echo "Please configure authentication using ONE of these methods:"
-#        echo ""
-#        echo "Method 1: Environment Variable"
-#        echo "  export GITHUB_TOKEN=your_personal_access_token"
-#        echo ""
-#        echo "Method 2: Maven Settings (~/.m2/settings.xml)"
-#        echo "  <servers>"
-#        echo "    <server>"
-#        echo "      <id>github</id>"
-#        echo "      <username>your-github-username</username>"
-#        echo "      <password>your_personal_access_token</password>"
-#        echo "    </server>"
-#        echo "  </servers>"
-#        echo ""
-#        echo "Personal Access Token requirements:"
-#        echo "  - Scope: 'read:packages'"
-#        echo "  - Create at: https://github.com/settings/tokens"
-#        echo ""
-#        echo "Continue anyway? (y/N)"
-#        read -r response
-#        if [[ ! "$response" =~ ^[Yy]$ ]]; then
-#            echo "Aborting. Please configure GitHub Packages access first."
-#            exit 1
-#        fi
-#        echo "⚠️  Proceeding without confirmed GitHub Packages access..."
-#    else
-#        echo "✅ GitHub Packages access appears to be configured"
-#    fi
+    if [[ "$github_server_configured" == false ]] && [[ -z "$GITHUB_TOKEN" ]]; then
+        echo ""
+        echo "❌ GitHub Packages access may not be properly configured!"
+        echo ""
+        echo "This project requires access to GitHub Packages at https://maven.pkg.github.com/"
+        echo "Please configure authentication using ONE of these methods:"
+        echo ""
+        echo "Method 1: Environment Variable"
+        echo "  export GITHUB_TOKEN=your_personal_access_token"
+        echo ""
+        echo "Method 2: Maven Settings (~/.m2/settings.xml)"
+        echo "  <servers>"
+        echo "    <server>"
+        echo "      <id>github</id>"
+        echo "      <username>your-github-username</username>"
+        echo "      <password>your_personal_access_token</password>"
+        echo "    </server>"
+        echo "  </servers>"
+        echo ""
+        echo "Personal Access Token requirements:"
+        echo "  - Scope: 'read:packages'"
+        echo "  - Create at: https://github.com/settings/tokens"
+        echo ""
+        echo "Continue anyway? (y/N)"
+        read -r response
+        if [[ ! "$response" =~ ^[Yy]$ ]]; then
+            echo "Aborting. Please configure GitHub Packages access first."
+            exit 1
+        fi
+        echo "⚠️  Proceeding without confirmed GitHub Packages access..."
+    else
+        echo "✅ GitHub Packages access appears to be configured"
+    fi
 }
 
 # Function to extract test results from surefire reports
