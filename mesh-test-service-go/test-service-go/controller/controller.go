@@ -132,7 +132,7 @@ func (с *Controller) HelloSpringHandler(fiberCtx *fiber.Ctx) error {
 	ctx := fiberCtx.UserContext()
 	logger.Info("hello from spring")
 	client := coretls.GetClient()
-	requestURL := springProtocol + "://mesh-test-service-spring:" + springPort + "/api/v1/mesh-test-service-spring/hello"
+	requestURL := springProtocol + "://mesh-test-app-gateway:" + springPort + "/api/v1/mesh-test-service-spring/hello"
 	request, _ := http.NewRequest("GET", requestURL, nil)
 	err := ctxhelper.AddSerializableContextData(ctx, request.Header.Add)
 
