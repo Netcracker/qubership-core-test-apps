@@ -1,9 +1,7 @@
 name: Run integration tests
 
 on:
-  push: #TODO for test purpose. change to main only
-  pull_request:
-    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   integration-tests:
