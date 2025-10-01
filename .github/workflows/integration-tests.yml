@@ -75,6 +75,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     permissions:
       pages: write
+      id-token: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
