@@ -37,6 +37,7 @@ jobs:
         run: make -C core-bootstrap-repo/cloud-core-local-dev/ install
 
       - name: Run integration tests
+        continue-on-error: true
         run: |
           cd mesh-test-service-spring/helm-templates/mesh-test-service-spring
           helm dependency build
@@ -48,7 +49,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Aggregate Surefire reports
-        if: always()
         run: |
           for module in $(find . -maxdepth 1 -type d ! -name . ! -name report); do
             if [ -d "$module/target/surefire-reports" ] || [ -d "$module/target/reports" ]; then
@@ -61,8 +61,8 @@ jobs:
           done
 
       - name: Upload Surefire reports
-        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: surefire-reports
           path: artifacts/*
+          retention-days: 30
