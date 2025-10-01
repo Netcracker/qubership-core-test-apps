@@ -8,46 +8,12 @@ This directory contains bash scripts to manage the mesh test services:
 
 ### For Service Management (mesh-test-apps.sh)
 - [Helm](https://helm.sh/docs/intro/install/) must be installed
-- [kubectl](https://kubernetes.io/docs/tasks/tools/) must be installed and configured
 - Access to a Kubernetes cluster
 
 ### For Integration Tests (run-integration-tests.sh)
 - [Maven](https://maven.apache.org/install.html) must be installed
-- [kubectl](https://kubernetes.io/docs/tasks/tools/) must be installed and configured
 - Access to a Kubernetes cluster with deployed services
-- **GitHub Packages authentication** configured for [https://maven.pkg.github.com/](https://maven.pkg.github.com/)
-- Proper KUBECONFIG environment variable set (if needed)
 
-## GitHub Packages Authentication
-
-The integration tests require access to GitHub Packages Maven registry at [https://maven.pkg.github.com/](https://maven.pkg.github.com/). You must configure authentication using one of these methods:
-
-### Method 1: Environment Variable (Recommended)
-```bash
-export GITHUB_TOKEN=your_personal_access_token
-```
-
-### Method 2: Maven Settings File
-Create or update `~/.m2/settings.xml`:
-```xml
-<settings>
-  <servers>
-    <server>
-      <id>github</id>
-      <username>your-github-username</username>
-      <password>your_personal_access_token</password>
-    </server>
-  </servers>
-</settings>
-```
-
-### Creating a Personal Access Token
-1. Go to [GitHub Settings > Developer settings > Personal access tokens](https://github.com/settings/tokens)
-2. Click "Generate new token (classic)"
-3. Select scope: `read:packages`
-4. Copy the generated token
-
-**Note**: The integration test script will check for proper authentication and prompt you if it's not configured.
 
 ## Usage
 
@@ -262,43 +228,16 @@ If you need to manually uninstall all services:
 helm uninstall mesh-test-service-spring mesh-test-service-quarkus mesh-test-service-go -n <namespace>
 ```
 
-### Force Cleanup
-If services are stuck, you may need to force cleanup:
-
-```bash
-# Force uninstall with longer timeout
-helm uninstall mesh-test-service-spring --namespace <namespace> --timeout=600s --wait
-
-# If still stuck, you may need to manually delete resources
-kubectl delete all -l app.kubernetes.io/instance=mesh-test-service-spring -n <namespace>
-```
-
-### Integration Tests Issues
-If integration tests fail:
-
-1. **Check Prerequisites**: Ensure Maven is installed and services are deployed
-2. **Verify GitHub Packages Access**: Ensure authentication is properly configured
-3. **Verify Cluster Access**: Ensure kubectl can connect to your cluster
-4. **Check Service Status**: Verify all services are running: `kubectl get pods -n <namespace>`
-5. **Review Test Logs**: Check Maven output and surefire reports
-6. **Environment Variables**: Ensure KUBECONFIG is set correctly if needed
-
 Common integration test fixes:
 
 ```bash
-# Set GitHub token for packages access
-export GITHUB_TOKEN=your_personal_access_token
-
-# Set KUBECONFIG if needed (example for minikube)
-export KUBECONFIG=/path/to/your/kubeconfig
-
 # Check if services are accessible
 kubectl get services -n <namespace>
 
-# Test GitHub Packages access
+# Test Maven dependency resolution
 mvn dependency:resolve -U
 
 # Run tests for individual service (example)
 cd mesh-test-service-spring
-mvn clean install -P integration-test -DskipIT=false -Dclouds.cloud.name=minikube -Dclouds.cloud.namespaces.namespace=core
+mvn clean verify -P integration-test -DskipIT=false -Dclouds.cloud.name=minikube -Dclouds.cloud.namespaces.namespace=core
 ```

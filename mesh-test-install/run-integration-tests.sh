@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/bin/bash
 
 # Integration tests runner script
 # Runs integration tests sequentially for all mesh test services
@@ -65,62 +65,18 @@ check_maven() {
     
     # Check if GitHub Packages access is configured
     echo "Checking GitHub Packages access..."
-    
-    # Check if GITHUB_TOKEN is set
-    if [[ -z "$GITHUB_TOKEN" ]]; then
-        echo "Warning: GITHUB_TOKEN environment variable is not set."
-        echo "This may be required for accessing GitHub Packages at https://maven.pkg.github.com/"
+    echo "Attempting to fetch test dependency from GitHub Packages..."
+    local group_id="com.netcracker.cloud.junit.cloudcore"
+    local artifact_id="cloud-core-extension"
+    local version="8.0.0"
+    if ! mvn dependency:get \
+        -DremoteRepositories=github::default::https://maven.pkg.github.com/netcracker/qubership-core-junit-k8s-extension \
+        -Dartifact=$group_id:$artifact_id:$version:pom
+    then
+        echo "Error: Unable to access GitHub Packages. Please check your Maven settings and credentials."
+        exit 1
     fi
-    
-    # Check Maven settings for GitHub authentication
-    local maven_settings_file=""
-    if [[ -f "$HOME/.m2/settings.xml" ]]; then
-        maven_settings_file="$HOME/.m2/settings.xml"
-    elif [[ -f "${M2_HOME}/conf/settings.xml" ]]; then
-        maven_settings_file="${M2_HOME}/conf/settings.xml"
-    fi
-    
-    local github_server_configured=false
-    if [[ -n "$maven_settings_file" ]] && [[ -f "$maven_settings_file" ]]; then
-        if grep -q "maven.pkg.github.com\|github" "$maven_settings_file" 2>/dev/null; then
-            github_server_configured=true
-            echo "✅ GitHub server configuration found in Maven settings"
-        fi
-    fi
-    
-    if [[ "$github_server_configured" == false ]] && [[ -z "$GITHUB_TOKEN" ]]; then
-        echo ""
-        echo "❌ GitHub Packages access may not be properly configured!"
-        echo ""
-        echo "This project requires access to GitHub Packages at https://maven.pkg.github.com/"
-        echo "Please configure authentication using ONE of these methods:"
-        echo ""
-        echo "Method 1: Environment Variable"
-        echo "  export GITHUB_TOKEN=your_personal_access_token"
-        echo ""
-        echo "Method 2: Maven Settings (~/.m2/settings.xml)"
-        echo "  <servers>"
-        echo "    <server>"
-        echo "      <id>github</id>"
-        echo "      <username>your-github-username</username>"
-        echo "      <password>your_personal_access_token</password>"
-        echo "    </server>"
-        echo "  </servers>"
-        echo ""
-        echo "Personal Access Token requirements:"
-        echo "  - Scope: 'read:packages'"
-        echo "  - Create at: https://github.com/settings/tokens"
-        echo ""
-        echo "Continue anyway? (y/N)"
-        read -r response
-        if [[ ! "$response" =~ ^[Yy]$ ]]; then
-            echo "Aborting. Please configure GitHub Packages access first."
-            exit 1
-        fi
-        echo "⚠️  Proceeding without confirmed GitHub Packages access..."
-    else
-        echo "✅ GitHub Packages access appears to be configured"
-    fi
+    echo "✅ GitHub Packages access verified"
 }
 
 # Function to extract test results from surefire reports
@@ -228,7 +184,7 @@ run_integration_tests() {
     
     echo "Running Maven integration tests..."
     local maven_exit_code=0
-    mvn clean install -P integration-test \
+    mvn clean verify -P integration-test \
         -DskipIT=false \
         -Dclouds.cloud.name="$KUBE_CONTEXT" \
         -Dclouds.cloud.namespaces.namespace="$NAMESPACE" \
