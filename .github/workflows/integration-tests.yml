@@ -50,13 +50,13 @@ jobs:
 
       - name: Aggregate Surefire reports
         run: |
-          for module in $(find . -maxdepth 1 -type d ! -name . ! -name report); do
-            if [ -d "$module/target/surefire-reports" ] || [ -d "$module/target/reports" ]; then
-              modname=$(basename "$module")
-              echo "Found test reports for $modname"
-              mkdir -p artifacts/$modname
-              cp -r $module/target/surefire-reports artifacts/$modname/ 2>/dev/null
-              cp -r $module/target/reports artifacts/$modname/ 2>/dev/null
+          for module in $(find . -type d -path "*/target/surefire-reports" | sed -E 's#/target/surefire-reports##' | sort -u); do
+            modname=$(basename "$module")
+            echo "Found test reports for $modname"
+            mkdir -p artifacts/$modname
+            cp -r "$module/target/surefire-reports" artifacts/$modname/ || true
+            if [ -d "$module/target/reports" ]; then
+              cp -r "$module/target/reports" artifacts/$modname/ || true
             fi
           done
 
