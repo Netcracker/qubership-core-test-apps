@@ -7,8 +7,6 @@ on:
 
 jobs:
   integration-tests:
-    permissions:
-      packages: read
     runs-on: ubuntu-latest
 
     steps:
@@ -49,78 +47,22 @@ jobs:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-
-      - name: Update report history
+      - name: Aggregate Surefire reports
+        if: always()
         run: |
-          today=$(date +%Y-%m-%d)
-          mkdir -p report/reports/$today
-
-          successes=0
-          failures=0
-
-          # Loop over each module (assuming multi-module Maven with subdirs)
           for module in $(find . -maxdepth 1 -type d ! -name . ! -name report); do
-            if [ -d "$module/target/surefire-reports" ]; then
-              name=$(basename "$module")
-              mkdir -p report/reports/$today/$name
-              cp -r $module/target/reports/* report/reports/$today/$name/ || true
-              if [ -f "$module/target/reports/surefire.html" ]; then
-                cp "$module/target/reports/surefire.html" report/reports/$today/$name/index.html
-              fi
-
-              # Parse test results
-              mod_succ=0
-              mod_fail=0
-              for f in $module/target/surefire-reports/TEST-*.xml; do
-                line=$(grep -o '<testsuite[^>]*>' "$f" | head -n1 || true)
-                tests=$(echo "$line" | sed -n 's/.*tests="\([0-9]\+\)".*/\1/p')
-                fails=$(echo "$line" | sed -n 's/.*failures="\([0-9]\+\)".*/\1/p')
-                errs=$(echo "$line" | sed -n 's/.*errors="\([0-9]\+\)".*/\1/p')
-                tests=${tests:-0}; fails=${fails:-0}; errs=${errs:-0}
-                mod_succ=$((mod_succ + tests - fails - errs))
-                mod_fail=$((mod_fail + fails + errs))
-              done
-
-              successes=$((successes + mod_succ))
-              failures=$((failures + mod_fail))
-
-              # Update JSON per project
-              url="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/history.json"
-              if [ ! -f report/history.json ]; then
-                if curl -s -f -o report/history.json "$url"; then
-                  echo "Loaded existing history.json"
-                else
-                  echo "{}" > report/history.json
-                fi
-              fi
-
-              jq --arg date "$today" \
-                 --arg proj "$name" \
-                 --arg succ "$mod_succ" \
-                 --arg fail "$mod_fail" \
-                 --arg p "reports/$today/$name/" \
-                 '.[$date][$proj] = {successes: ($succ|tonumber), failures: ($fail|tonumber), path: $p}' \
-                 report/history.json > report/tmp.json && mv report/tmp.json report/history.json
+            if [ -d "$module/target/surefire-reports" ] || [ -d "$module/target/reports" ]; then
+              modname=$(basename "$module")
+              echo "Found test reports for $modname"
+              mkdir -p artifacts/$modname
+              cp -r $module/target/surefire-reports artifacts/$modname/ 2>/dev/null
+              cp -r $module/target/reports artifacts/$modname/ 2>/dev/null
             fi
           done
 
-          # Cleanup older than 7 days
-          for d in $(ls report/reports | grep -E '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'); do
-            if [ "$(date -d "$d" +%s)" -lt "$(date -d '7 days ago' +%s)" ]; then
-              rm -rf "report/reports/$d"
-              jq "del(.\"$d\")" report/history.json > report/tmp.json && mv report/tmp.json report/history.json
-            fi
-          done
-
-          cp integration-tests-report/report-template.html report/index.html
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Upload Surefire reports
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          path: './report'
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          name: surefire-reports
+          path: artifacts/*
