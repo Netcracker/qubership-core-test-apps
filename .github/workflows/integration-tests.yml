@@ -43,7 +43,7 @@ jobs:
           helm dependency build
           cd -
           ./mesh-test-install/mesh-test-apps.sh install core chore-initial-snapshot
-          ./mesh-test-install/run-integration-tests.sh kind-kind core kind-control-plane:172.18.0.2
+          ./mesh-test-install/run-integration-tests.sh kind-kind core kind-control-plane:10.244.0.1
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
