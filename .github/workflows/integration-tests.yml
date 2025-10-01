@@ -40,5 +40,6 @@ jobs:
 
       - name: Run integration tests
         run: |
+          env
           cat ~/.m2/settings.xml
           ./mesh-test-install/run-integration-tests.sh kind-kind core kind-control-plane:172.18.0.2
