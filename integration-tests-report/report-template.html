@@ -7,14 +7,86 @@
     <title>Daily Integration Tests Report</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: sans-serif; padding: 20px; background: #f7f9fc; }
-        h1 { text-align: center; }
-        table { width: 95%; margin: 20px auto; border-collapse: collapse; }
-        th, td { padding: 8px 12px; text-align: center; border: 1px solid #ddd; }
-        th { background: #4f46e5; color: white; }
-        .success { background: #16a34a; color: white; }
-        .failure { background: #dc2626; color: white; }
-        canvas { display: block; margin: 40px auto; }
+        body {
+            font-family: 'Inter', sans-serif;
+            padding: 20px;
+            background: linear-gradient(to bottom right, #f0f4f8, #e2e8f0);
+            color: #333;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            color: #4f46e5;
+        }
+
+        table {
+            width: 95%;
+            margin: 20px auto;
+            border-collapse: separate;
+            border-spacing: 0;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            background: white;
+        }
+
+        th, td {
+            padding: 12px 16px;
+            text-align: center;
+        }
+
+        th {
+            background: #4f46e5;
+            color: white;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        tr:nth-child(even) td {
+            background: #f7f9fc;
+        }
+
+        tr:hover td {
+            background: #e0e7ff;
+            transition: background 0.3s;
+        }
+
+        .success-cell {
+            background: #16a34a;
+            color: white;
+            font-weight: 500;
+            border-radius: 6px;
+            padding: 6px;
+        }
+
+        .failure-cell {
+            background: #dc2626;
+            color: white;
+            font-weight: 500;
+            border-radius: 6px;
+            padding: 6px;
+        }
+
+        a .success-cell, a .failure-cell {
+            color: white;
+            text-decoration: none;
+            display: inline-block;
+            width: 100%;
+        }
+
+        canvas {
+            display: block;
+            margin: 40px auto;
+            max-width: 95%;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            padding: 20px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -25,105 +97,147 @@
 <table id="reportTable"></table>
 
 <script>
-    fetch('history.json')
-      .then(res => res.json())
-      .then(data => {
-        const table = document.getElementById('reportTable');
-        const labels = [];
-        const passedData = {};
-        const failedData = {};
+    document.addEventListener('DOMContentLoaded', () => {
+        fetch('history.json')
+          .then(res => res.json())
+          .then(data => {
+            const table = document.getElementById('reportTable');
+            const dates = [];
+            const passedData = {};
+            const failedData = {};
+            const barLinks = {};
 
-        // Collect all project names
-        const projects = new Set();
-        Object.values(data).forEach(dayEntry => {
-          Object.keys(dayEntry).forEach(p => projects.add(p));
-        });
-        const projectList = [...projects].sort();
+            const projects = new Set();
+            Object.values(data).forEach(dayEntry => Object.keys(dayEntry).forEach(p => projects.add(p)));
+            const projectList = [...projects].sort();
 
-        // Build header
-        const header = document.createElement('tr');
-        header.innerHTML = '<th>Date</th>' + projectList.map(p => `<th>${p}</th>`).join('');
-        table.appendChild(header);
-
-        // Prepare last 7 days
-        const days = [];
-        for (let i = 6; i >= 0; i--) {
-          const d = new Date();
-          d.setUTCDate(d.getUTCDate() - i);
-          days.push(d.toISOString().slice(0, 10));
-        }
-
-        const today = new Date().toISOString().slice(0, 10);
-
-        // Init dataset
-        projectList.forEach(p => {
-          passedData[p] = [];
-          failedData[p] = [];
-        });
-
-        days.forEach(day => {
-          const row = document.createElement('tr');
-          row.innerHTML = `<td>${day}</td>`;
-          labels.push(day);
-
-          projectList.forEach(project => {
-            const cell = document.createElement('td');
-            const entry = data[day] && data[day][project];
-            if (entry) {
-              const txt = entry.failures > 0 ? 'Failure' : 'Success';
-              const cls = entry.failures > 0 ? 'failure' : 'success';
-
-              const link = document.createElement('a');
-              link.href = entry.path + 'index.html';
-              link.target = '_blank';
-              link.textContent = txt;
-              link.className = cls;
-              cell.appendChild(link);
-
-              passedData[project].push(entry.successes);
-              failedData[project].push(entry.failures);
-            } else {
-              cell.textContent = '-';
-              passedData[project].push(0);
-              failedData[project].push(0);
+            for (let i = 6; i >= 0; i--) {
+              const d = new Date();
+              d.setUTCDate(d.getUTCDate() - i);
+              dates.push(d.toISOString().slice(0, 10));
             }
-            row.appendChild(cell);
-          });
-          table.appendChild(row);
-        });
 
-        // Build multi-project chart (stacked bar)
-        const datasets = [];
-        projectList.forEach(project => {
-          datasets.push({
-            label: project + ' Passed',
-            data: passedData[project],
-            backgroundColor: '#16a34a',
-            stack: project
-          });
-          datasets.push({
-            label: project + ' Failed',
-            data: failedData[project],
-            backgroundColor: '#dc2626',
-            stack: project
-          });
-        });
+            dates.reverse(); // newest first
+            const today = new Date().toISOString().slice(0, 10);
 
-        const ctx = document.getElementById('weeklyChart').getContext('2d');
-        new Chart(ctx, {
-          type: 'bar',
-          data: { labels: labels, datasets: datasets },
-          options: {
-            responsive: true,
-            plugins: {
-              legend: { display: false },
-              title: { display: true, text: 'Tests Passed vs Failed (Last 7 Days, per project)' }
-            },
-            scales: { y: { beginAtZero: true, precision:0 } }
-          }
-        });
-      })
-      .catch(err => console.error('Failed to load history.json', err));
+            projectList.forEach(p => {
+              passedData[p] = [];
+              failedData[p] = [];
+              barLinks[p] = { passed: [], failed: [] };
+            });
+
+            // Table header with ⚠️ if any project failed
+            const header = document.createElement('tr');
+            const headerHtml = ['<th>Project</th>'];
+            dates.forEach(day => {
+                let dayFailed = false;
+                projectList.forEach(project => {
+                    const entry = data[day] && data[day][project];
+                    if (entry && entry.failures > 0) dayFailed = true;
+                });
+                const warning = dayFailed ? ' ⚠️' : '';
+                headerHtml.push(`<th>${day}${warning}</th>`);
+            });
+            header.innerHTML = headerHtml.join('');
+            table.appendChild(header);
+
+            projectList.forEach(project => {
+              const row = document.createElement('tr');
+              row.innerHTML = `<td>${project}</td>`;
+
+              dates.forEach(day => {
+                const cell = document.createElement('td');
+                const entry = data[day] && data[day][project];
+
+                if (entry) {
+                  const successes = entry.successes;
+                  const failures = entry.failures;
+                  const cls = failures > 0 ? 'failure-cell' : 'success-cell';
+                  const text = `✔️ ${successes} / ⚠️ ${failures}`;
+
+                  if (day === today) {
+                    const link = document.createElement('a');
+                    link.href = entry.path + 'index.html';
+                    link.target = '_blank';
+                    const span = document.createElement('span');
+                    span.className = cls;
+                    span.textContent = text;
+                    link.appendChild(span);
+                    cell.appendChild(link);
+                  } else {
+                    const span = document.createElement('span');
+                    span.className = cls;
+                    span.textContent = text;
+                    cell.appendChild(span);
+                  }
+
+                  passedData[project].push(successes);
+                  failedData[project].push(failures);
+                  barLinks[project].passed.push(entry.path + 'index.html');
+                  barLinks[project].failed.push(entry.path + 'index.html');
+                } else {
+                  cell.textContent = '-';
+                  passedData[project].push(0);
+                  failedData[project].push(0);
+                  barLinks[project].passed.push(null);
+                  barLinks[project].failed.push(null);
+                }
+
+                row.appendChild(cell);
+              });
+
+              table.appendChild(row);
+            });
+
+            // Chart datasets
+            const datasets = [];
+            projectList.forEach(project => {
+              datasets.push({
+                label: project + ' Passed',
+                data: passedData[project],
+                backgroundColor: '#16a34a',
+                stack: project,
+                custom: { links: barLinks[project].passed }
+              });
+              datasets.push({
+                label: project + ' Failed',
+                data: failedData[project],
+                backgroundColor: '#dc2626',
+                stack: project,
+                custom: { links: barLinks[project].failed }
+              });
+            });
+
+            const ctx = document.getElementById('weeklyChart').getContext('2d');
+            const weeklyChart = new Chart(ctx, {
+              type: 'bar',
+              data: { labels: dates, datasets: datasets },
+              options: {
+                responsive: true,
+                plugins: {
+                  legend: { display: false },
+                  title: { display: true, text: 'Tests Passed vs Failed (Last 7 Days, per project)', font: { size: 18, weight: '600' } }
+                },
+                scales: { y: { beginAtZero: true, precision: 0, ticks: {precision: 0} } },
+                onClick: (evt, elements) => {
+                  if (!elements.length) return;
+                  const element = elements[0];
+                  const datasetIndex = element.datasetIndex;
+                  const dataIndex = element.index;
+                  const link = weeklyChart.data.datasets[datasetIndex].custom.links[dataIndex];
+                  if (link) window.open(link, '_blank');
+                },
+                hover: {
+                  onHover: (evt, elements) => {
+                    evt.native.target.style.cursor = elements[0] ? 'pointer' : 'default';
+                  }
+                }
+              }
+            });
+
+          })
+          .catch(err => console.error('Failed to load history.json', err));
+    });
 </script>
 </body>
 </html>
