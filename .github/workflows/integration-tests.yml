@@ -42,9 +42,6 @@ jobs:
       - name: Run integration tests
         continue-on-error: true
         run: |
-          cd mesh-test-service-spring/helm-templates/mesh-test-service-spring
-          helm dependency build
-          cd -
           ./mesh-test-install/mesh-test-apps.sh install core chore-initial-snapshot
           ./mesh-test-install/run-integration-tests.sh kind-kind core kind-control-plane:10.244.0.1
         env:
