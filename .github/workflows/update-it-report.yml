@@ -80,6 +80,10 @@ jobs:
                report/history.json > report/tmp.json && mv report/tmp.json report/history.json
           done
           
+          cutoff=$(date -d "7 days ago" +%Y-%m-%d)
+          jq --arg cutoff "$cutoff" 'with_entries(select(.key > $cutoff))' \
+          report/history.json > report/tmp.json && mv report/tmp.json report/history.json
+          
           cp integration-tests-report/report-template.html report/index.html
 
       - name: Setup Pages
