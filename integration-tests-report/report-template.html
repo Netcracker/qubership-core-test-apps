@@ -145,7 +145,7 @@
               const row = document.createElement('tr');
               row.innerHTML = `<td>${project}</td>`;
 
-              dates.forEach(day => {
+              dates.forEach((day, idx) => {
                 const cell = document.createElement('td');
                 const entry = data[day] && data[day][project];
 
@@ -173,8 +173,14 @@
 
                   passedData[project].push(successes);
                   failedData[project].push(failures);
-                  barLinks[project].passed.push(entry.path + 'index.html');
-                  barLinks[project].failed.push(entry.path + 'index.html');
+
+                  if (idx === dates.length - 1) {
+                    barLinks[project].passed.push(entry.path + 'index.html');
+                    barLinks[project].failed.push(entry.path + 'index.html');
+                  } else {
+                    barLinks[project].passed.push(null);
+                    barLinks[project].failed.push(null);
+                  }
                 } else {
                   cell.textContent = '-';
                   passedData[project].push(0);
