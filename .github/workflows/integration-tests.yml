@@ -1,9 +1,9 @@
 name: Run integration tests
 
 on:
-  schedule:
-    - cron: "0 1 * * *"
-  workflow_dispatch:
+  push: #TODO for test purpose. change to main only
+  pull_request:
+    branches: [ main ]
 
 jobs:
   integration-tests:
