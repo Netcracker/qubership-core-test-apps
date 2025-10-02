@@ -13,6 +13,7 @@ This directory contains bash scripts to manage the mesh test services:
 ### For Integration Tests (run-integration-tests.sh)
 - [Maven](https://maven.apache.org/install.html) must be installed
 - Access to a Kubernetes cluster with deployed services
+- Internet connectivity to GitHub Packages (maven.pkg.github.com) - automatically checked by script
 
 
 ## Usage
@@ -120,6 +121,7 @@ The integration tests are executed sequentially in this order:
 - **Node IP Mapping**: Required third argument - Node IP mapping for tests
 - **Test Execution**: Sequential execution with fail-fast behavior
 - **Maven Profiles**: Uses 'integration-test' profile with skipIT=false
+- **Connectivity Check**: Automatically verifies GitHub Packages access before running tests
 
 ## Verification
 
