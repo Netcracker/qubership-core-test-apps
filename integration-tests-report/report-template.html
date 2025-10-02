@@ -174,7 +174,7 @@
                   passedData[project].push(successes);
                   failedData[project].push(failures);
 
-                  if (idx === dates.length - 1) {
+                  if (day === today) {
                     barLinks[project].passed.push(entry.path + 'index.html');
                     barLinks[project].failed.push(entry.path + 'index.html');
                   } else {
