@@ -91,17 +91,14 @@ install_helm_package() {
         exit 1
     fi
     
-    # Update helm dependencies if Chart.lock exists
-    if [ -f "$chart_path/Chart.lock" ]; then
-        echo "Updating helm dependencies for $service_name..."
-        helm dependency update "$chart_path"
-    fi
+    # Update helm dependencies
+    echo "Updating helm dependencies for $service_name..."
+    helm dependency update "$chart_path"
     
     # Install or upgrade the helm chart
     echo "Installing/upgrading $service_name with tag: $TAG..."
     helm upgrade --install "$service_name" "$chart_path" \
         --namespace "$namespace" \
-        --create-namespace \
         --set TAG="$TAG" \
         --wait \
         --timeout=300s
