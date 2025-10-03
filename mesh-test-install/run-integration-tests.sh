@@ -13,7 +13,7 @@ show_usage() {
     echo "Arguments (all required):"
     echo "  kube-context      Kubernetes context for tests"
     echo "  namespace         Kubernetes namespace"
-    echo "  node-ip-mapping   Node IP mapping"
+    echo "  node-ip-mapping   Node IP mapping (use node ip that belongs to pods network)"
     echo ""
     echo "Examples:"
     echo "  $0 minikube core minikube:10.244.0.1"

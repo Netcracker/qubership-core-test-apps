@@ -78,6 +78,8 @@ Or with bash directly:
 bash run-integration-tests.sh minikube core minikube:10.244.0.1
 ```
 
+**Note**: use node ip that belongs to pod's network
+
 Show help:
 
 ```bash
