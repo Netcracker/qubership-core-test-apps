@@ -1,0 +1,100 @@
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+    name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
+    labels:
+        name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
+        app.kubernetes.io/instance: '{{ cat .Values.SERVICE "-" .Release.Namespace | nospace | trunc 63 }}'
+        app.kubernetes.io/part-of: 'mesh-test-app'
+    annotations:
+        qubership.cloud/start.stage: '2'
+spec:
+    selector:
+        matchLabels:
+            name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
+    replicas: {{ .Values.REPLICAS }}
+    revisionHistoryLimit: {{ .Values.RC_REVISIONS }}
+    strategy:
+        type: RollingUpdate
+        rollingUpdate:
+            maxUnavailable: 25%
+            maxSurge: 25%
+    template:
+        metadata:
+            labels:
+                name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
+                app.kubernetes.io/instance: '{{ cat .Values.SERVICE "-" .Release.Namespace | nospace | trunc 63 }}'
+                app.kubernetes.io/part-of: 'mesh-test-app'
+        spec:
+            containers:
+                - name: "{{ .Values.SERVICE }}"
+                  image: "{{ .Values.IMAGE_REPOSITORY}}:{{ .Values.TAG }}"
+                  imagePullPolicy: IfNotPresent
+                  ports:
+                      - name: web
+                        containerPort: 8080
+                        protocol: TCP
+                  env:
+                      - name: CONFIG_SERVER
+                        value: http://config-server:8080
+                      - name: CLOUD_NAMESPACE
+                        valueFrom:
+                          fieldRef:
+                            fieldPath: metadata.namespace
+                      - name: MICROSERVICE_NAMESPACE
+                        valueFrom:
+                          fieldRef:
+                            fieldPath: metadata.namespace
+                      - name: MICROSERVICE_NAME
+                        value: "{{ .Values.SERVICE }}"
+                      - name: CLOUD_SERVICE_NAME
+                        value: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
+                      - name: DEPLOYMENT_VERSION
+                        value: "{{ .Values.DEPLOYMENT_VERSION }}"
+                      - name: TRACING_ENABLED
+                        value: '{{ .Values.TRACING_ENABLED }}'
+                      - name: TRACING_HOST
+                        value: '{{ .Values.TRACING_HOST }}'
+                      - name: NC_DIAGNOSTIC_MODE
+                        value: '{{ .Values.NC_DIAGNOSTIC_MODE }}'
+                      - name: NC_DIAGNOSTIC_AGENT_SERVICE
+                        value: '{{ .Values.NC_DIAGNOSTIC_AGENT_SERVICE }}'
+                      - name: HOSTNAME
+                        valueFrom:
+                          fieldRef:
+                            apiVersion: v1
+                            fieldPath: metadata.name
+                  resources:
+                      requests:
+                          cpu: "{{ .Values.CPU_REQUEST }}"
+                          memory: "{{ .Values.MEMORY_REQUEST }}"
+                      limits:
+                          cpu: "{{ .Values.CPU_LIMIT }}"
+                          memory: "{{ .Values.MEMORY_LIMIT }}"
+                  livenessProbe:
+                    httpGet:
+                      path: /probes/live
+                      port: web
+                      scheme: HTTP
+                    initialDelaySeconds: 120
+                    timeoutSeconds: 15
+                  readinessProbe:
+                    httpGet:
+                      path: /probes/live
+                      port: web
+                      scheme: HTTP
+                    initialDelaySeconds: 60
+                    timeoutSeconds: 15
+            affinity:
+                podAntiAffinity:
+                    preferredDuringSchedulingIgnoredDuringExecution:
+                        - weight: 100
+                          podAffinityTerm:
+                              labelSelector:
+                                  matchExpressions:
+                                      - key: name
+                                        operator: In
+                                        values:
+                                            - "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
+                              topologyKey: kubernetes.io/hostname

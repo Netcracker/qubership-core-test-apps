@@ -1,0 +1,15 @@
+---
+apiVersion: core.qubership.org/v1
+kind: BlueGreen
+subKind: BGOperatorPlugin
+metadata:
+  name: plugin-cloud-{{namespace}} # must contain plugin namespace to avoid collisions
+  namespace: {{controller-namespace}}
+  labels:
+    app.kubernetes.io/managed-by: operator
+    app.kubernetes.io/part-of: "bg-plugin-example"
+    app.kubernetes.io/processed-by-operator: "bg-operator"
+spec:
+  api:
+    url: http://bg-operator-plugin-example.{{namespace}}:8080 # required; API is accessed by bg-operator via http://bg-operator-plugin-example.${PLUGIN_NAMESPACE}:8080/api/bluegreen/v1
+  processPhase: afterRoutingUpdate # required; phase of bluegreen operation in which plugin should be called by bg-operator

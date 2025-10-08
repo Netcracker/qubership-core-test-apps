@@ -1,0 +1,226 @@
+---
+apiVersion: core.qubership.org/v1
+kind: Mesh
+subKind: RouteConfiguration
+metadata:
+  name: mesh-test-service-spring-public-routes
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
+    app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
+    deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
+spec:
+  gateways: ["public-gateway-service"]
+  virtualServices:
+    - name: public-gateway-service
+      hosts: ["*"]
+      routeConfiguration:
+        version: "{{ .Values.DEPLOYMENT_VERSION }}"
+        routes:
+          - destination:
+              cluster: "{{ .Values.SERVICE }}"
+              endpoint: http://{{ .Values.DEPLOYMENT_RESOURCE_NAME }}:8080
+            rules:
+              - match:
+                  prefix: /api/v1/mesh-test-service-spring/declarative_hello
+                allowed: true
+                prefixRewrite: /api/v1/declarative_hello
+---
+apiVersion: core.qubership.org/v1
+kind: Mesh
+subKind: RouteConfiguration
+metadata:
+  name: mesh-test-service-spring-facade-routes
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
+    app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
+    deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
+spec:
+  gateways: ["mesh-test-service-spring"]
+  virtualServices:
+    - name: "{{ .Values.SERVICE }}"
+      hosts: ["*"]
+      routeConfiguration:
+        version: "{{ .Values.DEPLOYMENT_VERSION }}"
+        routes:
+          - destination:
+              cluster: "{{ .Values.SERVICE }}"
+              endpoint: http://{{ .Values.DEPLOYMENT_RESOURCE_NAME }}:8080
+            rules:
+              - match:
+                  prefix: /api/v1/mesh-test-service-spring/declarative_hello
+                allowed: true
+                prefixRewrite: /api/v1/declarative_hello
+              - match:
+                  prefix: /api/v1/mesh-test-service-spring/hello
+                allowed: true
+                prefixRewrite: /api/v1/hello
+---
+apiVersion: core.qubership.org/v1
+kind: Mesh
+subKind: RouteConfiguration
+metadata:
+  name: mesh-test-app-gateway-spring-routes
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
+    app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
+    deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
+spec:
+  gateways: [ "mesh-test-app-gateway"]
+  listenerPort: 8080
+  virtualServices:
+    - name: "{{ .Values.SERVICE }}"
+      hosts: ["{{ .Values.SERVICE }}"]
+      routeConfiguration:
+        version: "{{ .Values.DEPLOYMENT_VERSION }}"
+        routes:
+          - destination:
+              cluster: "{{ .Values.SERVICE }}"
+              endpoint: http://{{ .Values.DEPLOYMENT_RESOURCE_NAME }}:8080
+              circuitBreaker:
+                threshold:
+                  maxConnections: 2
+            rules:
+              - match:
+                  prefix: /api/v1/mesh-test-service-spring/hello
+                allowed: true
+                prefixRewrite: /api/v1/hello
+              - match:
+                  prefix: /api/v1/mesh-test-service-spring/declarative_hello
+                allowed: true
+                prefixRewrite: /api/v1/declarative_hello
+              - match:
+                  prefix: /api/v1/mesh-test-service-spring/egress
+                allowed: true
+                prefixRewrite: /api/v1/egress
+              - match:
+                  prefix: /api/v1/mesh-test-service-spring/sleep
+                allowed: true
+                prefixRewrite: /api/v1/sleep
+---
+apiVersion: core.qubership.org/v1
+kind: Mesh
+subKind: RouteConfiguration
+metadata:
+  name: egress-routes-spring-control-plane-routes
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
+    app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
+    deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
+spec:
+  gateways: ["egress-gateway"]
+  virtualServices:
+    - name: egress-gw
+      removeHeaders: ["Origin"]
+      routeConfiguration:
+        routes:
+          - destination:
+              cluster: control-plane
+              endpoint: http://control-plane:8080
+            rules:
+              - match:
+                  prefix: /api/v3/control-plane/versions/registry
+                allowed: true
+                prefixRewrite: /api/v3/versions/registry
+---
+apiVersion: core.qubership.org/v1
+kind: Mesh
+subKind: RouteConfiguration
+metadata:
+  name: egress-routes-spring
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
+    app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
+    deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
+spec:
+  gateways: ["egress-gateway"]
+  virtualServices:
+    - name: egress-gw
+      removeHeaders: ["Origin"]
+      routeConfiguration:
+        version: "{{ .Values.DEPLOYMENT_VERSION }}"
+        routes:
+          - destination:
+              cluster: "{{ .Values.SERVICE }}"
+              endpoint: http://{{ .Values.DEPLOYMENT_RESOURCE_NAME }}:8080
+              circuitBreaker:
+                threshold:
+                  maxConnections: 2
+            rules:
+              - match:
+                  prefix: /api/v1/mesh-test-service-spring/sleep
+                allowed: true
+                prefixRewrite: /api/v1/sleep
+---
+apiVersion: core.qubership.org/v1
+kind: Mesh
+subKind: RouteConfiguration
+metadata:
+  name: test-ingress-gateway-spring-routes
+
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
+    app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
+    deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
+spec:
+  gateways: [ "test-ingress-gateway" ]
+  virtualServices:
+    - name: test-ingress-gw
+      removeHeaders: ["Origin"]
+      routeConfiguration:
+        routes:
+          - destination:
+              cluster: "public-gateway-service"
+              endpoint: http://public-gateway-service:8080
+            rules:
+              - match:
+                  prefix: /api/v1/mesh-test-service-spring/hello
+                allowed: true
+              - match:
+                  prefix: /api/v1/mesh-test-service-spring/declarative_hello
+                allowed: true
+              - match:
+                  prefix: /api/v1/mesh-test-service-spring/egress
+                allowed: true
+              - match:
+                  prefix: /api/v1/mesh-test-service-spring/sleep
+                allowed: true
+---
+apiVersion: core.qubership.org/v1
+kind: Mesh
+subKind: RouteConfiguration
+metadata:
+  name: test-ingress-gateway-2-spring-routes
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
+    app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
+    deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
+spec:
+  gateways: [ "test-ingress-gateway-2" ]
+  virtualServices:
+    - name: test-ingress-gw2
+      removeHeaders: ["Origin"]
+      routeConfiguration:
+        routes:
+          - destination:
+              cluster: "public-gateway-service"
+              endpoint: http://public-gateway-service:8080
+            rules:
+              - match:
+                  prefix: /api/v1/mesh-test-service-spring/hello
+                allowed: true
+              - match:
+                  prefix: /api/v1/mesh-test-service-spring/declarative_hello
+                allowed: true
+              - match:
+                  prefix: /api/v1/mesh-test-service-spring/egress
+                allowed: true
+              - match:
+                  prefix: /api/v1/mesh-test-service-spring/sleep
+                allowed: true

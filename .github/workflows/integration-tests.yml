@@ -1,7 +1,10 @@
 name: Run integration tests
 
 on:
-  push: #TODO for test purpose. change to main only
+  workflow_call:
+  workflow_dispatch:
+  push:
+    branches: [main]
   pull_request:
     branches: [ main ]
 
@@ -21,6 +24,12 @@ jobs:
       - name: Set up kubectl
         uses: azure/setup-kubectl@v4
 
+      - name: Set up JDK 21
+        uses: actions/setup-java@v3
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
       - name: Checkout cloud core bootstrap repo
         uses: actions/checkout@v4
         with:
@@ -31,9 +40,28 @@ jobs:
         run: make -C core-bootstrap-repo/cloud-core-local-dev/ install
 
       - name: Run integration tests
+        continue-on-error: true
         run: |
-          echo "Running tests..."
-          kubectl cluster-info --context kind-kind
-          kubectl get nodes
-          kubectl get pods -A
-          free -h
+          ./mesh-test-install/mesh-test-apps.sh install core chore-initial-snapshot
+          ./mesh-test-install/run-integration-tests.sh kind-kind core kind-control-plane:10.244.0.1
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Aggregate Surefire reports
+        run: |
+          for module in $(find . -type d -path "*/target/surefire-reports" | sed -E 's#/target/surefire-reports##' | sort -u); do
+            modname=$(basename "$module")
+            echo "Found test reports for $modname"
+            mkdir -p artifacts/$modname
+            cp -r "$module/target/surefire-reports" artifacts/$modname/ || true
+            if [ -d "$module/target/reports" ]; then
+              cp -r "$module/target/reports" artifacts/$modname/ || true
+            fi
+          done
+
+      - name: Upload Surefire reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: artifacts/*

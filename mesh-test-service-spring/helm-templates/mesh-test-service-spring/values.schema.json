@@ -1,0 +1,149 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "$id": "http://example.com/example.json",
+  "type": "object",
+  "title": "The test-service-spring schema",
+  "description": "The JSON schema for test-service-spring.",
+  "default": {},
+  "examples": [
+    {
+      "PAAS_PLATFORM": "KUBERNETES",
+      "ALLOWED_HEADERS": "",
+      "API_DBAAS_ADDRESS": "http://dbaas-aggregator.dbaas:8080",
+      "CPU_REQUEST": "100m",
+      "CPU_LIMIT": "4",
+      "CUSTOM_HOST": "",
+      "GLOWROOT_CLUSTER": "glowroot:8181",
+      "IMAGE_REPOSITORY": "",
+      "MEMORY_LIMIT": "808Mi",
+      "PRIVATE_GATEWAY_URL": "",
+      "PUBLIC_GATEWAY_URL": "",
+      "RC_REVISIONS": 3,
+      "REPLICAS": 1,
+      "SERVER_HOSTNAME": "",
+      "TAG": "",
+      "XNIO_IO_THREAD": 14,
+      "XNIO_WORK_THREAD": 112,
+      "X_JAVA_ARGS": "",
+      "MONITORING_INSTALL": false,
+      "CLOUD_TOPOLOGY_KEY": "kubernetes.io/hostname"
+    }
+  ],
+  "properties": {
+    "ALLOWED_HEADERS": {
+      "$id": "#/properties/ALLOWED_HEADERS",
+      "type": "string",
+      "title": "The ALLOWED_HEADERS schema",
+      "description": "headers allowed for forwarding.",
+      "default": "",
+      "examples": [
+        "x-request-id,acceptlanguage"
+      ]
+    },
+    "CPU_REQUEST": {
+      "$id": "#/properties/CPU_REQUEST",
+      "type": "string",
+      "title": "The CPU_REQUEST schema",
+      "internal": true
+    },
+    "CUSTOM_HOST": {
+      "$id": "#/properties/CUSTOM_HOST",
+      "type": "string",
+      "title": "The CUSTOM_HOST schema",
+      "description": "Openshift custom host name.",
+      "default": "",
+      "internal": true
+    },
+    "GLOWROOT_CLUSTER": {
+      "$id": "#/properties/GLOWROOT_CLUSTER",
+      "type": "string",
+      "title": "The GLOWROOT_CLUSTER schema",
+      "description": "Host:Port for central glow root.",
+      "examples": [
+        "glowroot:8181"
+      ]
+    },
+    "IMAGE_REPOSITORY": {
+      "$id": "#/properties/IMAGE_REPOSITORY",
+      "type": "string",
+      "title": "The IMAGE_REPOSITORY schema",
+      "default": "",
+      "internal": true
+    },
+    "PRIVATE_GATEWAY_URL": {
+      "$id": "#/properties/PRIVATE_GATEWAY_URL",
+      "type": "string",
+      "title": "The PRIVATE_GATEWAY_URL schema",
+      "description": "Private gateway url.",
+      "default": ""
+    },
+    "PUBLIC_GATEWAY_URL": {
+      "$id": "#/properties/PUBLIC_GATEWAY_URL",
+      "type": "string",
+      "title": "The PUBLIC_GATEWAY_URL schema",
+      "description": "Public gateway url.",
+      "default": ""
+    },
+    "RC_REVISIONS": {
+      "$id": "#/properties/RC_REVISIONS",
+      "type": "integer",
+      "title": "The RC_REVISIONS schema",
+      "description": "revisionHistoryLimit value for DC.",
+      "internal": true
+    },
+    "REPLICAS": {
+      "$id": "#/properties/REPLICAS",
+      "type": "integer",
+      "title": "The REPLICAS schema",
+      "internal": true
+    },
+    "TAG": {
+      "$id": "#/properties/TAG",
+      "type": "string",
+      "title": "The TAG schema",
+      "default": "",
+      "internal": true
+    },
+    "XNIO_IO_THREAD": {
+      "$id": "#/properties/XNIO_IO_THREAD",
+      "type": "integer",
+      "title": "The XNIO_IO_THREAD schema",
+      "description": "Number of IO threads in Undertow server.",
+      "internal": true
+    },
+    "XNIO_WORK_THREAD": {
+      "$id": "#/properties/XNIO_WORK_THREAD",
+      "type": "integer",
+      "title": "The XNIO_WORK_THREAD schema",
+      "description": "umber of working threads in Undertow server.",
+      "internal": true
+    },
+    "X_JAVA_ARGS": {
+      "$id": "#/properties/X_JAVA_ARGS",
+      "type": "string",
+      "title": "The X_JAVA_ARGS schema",
+      "description": "Additional params to pass to Java process",
+      "default": "",
+      "internal": true
+    },
+    "MONITORING_INSTALL": {
+      "$id": "#/properties/MONITORING_INSTALL",
+      "type": "boolean",
+      "title": "The MONITORING_INSTALL schema",
+      "description": "Flag to install dashboard and podmonitor.",
+      "examples": [
+        false
+      ]
+    },
+    "CLOUD_TOPOLOGY_KEY": {
+      "$id": "#/properties/CLOUD_TOPOLOGY_KEY",
+      "type": "string",
+      "title": "The CLOUD_TOPOLOGY_KEY schema",
+      "description": "Affinity key.",
+      "examples": [
+        "kubernetes.io/hostname"
+      ]
+    }
+  },
+  "additionalProperties": true
+}

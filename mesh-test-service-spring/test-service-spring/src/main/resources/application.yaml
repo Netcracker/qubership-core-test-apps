@@ -1,0 +1,25 @@
+server:
+  address: 0.0.0.0
+  port: 8080
+
+cloud:
+  microservice:
+    name: ${MICROSERVICE_NAME:mesh-test-service-spring}
+    namespace: ${CLOUD_NAMESPACE:unknown}
+    bg_version: ${DEPLOYMENT_VERSION:v1}
+
+policy:
+  update:
+    enabled: true
+
+apigateway:
+  internal:
+    url: http://internal-gateway-service:8080
+  private:
+    url: http://private-gateway-service:8080
+  public:
+    url: http://public-gateway-service:8080
+  url: http://internal-gateway-service:8080
+
+deployment:
+  version: ${DEPLOYMENT_VERSION:v1}

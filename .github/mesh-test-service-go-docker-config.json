@@ -1,0 +1,10 @@
+{
+    "components" : [
+      {
+        "name": "qubership-core-mesh-test-service-go",
+        "file": "./mesh-test-service-go/Dockerfile",
+        "context": "./mesh-test-service-go/"
+      }
+    ],
+    "platforms" : "linux/amd64"
+  }

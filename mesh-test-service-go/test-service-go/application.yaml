@@ -1,0 +1,7 @@
+microservice:
+  name: mesh-test-service-go
+deployment:
+  version: ${DEPLOYMENT_VERSION:v1}
+http:
+  server2:
+    bind: ":1234"

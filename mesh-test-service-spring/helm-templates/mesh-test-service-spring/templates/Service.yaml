@@ -1,0 +1,50 @@
+---
+kind: Service
+apiVersion: v1
+metadata:
+    name: '{{ .Values.DEPLOYMENT_RESOURCE_NAME }}'
+    annotations:
+        qubership.cloud/start.stage: '0'
+    labels:
+        app.kubernetes.io/part-of: 'mesh-test-app'
+spec:
+    ports:
+    -   name: web
+        port: 8080
+        targetPort: 8080
+    selector:
+        name: '{{ .Values.DEPLOYMENT_RESOURCE_NAME }}'
+    {{ if  eq .Values.K8S_SERVICE_TYPE "HEADLESS" }}
+    clusterIP: None
+    {{ end }}
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: 'mesh-test-service-spring-node-port'
+  annotations:
+    qubership.cloud/start.stage: '0'
+    core.qubership.cloud/bg.nodeport-config: >-
+      {
+        "config":{
+          "8082":{
+            "name": "port-tcp",
+            "nodePort": {{ .Values.MESH_TCP_NODE_PORT | default 30036 }},
+            "protocol": "TCP"
+          }
+        },
+        "externalTrafficPolicy": "Local",
+        "externalIPs": [{{ .Values.EXTERNAL_IPS}}]
+      }
+  labels:
+    app.kubernetes.io/part-of: 'mesh-test-app'
+spec:
+  type: NodePort
+  selector:
+    name: mesh-test-service-spring-v1
+  ports:
+    - name: web
+      protocol: TCP
+      port: 8082
+      targetPort: 8082
+      nodePort: 30036

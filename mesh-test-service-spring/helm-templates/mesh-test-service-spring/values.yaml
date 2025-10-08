@@ -1,0 +1,47 @@
+PAAS_PLATFORM: "KUBERNETES"
+# headers allowed for forwarding
+ALLOWED_HEADERS: '' # TO_BE_REPLACED
+CPU_REQUEST: "100m"
+CPU_LIMIT: "1"
+MEMORY_LIMIT: '360Mi'
+# Openshift custom host name
+CUSTOM_HOST: '' # TO_BE_REPLACED
+# Host:Port for central glow root
+GLOWROOT_CLUSTER: "glowroot:8181"
+# Docker repository with images
+IMAGE_REPOSITORY: 'ghcr.io/netcracker/qubership-core-mesh-test-service-spring'
+TAG: 'latest'
+# Service Name. For example: contact-management-backend
+SERVICE: 'mesh-test-service-spring'
+SERVICE_NAME: 'mesh-test-service-spring'
+APPLICATION_NAME: 'mesh-test-app'
+DEPLOYMENT_VERSION: "v1"
+DEPLOYMENT_RESOURCE_NAME: 'mesh-test-service-spring-v1'
+# Private gateway url
+PRIVATE_GATEWAY_URL: '' # TO_BE_REPLACED
+# Public gateway url
+PUBLIC_GATEWAY_URL: '' # TO_BE_REPLACED
+# revisionHistoryLimit value for DC
+RC_REVISIONS: 3
+REPLICAS: 1
+# Openshift server host name
+SERVER_HOSTNAME: '' # TO_BE_REPLACED 
+# Number of IO threads in Undertow server
+XNIO_IO_THREAD: 14
+# Number of working threads in Undertow server
+XNIO_WORK_THREAD: 112
+# Additional params to pass to Java process
+X_JAVA_ARGS: '' # TO_BE_REPLACED
+# Flag to install dashboard and podmonitor
+MONITORING_INSTALL: false
+CLOUD_TOPOLOGY_KEY: kubernetes.io/hostname
+INGRESS_GATEWAY_NAME: "test-ingress-gateway"
+DEPLOY_SECOND_INGRESS: false
+INGRESS_GATEWAY_NAME_SECOND: "test-ingress-gateway-2"
+PEER_NAMESPACE: ""
+INGRESS_CLASS: ""
+K8S_SERVICE_TYPE: 'HEADLESS'
+CLOUD_PUBLIC_HOST: "svc.cluster.local"
+CLOUD_PRIVATE_HOST: "svc.cluster.local"
+CR_SYNCHRONIZER_IMAGE: "ghcr.io/netcracker/cr-synchronizer:latest"
+EXTERNAL_IPS: '' # TO_BE_REPLACED
