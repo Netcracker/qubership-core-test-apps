@@ -1,4 +1,4 @@
-apiVersion: core.qubership.org/v1
+apiVersion: core.netcracker.com/v1
 kind: Gateway
 metadata:
   name: mesh-test-app-gateway
@@ -15,3 +15,5 @@ spec:
     facadeGatewayCpuRequest: 50m
     facadeGatewayMemoryLimit: 64Mi
     facadeGatewayMemoryRequest: 64Mi
+
+

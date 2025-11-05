@@ -1,5 +1,5 @@
 ---
-apiVersion: core.qubership.org/v1
+apiVersion: core.netcracker.com/v1
 kind: Mesh
 subKind: RouteConfiguration
 metadata:
@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
     app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
     app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
-    deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
 spec:
   gateways: ["public-gateway-service"]
   virtualServices:
@@ -26,38 +26,7 @@ spec:
                 allowed: true
                 prefixRewrite: /api/v1/declarative_hello
 ---
-apiVersion: core.qubership.org/v1
-kind: Mesh
-subKind: RouteConfiguration
-metadata:
-  name: mesh-test-service-spring-facade-routes
-  labels:
-    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
-    app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
-    app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
-    deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
-spec:
-  gateways: ["mesh-test-service-spring"]
-  virtualServices:
-    - name: "{{ .Values.SERVICE }}"
-      hosts: ["*"]
-      routeConfiguration:
-        version: "{{ .Values.DEPLOYMENT_VERSION }}"
-        routes:
-          - destination:
-              cluster: "{{ .Values.SERVICE }}"
-              endpoint: http://{{ .Values.DEPLOYMENT_RESOURCE_NAME }}:8080
-            rules:
-              - match:
-                  prefix: /api/v1/mesh-test-service-spring/declarative_hello
-                allowed: true
-                prefixRewrite: /api/v1/declarative_hello
-              - match:
-                  prefix: /api/v1/mesh-test-service-spring/hello
-                allowed: true
-                prefixRewrite: /api/v1/hello
----
-apiVersion: core.qubership.org/v1
+apiVersion: core.netcracker.com/v1
 kind: Mesh
 subKind: RouteConfiguration
 metadata:
@@ -66,7 +35,7 @@ metadata:
     app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
     app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
     app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
-    deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
 spec:
   gateways: [ "mesh-test-app-gateway"]
   listenerPort: 8080
@@ -100,7 +69,7 @@ spec:
                 allowed: true
                 prefixRewrite: /api/v1/sleep
 ---
-apiVersion: core.qubership.org/v1
+apiVersion: core.netcracker.com/v1
 kind: Mesh
 subKind: RouteConfiguration
 metadata:
@@ -109,7 +78,7 @@ metadata:
     app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
     app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
     app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
-    deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
 spec:
   gateways: ["egress-gateway"]
   virtualServices:
@@ -126,7 +95,7 @@ spec:
                 allowed: true
                 prefixRewrite: /api/v3/versions/registry
 ---
-apiVersion: core.qubership.org/v1
+apiVersion: core.netcracker.com/v1
 kind: Mesh
 subKind: RouteConfiguration
 metadata:
@@ -135,7 +104,7 @@ metadata:
     app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
     app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
     app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
-    deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
 spec:
   gateways: ["egress-gateway"]
   virtualServices:
@@ -156,7 +125,7 @@ spec:
                 allowed: true
                 prefixRewrite: /api/v1/sleep
 ---
-apiVersion: core.qubership.org/v1
+apiVersion: core.netcracker.com/v1
 kind: Mesh
 subKind: RouteConfiguration
 metadata:
@@ -166,7 +135,7 @@ metadata:
     app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
     app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
     app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
-    deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
 spec:
   gateways: [ "test-ingress-gateway" ]
   virtualServices:
@@ -191,7 +160,7 @@ spec:
                   prefix: /api/v1/mesh-test-service-spring/sleep
                 allowed: true
 ---
-apiVersion: core.qubership.org/v1
+apiVersion: core.netcracker.com/v1
 kind: Mesh
 subKind: RouteConfiguration
 metadata:
@@ -200,7 +169,7 @@ metadata:
     app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
     app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
     app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
-    deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
 spec:
   gateways: [ "test-ingress-gateway-2" ]
   virtualServices:

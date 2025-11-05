@@ -1,5 +1,5 @@
 ---
-apiVersion: core.qubership.org/v1
+apiVersion: core.netcracker.com/v1
 kind: BlueGreen
 subKind: BGOperatorPlugin
 metadata:

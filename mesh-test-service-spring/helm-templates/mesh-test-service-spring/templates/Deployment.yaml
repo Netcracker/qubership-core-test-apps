@@ -8,7 +8,7 @@ metadata:
         app.kubernetes.io/instance: '{{ cat .Values.SERVICE | nospace | trunc 63 }}'
         app.kubernetes.io/part-of: 'mesh-test-app'
     annotations:
-        qubership.cloud/start.stage: '0'
+        netcracker.cloud/start.stage: '0'
 spec:
     replicas: {{ .Values.REPLICAS }}
     revisionHistoryLimit: {{ .Values.RC_REVISIONS }}

@@ -4,7 +4,7 @@ apiVersion: v1
 metadata:
     name: '{{ .Values.DEPLOYMENT_RESOURCE_NAME }}'
     annotations:
-        qubership.cloud/start.stage: '0'
+        netcracker.cloud/start.stage: '0'
     labels:
         app.kubernetes.io/part-of: 'mesh-test-app'
 spec:
@@ -23,8 +23,8 @@ apiVersion: v1
 metadata:
   name: 'mesh-test-service-spring-node-port'
   annotations:
-    qubership.cloud/start.stage: '0'
-    core.qubership.cloud/bg.nodeport-config: >-
+    netcracker.cloud/start.stage: '0'
+    core.netcracker.cloud/bg.nodeport-config: >-
       {
         "config":{
           "8082":{

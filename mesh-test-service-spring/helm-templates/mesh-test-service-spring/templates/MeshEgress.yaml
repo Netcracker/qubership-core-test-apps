@@ -1,4 +1,4 @@
-apiVersion: core.qubership.org/v1
+apiVersion: core.netcracker.com/v1
 kind: Gateway
 metadata:
   name: egress-gateway
@@ -6,7 +6,7 @@ metadata:
     app.kubernetes.io/part-of: 'mesh-test-app'
     app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
     app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
-    deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
 spec:
   port: 8080
   env:

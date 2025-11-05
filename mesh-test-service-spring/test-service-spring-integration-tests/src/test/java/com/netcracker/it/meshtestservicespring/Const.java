@@ -43,7 +43,6 @@ public class Const {
     public static final String SPRING_SERVICE_NAME = "mesh-test-service-spring";
     public static final String QUARKUS_SERVICE_NAME = "mesh-test-service-quarkus";
     public static final String GO_SERVICE_NAME = "mesh-test-service-go";
-    public static final String MESH_TEST_APP_SERVICE_NAME = "mesh-test-app-gateway";
     public static final String PUBLIC_GW_SERVICE_NAME = "public-gateway-service";
     public static final String PRIVATE_GW_SERVICE_NAME = "private-gateway-service";
     public static final String INTERNAL_GW_SERVICE_NAME = "internal-gateway-service";

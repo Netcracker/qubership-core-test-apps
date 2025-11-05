@@ -1,5 +1,5 @@
 ---
-apiVersion: core.qubership.org/v1
+apiVersion: core.netcracker.com/v1
 kind: Mesh
 subKind: RouteConfiguration
 metadata:
@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/instance: "{{ .Values.SERVICE }}"
     app.kubernetes.io/managed-by: core-operator
 spec:
-  gateways: [ "mesh-test-app-gateway", "mesh-test-service-quarkus" ]
+  gateways: [ "mesh-test-app-gateway" ]
   listenerPort: 8080
   virtualServices:
     - name: "{{ .Values.SERVICE }}"
@@ -29,7 +29,7 @@ spec:
                 allowed: true
                 prefixRewrite: /api/v1/sleep
 ---
-apiVersion: core.qubership.org/v1
+apiVersion: core.netcracker.com/v1
 kind: Mesh
 subKind: RouteConfiguration
 metadata:
@@ -54,7 +54,7 @@ spec:
                 allowed: true
                 prefixRewrite: /api/v1/sleep
 ---
-apiVersion: core.qubership.org/v1
+apiVersion: core.netcracker.com/v1
 kind: Mesh
 subKind: RouteConfiguration
 metadata:
@@ -82,7 +82,7 @@ spec:
                 allowed: true
                 prefixRewrite: /api/v1/sleep
 ---
-apiVersion: core.qubership.org/v1
+apiVersion: core.netcracker.com/v1
 kind: Mesh
 subKind: RouteConfiguration
 metadata:
