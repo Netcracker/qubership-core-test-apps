@@ -4,6 +4,10 @@ This directory contains bash scripts to manage the mesh test services:
 - **mesh-test-apps.sh** - Install/uninstall helm packages in the correct order
 - **run-integration-tests.sh** - Run integration tests sequentially for all services
 
+## Requirments
+- Integration Tests run script is configured to run on cluster with default cluster domain - *cluster.local*. Hostname *cluster.local* should be resolved to ip address of cluster api server 
+
+
 ## Prerequisites
 
 ### For Service Management (mesh-test-apps.sh)
@@ -13,7 +17,6 @@ This directory contains bash scripts to manage the mesh test services:
 ### For Integration Tests (run-integration-tests.sh)
 - [Maven](https://maven.apache.org/install.html) must be installed
 - Access to a Kubernetes cluster with deployed services
-- Script is configured to run on cluster with default cluster domain - *cluster.local*. Hostname *cluster.local* should be resolved to ip address of cluster api server 
 - Internet connectivity to GitHub Packages (maven.pkg.github.com) - automatically checked by script
 
 
@@ -102,12 +105,9 @@ The script uninstalls the services in reverse order:
 3. **mesh-test-service-spring** - Spring Boot service
 
 ### Integration Tests Execution Order
-The integration tests are executed sequentially in this order:
-1. **mesh-test-service-spring** - Spring Boot integration tests
-2. **mesh-test-service-quarkus** - Quarkus integration tests
-3. **mesh-test-service-go** - Go service integration tests
+All integration tests are consolidated and executed from a single module:
+1. **mesh-integration-tests** - Unified integration tests covering Spring, Quarkus and Go services
 
-**Note**: The script continues running all tests even if one service fails, then provides a comprehensive final report with detailed statistics from all modules.
 
 ## Configuration
 
@@ -116,13 +116,11 @@ The integration tests are executed sequentially in this order:
 - **Namespace**: Required second argument - must be specified
 - **TAG**: Optional third argument for Docker image tag (only used for install, defaults to 'latest')
 - **Timeout**: Each operation has a 300-second timeout
-- **Dependencies**: The script automatically handles helm dependencies for install operations
 
 ### Integration Tests Configuration
 - **Kube Context**: Required first argument - Kubernetes context for tests
 - **Namespace**: Required second argument - Kubernetes namespace for tests
 - **Node IP Mapping**: Required third argument - Node IP mapping for tests
-- **Test Execution**: Sequential execution with fail-fast behavior
 - **Maven Profiles**: Uses 'integration-test' profile with skipIT=false
 - **Connectivity Check**: Automatically verifies GitHub Packages access before running tests
 
@@ -157,9 +155,9 @@ kubectl get pods -n <namespace>
 
 The script automatically generates a comprehensive final report that includes:
 
-#### Individual Service Results
-- Tests run, passed, failed, errors, and skipped for each service
-- Success/failure status for each service
+#### Individual Module Results
+- Tests run, passed, failed, errors, and skipped for the module
+- Success/failure status for the module
 
 #### Overall Summary  
 - Total tests across all services
@@ -175,40 +173,40 @@ The script automatically generates a comprehensive final report that includes:
 🎯 FINAL INTEGRATION TESTS REPORT
 ========================================
 
-📊 Individual Service Results:
+📊 Individual Module Results:
 ----------------------------------------
-mesh-test-service-spring       ✅
-  Tests Run:              15
-  Passed:                 14
-  Failed:                  1
+mesh-integration-tests        ✅
+  Tests Run:              45
+  Passed:                 42
+  Failed:                  3
   Errors:                  0
   Skipped:                 0
 
 📈 OVERALL SUMMARY
 ========================================
-Total Tests Run:           45
-Total Passed:              42
-Total Failed:               3
+Total Tests Run:           45 
+Total Passed:              42 
+Total Failed:               3 
 Total Errors:               0
 Total Skipped:              0
 
-🏆 SERVICE EXECUTION SUMMARY
+🏆 MODULE EXECUTION SUMMARY
 ========================================
-Successful Services:         2
-Failed Services:             1
-Total Services:              3
+Successful Modules:          1
+Failed Modules:              0
+Total Modules:               1
 
-📊 SUCCESS RATE: 67% (2/3 services)
+📊 SUCCESS RATE: 100% (1/1 modules)
 ```
 
-You can also manually check individual service reports:
+You can also manually check surefire reports:
 
 ```bash
-# Check Maven surefire reports (example for Spring service)
-ls -la mesh-test-service-spring/test-service-spring-integration-tests/target/surefire-reports/
+# Check Maven surefire reports for the unified module
+ls -la mesh-integration-tests/target/surefire-reports/
 
 # View test results
-cat mesh-test-service-spring/test-service-spring-integration-tests/target/surefire-reports/TEST-*.xml
+cat mesh-integration-tests/target/surefire-reports/TEST-*.xml
 ```
 
 ## Troubleshooting
@@ -242,7 +240,7 @@ kubectl get services -n <namespace>
 # Test Maven dependency resolution
 mvn dependency:resolve -U
 
-# Run tests for individual service (example)
-cd mesh-test-service-spring
-mvn clean verify -P integration-test -DskipIT=false -Dclouds.cloud.name=minikube -Dclouds.cloud.namespaces.namespace=core
+# Run tests locally for the unified module
+cd mesh-integration-tests
+mvn clean verify -P integration-test -Dclouds.cloud.name=minikube -Dclouds.cloud.namespaces.namespace=core
 ```

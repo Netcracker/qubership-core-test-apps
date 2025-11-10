@@ -118,12 +118,7 @@ extract_test_results() {
     local found_reports=false
     
     # Known surefire report locations for this project structure
-    local surefire_paths=(
-        "$service_dir/target/surefire-reports"
-        "$service_dir/test-service-spring-integration-tests/target/surefire-reports"
-        "$service_dir/test-service-quarkus-integration-tests/target/surefire-reports"
-        "$service_dir/test-service-go-integration-tests/target/surefire-reports"
-    )
+    local surefire_paths=("$service_dir/target/surefire-reports")
     
     # Check each known location
     for surefire_path in "${surefire_paths[@]}"; do
@@ -209,7 +204,6 @@ run_integration_tests() {
     echo "Running Maven integration tests..."
     local maven_exit_code=0
     mvn clean verify -P integration-test \
-        -DskipIT=false \
         -Dclouds.cloud.name="$KUBE_CONTEXT" \
         -Dclouds.cloud.namespaces.namespace="$NAMESPACE" \
         -DNODE_IP_MAPPING="$NODE_IP_MAPPING" \
@@ -387,29 +381,19 @@ main() {
     # Store original directory
     ORIGINAL_DIR="$(pwd)"
     
-    # Define service directories
-    SPRING_DIR="$PROJECT_ROOT/mesh-test-service-spring"
-    QUARKUS_DIR="$PROJECT_ROOT/mesh-test-service-quarkus"
-    GO_DIR="$PROJECT_ROOT/mesh-test-service-go-integration-tests"
+    # Define integration tests directory (all tests merged into this module)
+    INTEGRATION_DIR="$PROJECT_ROOT/mesh-integration-tests"
     
     echo ""
-    echo "Service directories:"
-    echo "Spring:  $SPRING_DIR"
-    echo "Quarkus: $QUARKUS_DIR"
-    echo "Go:      $GO_DIR"
+    echo "Integration tests directory:"
+    echo "Tests:   $INTEGRATION_DIR"
     
     # Run integration tests in sequence
     echo ""
     echo "🚀 Starting integration tests execution..."
     
-    # 1. Run Spring integration tests
-    run_integration_tests "mesh-test-service-spring" "$SPRING_DIR"
-    
-    # 2. Run Quarkus integration tests
-    run_integration_tests "mesh-test-service-quarkus" "$QUARKUS_DIR"
-    
-    # 3. Run Go integration tests
-    run_integration_tests "mesh-test-service-go" "$GO_DIR"
+    # Run unified integration tests
+    run_integration_tests "mesh-integration-tests" "$INTEGRATION_DIR"
     
     # Return to original directory
     cd "$ORIGINAL_DIR"

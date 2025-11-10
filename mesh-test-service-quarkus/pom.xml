@@ -25,19 +25,6 @@
             <modules>
                 <module>test-service-quarkus</module>
                 <module>test-service-quarkus-parent</module>
-                <module>test-service-quarkus-integration-tests</module>
-            </modules>
-        </profile>
-        <profile>
-            <id>integration-test</id>
-            <activation>
-                <property>
-                    <name>skipIT</name>
-                    <value>false</value>
-                </property>
-            </activation>
-            <modules>
-                <module>test-service-quarkus-integration-tests</module>
             </modules>
         </profile>
     </profiles>
