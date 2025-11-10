@@ -13,6 +13,7 @@ This directory contains bash scripts to manage the mesh test services:
 ### For Integration Tests (run-integration-tests.sh)
 - [Maven](https://maven.apache.org/install.html) must be installed
 - Access to a Kubernetes cluster with deployed services
+- Script is configured to run on cluster with default cluster domain - *cluster.local*. Hostname *cluster.local* should be resolved to ip address of cluster api server 
 - Internet connectivity to GitHub Packages (maven.pkg.github.com) - automatically checked by script
 
 

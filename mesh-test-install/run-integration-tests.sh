@@ -46,6 +46,12 @@ echo "Namespace: $NAMESPACE"
 echo "Node IP mapping: $NODE_IP_MAPPING"
 echo ""
 
+# Extract API server port from kubeconfig and export as global var
+API_SERVER_PORT=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' | sed -E 's|.*:([0-9]+)$|\1|')
+echo "K8s cluster.server port: $API_SERVER_PORT"
+
+CLUSTER_DOMAIN="cluster.local"
+
 # Initialize global arrays for test results tracking
 SERVICE_NAMES=()
 TESTS_RUN=()
@@ -77,6 +83,24 @@ check_maven() {
         exit 1
     fi
     echo "✅ GitHub Packages access verified"
+}
+
+# Function to validate that kubectl can reach k8s cluster server at https://<cluster-domain>:<port>
+validate_cluster_connectivity() {
+    local url="https://${CLUSTER_DOMAIN}:${API_SERVER_PORT}"
+    echo ""
+    echo "Validating cluster server connectivity on: $url"
+    local attempts=0
+    until kubectl --request-timeout=5s --server="$url" --insecure-skip-tls-verify=true version >/dev/null 2>&1; do
+        attempts=$((attempts+1))
+        if [ $attempts -ge 10 ]; then
+            echo "Error: kubectl cannot reach k8s cluster server on $url. Check cluster domain resolution (e.g. /etc/hosts file or DNS resolution)."
+            exit 1
+        fi
+        sleep 3
+    done
+    echo "API server endpoint is reachable."
+    echo ""
 }
 
 # Function to extract test results from surefire reports
@@ -190,7 +214,8 @@ run_integration_tests() {
         -Dclouds.cloud.namespaces.namespace="$NAMESPACE" \
         -DNODE_IP_MAPPING="$NODE_IP_MAPPING" \
         -DORIGIN_NAMESPACE="$NAMESPACE" \
-        -Denv.cloud-namespace="$NAMESPACE" || maven_exit_code=$?
+        -Denv.cloud-namespace="$NAMESPACE" \
+        -Dkubernetes.master="https://${CLUSTER_DOMAIN}:${API_SERVER_PORT}" || maven_exit_code=$?
     
     # Extract test results regardless of Maven exit code
     extract_test_results "$service_dir" "$service_name"
@@ -349,7 +374,9 @@ generate_final_report() {
 # Main function
 main() {
     echo "Checking prerequisites..."
+    validate_cluster_connectivity
     check_maven
+
     
     # Get the script directory to determine the project root
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
