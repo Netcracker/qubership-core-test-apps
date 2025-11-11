@@ -120,7 +120,7 @@
         </dependency>
         <dependency>
             <groupId>org.mockito</groupId>
-            <artifactId>$mockito-core</artifactId>
+            <artifactId>mockito-core</artifactId>
             <version>${mockito.core.version}</version>
             <scope>test</scope>
         </dependency>
@@ -188,22 +188,6 @@
                     <name>native</name>
                 </property>
             </activation>
-            <build>
-                <plugins>
-                    <plugin>
-                        <artifactId>maven-failsafe-plugin</artifactId>
-                        <version>${surefire-plugin.version}</version>
-                        <executions>
-                            <execution>
-                                <goals>
-                                    <goal>integration-test</goal>
-                                    <goal>verify</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
             <properties>
                 <quarkus.package.type>native</quarkus.package.type>
             </properties>
