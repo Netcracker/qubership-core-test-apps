@@ -1,6 +1,5 @@
 package com.netcracker.quarkus.controller;
 
-import com.netcracker.quarkus.ApiVersions;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 
