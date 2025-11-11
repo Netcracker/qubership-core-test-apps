@@ -21,11 +21,17 @@ This directory contains bash scripts to manage the mesh test services:
 
 ## Usage
 
-### Service Management (mesh-test-apps.sh)
+### Test services deployment (mesh-test-apps.sh)
+
+Installs / uninstalls helm packages for
+
+* Mesh-test-service-go
+* Mesh-test-service-quarkus
+* Mesh-test-service-spring
 
 Run the script with required operation, namespace, and optional tag arguments:
 
-### Install Services
+#### Install Services
 
 ```bash
 # Install in mesh-test namespace with default 'latest' tag
@@ -36,18 +42,25 @@ Run the script with required operation, namespace, and optional tag arguments:
 
 ```
 
-### Uninstall Services
+#### Uninstall Services
 
 ```bash
 # Uninstall from mesh-test namespace
 ./mesh-test-apps.sh uninstall mesh-test
 ```
 
-### Show Help
+#### Show Help
 
 ```bash
 ./mesh-test-apps.sh --help
 ```
+
+#### Configuration
+- **Operation**: Required first argument - must be 'install' or 'uninstall'
+- **Namespace**: Required second argument - must be specified
+- **TAG**: Optional third argument for Docker image tag (only used for install, defaults to 'latest')
+- **Timeout**: Each operation has a 300-second timeout
+
 
 ### Integration Tests (run-integration-tests.sh)
 
@@ -68,21 +81,13 @@ Show help:
 ```bash
 ./run-integration-tests.sh --help
 ```
-
-## Configuration
-
-### Service Management Configuration
-- **Operation**: Required first argument - must be 'install' or 'uninstall'
-- **Namespace**: Required second argument - must be specified
-- **TAG**: Optional third argument for Docker image tag (only used for install, defaults to 'latest')
-- **Timeout**: Each operation has a 300-second timeout
-
-### Integration Tests Configuration
+#### Integration Tests Configuration
 - **Kube Context**: Required first argument - Kubernetes context for tests
 - **Namespace**: Required second argument - Kubernetes namespace for tests
 - **Node IP Mapping**: Required third argument - Node IP mapping for tests
 - **Maven Profiles**: Uses 'integration-test' profile with skipIT=false
 - **Connectivity Check**: Automatically verifies GitHub Packages access before running tests
+
 
 ### Integration Tests Results
 
