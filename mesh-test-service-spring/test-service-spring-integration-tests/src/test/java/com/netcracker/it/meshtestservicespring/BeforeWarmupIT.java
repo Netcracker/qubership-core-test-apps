@@ -44,7 +44,6 @@ import static org.junit.jupiter.api.Assertions.*;
 @EnableExtension
 @Tag("bg-e2e-phase:after-apps-deployment[baseline]")
 @Slf4j
-@Disabled
 public class BeforeWarmupIT {
 
     protected static final ObjectMapper objectMapper = initObjectMapper();
