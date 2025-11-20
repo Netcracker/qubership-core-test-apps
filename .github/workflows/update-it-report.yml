@@ -44,7 +44,7 @@ jobs:
             echo "No history.json found, create a new one"
             echo "{}" > report/history.json
           fi
-          echo "{}" > report/history.json
+          
           for artifact in artifacts/*; do
             modname=$(basename "$artifact")
             echo "Processing artifact for $modname"
