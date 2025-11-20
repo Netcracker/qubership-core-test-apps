@@ -16,6 +16,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Add cluster.local to hosts
+        run: |
+          echo "127.0.0.1 cluster.local" | sudo tee -a /etc/hosts
+
       - name: Set up Kind
         uses: helm/kind-action@v1.12.0
         with:

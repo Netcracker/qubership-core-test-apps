@@ -46,6 +46,12 @@ echo "Namespace: $NAMESPACE"
 echo "Node IP mapping: $NODE_IP_MAPPING"
 echo ""
 
+# Extract API server port from kubeconfig and export as global var
+API_SERVER_PORT=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' | sed -E 's|.*:([0-9]+)$|\1|')
+echo "K8s cluster.server port: $API_SERVER_PORT"
+
+CLUSTER_DOMAIN="cluster.local"
+
 # Initialize global arrays for test results tracking
 SERVICE_NAMES=()
 TESTS_RUN=()
@@ -79,6 +85,24 @@ check_maven() {
     echo "✅ GitHub Packages access verified"
 }
 
+# Function to validate that kubectl can reach k8s cluster server at https://<cluster-domain>:<port>
+validate_cluster_connectivity() {
+    local url="https://${CLUSTER_DOMAIN}:${API_SERVER_PORT}"
+    echo ""
+    echo "Validating cluster server connectivity on: $url"
+    local attempts=0
+    until kubectl --request-timeout=5s --server="$url" --insecure-skip-tls-verify=true version >/dev/null 2>&1; do
+        attempts=$((attempts+1))
+        if [ $attempts -ge 10 ]; then
+            echo "Error: kubectl cannot reach k8s cluster server on $url. Check cluster domain resolution (e.g. /etc/hosts file or DNS resolution)."
+            exit 1
+        fi
+        sleep 3
+    done
+    echo "API server endpoint is reachable."
+    echo ""
+}
+
 # Function to extract test results from surefire reports
 extract_test_results() {
     local service_dir=$1
@@ -94,12 +118,7 @@ extract_test_results() {
     local found_reports=false
     
     # Known surefire report locations for this project structure
-    local surefire_paths=(
-        "$service_dir/target/surefire-reports"
-        "$service_dir/test-service-spring-integration-tests/target/surefire-reports"
-        "$service_dir/test-service-quarkus-integration-tests/target/surefire-reports"
-        "$service_dir/test-service-go-integration-tests/target/surefire-reports"
-    )
+    local surefire_paths=("$service_dir/target/surefire-reports")
     
     # Check each known location
     for surefire_path in "${surefire_paths[@]}"; do
@@ -184,13 +203,13 @@ run_integration_tests() {
     
     echo "Running Maven integration tests..."
     local maven_exit_code=0
-    mvn surefire-report:report -P integration-test \
-        -DskipIT=false \
+    mvn clean verify -P integration-test \
         -Dclouds.cloud.name="$KUBE_CONTEXT" \
         -Dclouds.cloud.namespaces.namespace="$NAMESPACE" \
         -DNODE_IP_MAPPING="$NODE_IP_MAPPING" \
         -DORIGIN_NAMESPACE="$NAMESPACE" \
-        -Denv.cloud-namespace="$NAMESPACE" || maven_exit_code=$?
+        -Denv.cloud-namespace="$NAMESPACE" \
+        -Dkubernetes.master="https://${CLUSTER_DOMAIN}:${API_SERVER_PORT}" || maven_exit_code=$?
     
     # Extract test results regardless of Maven exit code
     extract_test_results "$service_dir" "$service_name"
@@ -349,7 +368,9 @@ generate_final_report() {
 # Main function
 main() {
     echo "Checking prerequisites..."
+    validate_cluster_connectivity
     check_maven
+
     
     # Get the script directory to determine the project root
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -360,29 +381,19 @@ main() {
     # Store original directory
     ORIGINAL_DIR="$(pwd)"
     
-    # Define service directories
-    SPRING_DIR="$PROJECT_ROOT/mesh-test-service-spring"
-    QUARKUS_DIR="$PROJECT_ROOT/mesh-test-service-quarkus"
-    GO_DIR="$PROJECT_ROOT/mesh-test-service-go-integration-tests"
+    # Define integration tests directory (all tests merged into this module)
+    INTEGRATION_DIR="$PROJECT_ROOT/mesh-integration-tests"
     
     echo ""
-    echo "Service directories:"
-    echo "Spring:  $SPRING_DIR"
-    echo "Quarkus: $QUARKUS_DIR"
-    echo "Go:      $GO_DIR"
+    echo "Integration tests directory:"
+    echo "Tests:   $INTEGRATION_DIR"
     
     # Run integration tests in sequence
     echo ""
     echo "🚀 Starting integration tests execution..."
     
-    # 1. Run Spring integration tests
-    run_integration_tests "mesh-test-service-spring" "$SPRING_DIR"
-    
-    # 2. Run Quarkus integration tests
-    run_integration_tests "mesh-test-service-quarkus" "$QUARKUS_DIR"
-    
-    # 3. Run Go integration tests
-    run_integration_tests "mesh-test-service-go" "$GO_DIR"
+    # Run unified integration tests
+    run_integration_tests "mesh-integration-tests" "$INTEGRATION_DIR"
     
     # Return to original directory
     cd "$ORIGINAL_DIR"
