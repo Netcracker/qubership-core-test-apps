@@ -1,0 +1,18 @@
+CPU_REQUEST: "100m"
+CPU_LIMIT: "350m"
+MEMORY_REQUEST: "100Mi"
+MEMORY_LIMIT: "350Mi"
+IMAGE_REPOSITORY: 'ghcr.io/netcracker/qubership-core-mesh-test-service-quarkus'
+TAG: 'latest'
+# revisionHistoryLimit value for DC
+RC_REVISIONS: 3
+REPLICAS: 1
+SERVICE: "mesh-test-service-quarkus"
+DEPLOYMENT_RESOURCE_NAME: "mesh-test-service-quarkus-v1"
+DEPLOYMENT_VERSION: "v1"
+K8S_SERVICE_TYPE: 'HEADLESS'
+TRACING_ENABLED: false
+TRACING_HOST: 'nc-diagnostic-agent'
+TRACING_SAMPLER_RATELIMITING: 10
+NC_DIAGNOSTIC_MODE: 'off'
+NC_DIAGNOSTIC_AGENT_SERVICE: nc-diagnostic-agent

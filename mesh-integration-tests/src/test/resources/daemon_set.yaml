@@ -1,0 +1,31 @@
+---
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: {{name}}
+spec:
+  selector:
+    matchLabels:
+      name: {{label}}
+  template:
+    metadata:
+      labels:
+        name: {{label}}
+    spec:
+      containers:
+        - name: container
+          image: {{image}}
+          args:
+            - sleep
+            - infinity
+          resources:
+            limits:
+              cpu: 100m
+              memory: 10Mi
+            requests:
+              cpu: 100m
+              memory: 10Mi
+      securityContext:
+        runAsUser: 1000
+      nodeSelector:
+        kubernetes.io/hostname: {{node}}

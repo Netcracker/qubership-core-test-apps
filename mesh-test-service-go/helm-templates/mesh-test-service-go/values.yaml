@@ -1,0 +1,18 @@
+SERVICE: "mesh-test-service-go"
+DEPLOYMENT_RESOURCE_NAME: "mesh-test-service-go-v1"
+DEPLOYMENT_VERSION: "v1"
+PAAS_PLATFORM: "KUBERNETES"
+REPLICAS: 1
+RC_REVISIONS: 3
+IMAGE_REPOSITORY: 'ghcr.io/netcracker/qubership-core-mesh-test-service-go'
+TAG: 'latest'
+CPU_REQUEST: "100m"
+CPU_LIMIT: "100m"
+MEMORY_REQUEST: "20Mi"
+MEMORY_LIMIT: "20Mi"
+# Enable or disable tracing
+TRACING_ENABLED: false
+# Zipkin server host
+TRACING_HOST: '' # TO_BE_REPLACED
+# delta-5
+K8S_SERVICE_TYPE: 'HEADLESS'

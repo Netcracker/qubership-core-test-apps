@@ -1,0 +1,79 @@
+{ 
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "$id": "http://example.com/example.json",
+  "type": "object",
+  "title": "The mesh-test-service-go JSON schema",
+  "description": "JSON schema for mesh-test-service-go.",
+  "default": {},
+  "examples": [
+    {
+      "PAAS_PLATFORM": "KUBERNETES",
+      "CPU_REQUEST": "100m",
+      "CPU_LIMIT": "100m",
+      "IMAGE_REPOSITORY": "",
+      "MEMORY_LIMIT": "100Mi",
+      "NAMESPACE": "",
+      "RC_REVISIONS": 3,
+      "REPLICAS": 1,
+      "SERVICE": "mesh-test-service-go",
+      "TAG": "",
+      "TRACING_ENABLED": false,
+      "TRACING_HOST": 0
+    }
+  ],
+  "properties": {
+    "PAAS_PLATFORM": {
+      "$id": "#/properties/PAAS_PLATFORM",
+      "type": "string",
+      "title": "The PAAS_PLATFORM schema",
+      "description": "PaaS Platform.",
+      "examples": [
+        "KUBERNETES",
+        "OPENSHIFT"
+      ],
+      "internal": true
+    },
+    "CPU_REQUEST": {
+      "$id": "#/properties/CPU_REQUEST",
+      "type": "string",
+      "title": "The CPU_REQUEST schema",
+      "internal": true
+    },
+    "IMAGE_REPOSITORY": {
+      "$id": "#/properties/IMAGE_REPOSITORY",
+      "type": "string",
+      "title": "The IMAGE_REPOSITORY schema",
+      "default": "",
+      "internal": true
+    },
+    "NAMESPACE": {
+      "$id": "#/properties/NAMESPACE",
+      "type": "string",
+      "title": "The NAMESPACE schema",
+      "description": "The namespace it is going to be deployed.",
+      "default": "",
+      "internal": true
+    },
+    "RC_REVISIONS": {
+      "$id": "#/properties/RC_REVISIONS",
+      "type": "integer",
+      "title": "The RC_REVISIONS schema",
+      "description": "revisionHistoryLimit value for DC.",
+      "internal": true
+    },
+    "REPLICAS": {
+      "$id": "#/properties/REPLICAS",
+      "type": "integer",
+      "title": "The REPLICAS schema",
+      "internal": true
+    },
+    "TAG": {
+      "$id": "#/properties/TAG",
+      "type": "string",
+      "title": "The TAG schema",
+      "default": "",
+      "internal": true
+    }
+  },
+  "additionalProperties": true
+}

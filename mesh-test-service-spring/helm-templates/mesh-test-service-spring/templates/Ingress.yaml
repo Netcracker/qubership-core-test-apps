@@ -1,0 +1,21 @@
+---
+kind: Ingress
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: '{{ .Values.INGRESS_GATEWAY_NAME }}-from-ingress'
+  annotations:
+  labels:
+    app.kubernetes.io/part-of: 'mesh-test-app'
+spec:
+  ingressClassName: {{ if (default "" .Values.PEER_NAMESPACE) }}bg.mesh.qubership.org{{ else }}{{ .Values.INGRESS_CLASS }}{{ end }}
+  rules:
+    - host: '{{ .Values.INGRESS_GATEWAY_NAME }}-from-ingress-{{ .Release.Namespace }}.{{ .Values.CLOUD_PRIVATE_HOST }}'
+      http:
+        paths:
+          - pathType: Prefix
+            path: "/"
+            backend:
+              service:
+                name: '{{ .Values.INGRESS_GATEWAY_NAME }}'
+                port:
+                  name: web

@@ -1,0 +1,30 @@
+name: Mesh-test-service-spring build
+
+on:
+  push:
+    paths:
+      - 'mesh-test-service-spring/**'
+  pull_request:
+    types: [ opened, synchronize, reopened ]
+    paths:
+      - 'mesh-test-service-spring/**'
+
+jobs:
+  mvn:
+    uses: netcracker/qubership-core-infra/.github/workflows/maven-build-with-sonar.yaml@v1.1.0
+    with:
+      event-name: ${{ github.event_name }}
+      actor: ${{ github.actor }}
+      sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
+      upload-artifact: true
+      pom-file-path: mesh-test-service-spring/pom.xml
+    secrets:
+      sonar-token: ${{ secrets.SONAR_TOKEN }}
+
+  docker-build:
+    needs: [mvn]
+    uses: netcracker/qubership-core-infra/.github/workflows/docker-build.yaml@v1.1.0
+    with:
+      dry-run: false
+      config-filename: mesh-test-service-spring-docker-config.json
+      

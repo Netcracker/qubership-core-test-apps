@@ -1,0 +1,13 @@
+apiVersion: netcracker.com/v1alpha
+kind: FacadeService
+metadata:
+  name: '{{ .Values.SERVICE }}'
+spec:
+  port: 8080
+  env:
+    facadeGatewayConcurrency: 1
+    facadeGatewayCpuLimit: 100m
+    facadeGatewayCpuRequest: 50m
+    facadeGatewayMemoryLimit: 64Mi
+    facadeGatewayMemoryRequest: 64Mi
+  gateway: 'mesh-test-app-gateway'

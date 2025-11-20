@@ -1,0 +1,111 @@
+---
+apiVersion: core.netcracker.com/v1
+kind: Mesh
+subKind: RouteConfiguration
+metadata:
+  name: mesh-test-app-gateway-quarkus-routes
+  labels:
+    app.kubernetes.io/instance: "{{ .Values.SERVICE }}"
+    app.kubernetes.io/managed-by: core-operator
+spec:
+  gateways: [ "mesh-test-app-gateway" ]
+  listenerPort: 8080
+  virtualServices:
+    - name: "{{ .Values.SERVICE }}"
+      hosts: ["{{ .Values.SERVICE }}"]
+      routeConfiguration:
+        version: "{{ .Values.DEPLOYMENT_VERSION }}"
+        routes:
+          - destination:
+              cluster: "{{ .Values.SERVICE }}"
+              endpoint: http://{{ .Values.DEPLOYMENT_RESOURCE_NAME }}:8080
+            rules:
+              - match:
+                  prefix: /api/v1/mesh-test-service-quarkus/hello
+                allowed: true
+                prefixRewrite: /api/v1/hello
+              - match:
+                  prefix: /api/v1/mesh-test-service-quarkus/sleep
+                allowed: true
+                prefixRewrite: /api/v1/sleep
+---
+apiVersion: core.netcracker.com/v1
+kind: Mesh
+subKind: RouteConfiguration
+metadata:
+  name: egress-routes-quarkus
+  labels:
+    app.kubernetes.io/instance: "{{ .Values.SERVICE }}"
+    app.kubernetes.io/managed-by: core-operator
+spec:
+  gateways: ["egress-gateway"]
+  virtualServices:
+    - name: egress-gw
+      removeHeaders: ["Origin"]
+      routeConfiguration:
+        version: "{{ .Values.DEPLOYMENT_VERSION }}"
+        routes:
+          - destination:
+              cluster: "{{ .Values.SERVICE }}"
+              endpoint: http://{{ .Values.DEPLOYMENT_RESOURCE_NAME }}:8080
+            rules:
+              - match:
+                  prefix: /api/v1/mesh-test-service-quarkus/sleep
+                allowed: true
+                prefixRewrite: /api/v1/sleep
+---
+apiVersion: core.netcracker.com/v1
+kind: Mesh
+subKind: RouteConfiguration
+metadata:
+  name: test-ingress-gateway-quarkus-routes
+  labels:
+    app.kubernetes.io/instance: "{{ .Values.SERVICE }}"
+    app.kubernetes.io/managed-by: core-operator
+spec:
+  gateways: [ "test-ingress-gateway" ]
+  virtualServices:
+    - name: test-ingress-gw
+      removeHeaders: ["Origin"]
+      routeConfiguration:
+        routes:
+          - destination:
+              cluster: "public-gateway-service"
+              endpoint: http://public-gateway-service:8080
+            rules:
+              - match:
+                  prefix: /api/v1/mesh-test-service-quarkus/hello
+                allowed: true
+                prefixRewrite: /api/v1/hello
+              - match:
+                  prefix: /api/v1/mesh-test-service-quarkus/sleep
+                allowed: true
+                prefixRewrite: /api/v1/sleep
+---
+apiVersion: core.netcracker.com/v1
+kind: Mesh
+subKind: RouteConfiguration
+metadata:
+  name: test-ingress-gateway-2-quarkus-routes
+  labels:
+    app.kubernetes.io/instance: "{{ .Values.SERVICE }}"
+    app.kubernetes.io/managed-by: core-operator
+spec:
+  gateways: [ "test-ingress-gateway-2" ]
+  virtualServices:
+    - name: test-ingress-gw2
+      removeHeaders: ["Origin"]
+      routeConfiguration:
+        routes:
+          - destination:
+              cluster: "public-gateway-service"
+              endpoint: http://public-gateway-service:8080
+            rules:
+              - match:
+                  prefix: /api/v1/mesh-test-service-quarkus/hello
+                allowed: true
+                prefixRewrite: /api/v1/hello
+              - match:
+                  prefix: /api/v1/mesh-test-service-quarkus/sleep
+                allowed: true
+                prefixRewrite: /api/v1/sleep

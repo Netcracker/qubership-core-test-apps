@@ -1,0 +1,19 @@
+apiVersion: core.netcracker.com/v1
+kind: Gateway
+metadata:
+  name: mesh-test-app-gateway
+  labels:
+    app.kubernetes.io/part-of: 'mesh-test-app'
+    app.kubernetes.io/processed-by-operator: "core-operator"
+spec:
+  port: 8080
+  gatewayType: mesh
+  allowVirtualHosts: true
+  env:
+    facadeGatewayConcurrency: 1
+    facadeGatewayCpuLimit: 100m
+    facadeGatewayCpuRequest: 50m
+    facadeGatewayMemoryLimit: 64Mi
+    facadeGatewayMemoryRequest: 64Mi
+
+

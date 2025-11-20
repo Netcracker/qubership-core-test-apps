@@ -1,0 +1,5 @@
+X_JAVA_ARGS: "-XX:+UseSerialGC -XX:+UnlockExperimentalVMOptions -Xms8m -Xmx96m -Xss256k -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=128m -XX:ReservedCodeCacheSize=20M -XX:CompressedClassSpaceSize=32M -XX:MinMetaspaceExpansion=1M -XX:MaxMetaspaceExpansion=8M -XX:CodeCacheExpansionSize=256k -XX:MaxDirectMemorySize=10M"
+MEMORY_LIMIT: "360Mi"
+CPU_REQUEST: "100m"
+CPU_LIMIT: "1"
+REPLICAS: 2

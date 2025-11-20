@@ -1,0 +1,20 @@
+---
+kind: Service
+apiVersion: v1
+metadata:
+    name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
+    labels:
+      app.kubernetes.io/part-of: 'mesh-test-app'
+spec:
+    ports:
+        - name: web
+          port: 8080
+          targetPort: 8080
+        - name: web2
+          port: 1234
+          targetPort: 1234
+    selector:
+        name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
+    {{ if  eq .Values.K8S_SERVICE_TYPE "HEADLESS" }}
+    clusterIP: None
+    {{ end }}

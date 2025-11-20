@@ -1,0 +1,17 @@
+apiVersion: core.netcracker.com/v1
+kind: Gateway
+metadata:
+  name: egress-gateway
+  labels:
+    app.kubernetes.io/part-of: 'mesh-test-app'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
+    app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
+spec:
+  port: 8080
+  env:
+    facadeGatewayConcurrency: 1
+    facadeGatewayCpuLimit: 100m
+    facadeGatewayCpuRequest: 50m
+    facadeGatewayMemoryLimit: 64Mi
+    facadeGatewayMemoryRequest: 64Mi
