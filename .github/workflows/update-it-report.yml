@@ -38,13 +38,13 @@ jobs:
           mkdir -p report/reports
           successes=0
           failures=0
-          echo "{}" > report/history.json
+          
           url="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/history.json"
           if ! curl -s -f -o report/history.json "$url"; then
             echo "No history.json found, create a new one"
             echo "{}" > report/history.json
           fi
-          
+          echo "{}" > report/history.json
           for artifact in artifacts/*; do
             modname=$(basename "$artifact")
             echo "Processing artifact for $modname"
