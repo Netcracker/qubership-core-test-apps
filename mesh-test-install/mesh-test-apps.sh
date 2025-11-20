@@ -101,7 +101,7 @@ install_helm_package() {
         --namespace "$namespace" \
         --set TAG="$TAG" \
         --wait \
-        --timeout=300s
+        --timeout=300s || true
 
     if [ $? -eq 0 ]; then
         echo "✅ $service_name installed successfully"

@@ -1,4 +1,4 @@
-apiVersion: qubership.org/v1alpha
+apiVersion: netcracker.com/v1alpha
 kind: FacadeService
 metadata:
   name: '{{ .Values.SERVICE }}'
@@ -10,4 +10,4 @@ spec:
     facadeGatewayCpuRequest: 50m
     facadeGatewayMemoryLimit: 64Mi
     facadeGatewayMemoryRequest: 64Mi
-  gateway: '{{ .Values.SERVICE }}'
+  gateway: 'mesh-test-app-gateway'

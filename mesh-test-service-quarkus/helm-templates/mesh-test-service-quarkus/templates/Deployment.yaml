@@ -8,7 +8,7 @@ metadata:
         app.kubernetes.io/instance: '{{ cat .Values.SERVICE "-" .Release.Namespace | nospace | trunc 63 }}'
         app.kubernetes.io/part-of: 'mesh-test-app'
     annotations:
-        qubership.cloud/start.stage: '2'
+        netcracker.cloud/start.stage: '2'
 spec:
     selector:
         matchLabels:
