@@ -99,168 +99,201 @@
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         fetch('history.json')
-          .then(res => res.json())
-          .then(data => {
-            const table = document.getElementById('reportTable');
-            const dates = [];
-            const passedData = {};
-            const failedData = {};
-            const barLinks = {};
+            .then(res => res.json())
+            .then(data => {
+                const table = document.getElementById('reportTable');
+                const dates = [];
+                const passedData = {};
+                const failedData = {};
+                const barLinks = {};
 
-            const projects = new Set();
-            Object.values(data).forEach(dayEntry => Object.keys(dayEntry).forEach(p => projects.add(p)));
-            const projectList = [...projects].sort();
-
-            for (let i = 6; i >= 0; i--) {
-              const d = new Date();
-              d.setUTCDate(d.getUTCDate() - i);
-              dates.push(d.toISOString().slice(0, 10));
-            }
-
-            dates.reverse(); // newest first
-            const today = new Date().toISOString().slice(0, 10);
-
-            projectList.forEach(p => {
-              passedData[p] = [];
-              failedData[p] = [];
-              barLinks[p] = { passed: [], failed: [] };
-            });
-
-            // Table header with ⚠️ if any project failed
-            const header = document.createElement('tr');
-            const headerHtml = ['<th>Project</th>'];
-            dates.forEach(day => {
-                let dayFailed = false;
-                projectList.forEach(project => {
-                    const entry = data[day] && data[day][project];
-                    if (entry && entry.failures > 0) dayFailed = true;
+                // Gather all unique project names
+                const projects = new Set();
+                Object.values(data).forEach(dayEntry => {
+                    if (dayEntry.projects) {
+                        dayEntry.projects.forEach(p => projects.add(p.name));
+                    }
                 });
-                const warning = dayFailed ? ' ⚠️' : '';
-                headerHtml.push(`<th>${day}${warning}</th>`);
-            });
-            header.innerHTML = headerHtml.join('');
-            table.appendChild(header);
+                const projectList = [...projects].sort();
 
-            projectList.forEach(project => {
-              const row = document.createElement('tr');
-              const jobUrl = data[today] && data[today].job ? data[today].job : null;
-              const projectCell = document.createElement('td');
-
-              if (jobUrl) {
-                  const link = document.createElement('a');
-                  link.href = jobUrl;
-                  link.target = "_blank";
-                  link.textContent = project;
-                  link.style.fontWeight = "600";
-                  link.style.color = "#4f46e5";
-                  link.style.textDecoration = "none";
-                  projectCell.appendChild(link);
-              } else {
-                  projectCell.textContent = project;
-              }
-
-              row.appendChild(projectCell);
-
-              dates.forEach((day, idx) => {
-                const cell = document.createElement('td');
-                const entry = data[day] && data[day][project];
-
-                if (entry) {
-                  const successes = entry.successes;
-                  const failures = entry.failures;
-                  const cls = failures > 0 ? 'failure-cell' : 'success-cell';
-                  const text = `✔️ ${successes} / ⚠️ ${failures}`;
-
-                  if (day === today) {
-                    const link = document.createElement('a');
-                    link.href = entry.path + 'index.html';
-                    link.target = '_blank';
-                    const span = document.createElement('span');
-                    span.className = cls;
-                    span.textContent = text;
-                    link.appendChild(span);
-                    cell.appendChild(link);
-                  } else {
-                    const span = document.createElement('span');
-                    span.className = cls;
-                    span.textContent = text;
-                    cell.appendChild(span);
-                  }
-
-                  passedData[project].push(successes);
-                  failedData[project].push(failures);
-
-                  if (day === today) {
-                    barLinks[project].passed.push(entry.path + 'index.html');
-                    barLinks[project].failed.push(entry.path + 'index.html');
-                  } else {
-                    barLinks[project].passed.push(null);
-                    barLinks[project].failed.push(null);
-                  }
-                } else {
-                  cell.textContent = '-';
-                  passedData[project].push(0);
-                  failedData[project].push(0);
-                  barLinks[project].passed.push(null);
-                  barLinks[project].failed.push(null);
+                // Last 7 days (newest first)
+                for (let i = 6; i >= 0; i--) {
+                    const d = new Date();
+                    d.setUTCDate(d.getUTCDate() - i);
+                    dates.push(d.toISOString().slice(0, 10));
                 }
+                dates.reverse();
 
-                row.appendChild(cell);
-              });
+                const today = new Date().toISOString().slice(0, 10);
 
-              table.appendChild(row);
-            });
+                projectList.forEach(p => {
+                    passedData[p] = [];
+                    failedData[p] = [];
+                    barLinks[p] = { passed: [], failed: [] };
+                });
 
-            // Chart datasets
-            const datasets = [];
-            projectList.forEach(project => {
-              datasets.push({
-                label: project + ' Passed',
-                data: passedData[project],
-                backgroundColor: '#16a34a',
-                stack: project,
-                custom: { links: barLinks[project].passed }
-              });
-              datasets.push({
-                label: project + ' Failed',
-                data: failedData[project],
-                backgroundColor: '#dc2626',
-                stack: project,
-                custom: { links: barLinks[project].failed }
-              });
-            });
+                // ---- Header ----
+                const header = document.createElement('tr');
+                const headerHtml = ['<th>Project</th>'];
+                dates.forEach(day => {
+                    let dayFailed = false;
+                    const dayEntry = data[day];
 
-            const ctx = document.getElementById('weeklyChart').getContext('2d');
-            const weeklyChart = new Chart(ctx, {
-              type: 'bar',
-              data: { labels: dates, datasets: datasets },
-              options: {
-                responsive: true,
-                animation: false,
-                plugins: {
-                  legend: { display: false },
-                  title: { display: true, text: 'Tests Passed vs Failed (Last 7 Days, per project)', font: { size: 18, weight: '600' } }
-                },
-                scales: { y: { beginAtZero: true, precision: 0, ticks: {precision: 0} } },
-                onClick: (evt, elements) => {
-                  if (!elements.length) return;
-                  const element = elements[0];
-                  const datasetIndex = element.datasetIndex;
-                  const dataIndex = element.index;
-                  const link = weeklyChart.data.datasets[datasetIndex].custom.links[dataIndex];
-                  if (link) window.open(link, '_blank');
-                },
-                hover: {
-                  onHover: (evt, elements) => {
-                    evt.native.target.style.cursor = elements[0] ? 'pointer' : 'default';
-                  }
-                }
-              }
-            });
+                    if (dayEntry && dayEntry.projects) {
+                        for (const p of dayEntry.projects) {
+                            if (p.failures > 0) dayFailed = true;
+                        }
+                    }
 
-          })
-          .catch(err => console.error('Failed to load history.json', err));
+                    const warning = dayFailed ? ' ⚠️' : '';
+                    headerHtml.push(`<th>${day}${warning}</th>`);
+                });
+                header.innerHTML = headerHtml.join('');
+                table.appendChild(header);
+
+                // ---- Rows ----
+                projectList.forEach(project => {
+                    const row = document.createElement('tr');
+                    const jobUrlToday = data[today] && data[today].job ? data[today].job : null;
+
+                    // Project name cell
+                    const projectCell = document.createElement('td');
+                    if (jobUrlToday) {
+                        const link = document.createElement('a');
+                        link.href = jobUrlToday;
+                        link.target = "_blank";
+                        link.textContent = project;
+                        link.style.fontWeight = "600";
+                        link.style.color = "#4f46e5";
+                        link.style.textDecoration = "none";
+                        projectCell.appendChild(link);
+                    } else {
+                        projectCell.textContent = project;
+                    }
+                    row.appendChild(projectCell);
+
+                    // Day cells
+                    dates.forEach(day => {
+                        const cell = document.createElement('td');
+                        let entry = null;
+                        const dayEntry = data[day];
+
+                        if (dayEntry && dayEntry.projects) {
+                            entry = dayEntry.projects.find(p => p.name === project) || null;
+                        }
+
+                        if (entry) {
+                            const successes = entry.successes;
+                            const failures = entry.failures;
+                            const cls = failures > 0 ? 'failure-cell' : 'success-cell';
+                            const text = `✔️ ${successes} / ⚠️ ${failures}`;
+
+                            const jobUrl = dayEntry && dayEntry.job ? dayEntry.job : null;
+
+                            if (day === today) {
+                                // today's cell → link to local report
+                                const link = document.createElement('a');
+                                link.href = entry.path + 'index.html';
+                                link.target = '_blank';
+                                const span = document.createElement('span');
+                                span.className = cls;
+                                span.textContent = text;
+                                link.appendChild(span);
+                                cell.appendChild(link);
+                            } else if (jobUrl) {
+                                // past days → link to job URL
+                                const link = document.createElement('a');
+                                link.href = jobUrl;
+                                link.target = '_blank';
+                                const span = document.createElement('span');
+                                span.className = cls;
+                                span.textContent = text;
+                                link.appendChild(span);
+                                cell.appendChild(link);
+                            } else {
+                                const span = document.createElement('span');
+                                span.className = cls;
+                                span.textContent = text;
+                                cell.appendChild(span);
+                            }
+
+                            passedData[project].push(successes);
+                            failedData[project].push(failures);
+
+                            if (day === today) {
+                                barLinks[project].passed.push(entry.path + 'index.html');
+                                barLinks[project].failed.push(entry.path + 'index.html');
+                            } else {
+                                barLinks[project].passed.push(jobUrl);
+                                barLinks[project].failed.push(jobUrl);
+                            }
+                        } else {
+                            cell.textContent = '-';
+                            passedData[project].push(0);
+                            failedData[project].push(0);
+                            barLinks[project].passed.push(null);
+                            barLinks[project].failed.push(null);
+                        }
+
+                        row.appendChild(cell);
+                    });
+
+                    table.appendChild(row);
+                });
+
+                // ---- Chart ----
+                const datasets = [];
+                projectList.forEach(project => {
+                    datasets.push({
+                        label: project + ' Passed',
+                        data: passedData[project],
+                        backgroundColor: '#16a34a',
+                        stack: project,
+                        custom: { links: barLinks[project].passed }
+                    });
+                    datasets.push({
+                        label: project + ' Failed',
+                        data: failedData[project],
+                        backgroundColor: '#dc2626',
+                        stack: project,
+                        custom: { links: barLinks[project].failed }
+                    });
+                });
+
+                const ctx = document.getElementById('weeklyChart').getContext('2d');
+                const weeklyChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: { labels: dates, datasets },
+                    options: {
+                        responsive: true,
+                        animation: false,
+                        plugins: {
+                            legend: { display: false },
+                            title: {
+                                display: true,
+                                text: 'Tests Passed vs Failed (Last 7 Days, per project)',
+                                font: { size: 18, weight: '600' }
+                            }
+                        },
+                        scales: { y: { beginAtZero: true, precision: 0 } },
+                        onClick: (evt, elements) => {
+                            if (!elements.length) return;
+                            const element = elements[0];
+                            const ds = weeklyChart.data.datasets[element.datasetIndex];
+                            const link = ds.custom.links[element.index];
+                            if (link) window.open(link, '_blank');
+                        },
+                        hover: {
+                            onHover: (evt, elements) => {
+                                evt.native.target.style.cursor = elements[0] ? 'pointer' : 'default';
+                            }
+                        }
+                    }
+                });
+            })
+            .catch(err => console.error('Failed to load history.json', err));
     });
 </script>
+
 </body>
 </html>

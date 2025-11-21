@@ -46,6 +46,7 @@ jobs:
             echo "No history.json found, create a new one"
             echo "{}" > report/history.json
           fi
+            echo "{}" > report/history.json
           
           for artifact in artifacts/*; do
             modname=$(basename "$artifact")
@@ -73,15 +74,28 @@ jobs:
               cp -r "$artifact/reports/"* report/reports/$modname/
               mv "report/reports/$modname/surefire.html" "report/reports/$modname/index.html" 
             fi
-                    
+          
             jq --arg date "$today" \
-               --arg proj "$modname" \
-               --arg succ "$mod_succ" \
-               --arg fail "$mod_fail" \
-               --arg job "$job_url" \
-               --arg p "reports/$modname/" \
-               '.[$date].job = $job | .[$date][$proj] = {successes: ($succ|tonumber), failures: ($fail|tonumber), path: $p}' \
-               report/history.json > report/tmp.json && mv report/tmp.json report/history.json
+              --arg proj "$modname" \
+              --arg succ "$mod_succ" \
+              --arg fail "$mod_fail" \
+              --arg job "$mod_job" \
+              --arg p "reports/$modname/" \
+              '
+             .[$date] //= {}
+             | .[$date].job = $job
+             | .[$date].projects //= []
+             | .[$date].projects |= map(select(.name != $proj))
+             | .[$date].projects |= (
+                 . + [{
+                   name: $proj,
+                   successes: ($succ|tonumber),
+                   failures: ($fail|tonumber),
+                   path: $p
+                 }]
+               )
+             ' \
+              report/history.json > report/tmp.json && mv report/tmp.json report/history.json
           done
           
           cutoff=$(date -d "7 days ago" +%Y-%m-%d)
