@@ -46,7 +46,6 @@ jobs:
             echo "No history.json found, create a new one"
             echo "{}" > report/history.json
           fi
-            echo "{}" > report/history.json
           
           for artifact in artifacts/*; do
             modname=$(basename "$artifact")
@@ -79,7 +78,7 @@ jobs:
               --arg proj "$modname" \
               --arg succ "$mod_succ" \
               --arg fail "$mod_fail" \
-              --arg job "$mod_job" \
+              --arg job "$job_url" \
               --arg p "reports/$modname/" \
               '
              .[$date] //= {}
