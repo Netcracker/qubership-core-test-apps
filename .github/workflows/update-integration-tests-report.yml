@@ -1,5 +1,6 @@
 name: Generate Test Report
 on:
+  push: # TODO FOR TESTS PURPOSE ONLY
   workflow_dispatch:
   schedule:
     - cron: "0 1 * * *" # every day at 01:00
