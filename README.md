@@ -28,6 +28,7 @@ A daily report of integration test results is generated and published via GitHub
 
 The report is automatically updated by a scheduled workflow and can be accessed online at:
 https://netcracker.github.io/qubership-core-test-apps/
+
 ## Applications Included
 
 - `mesh-test-service-go` — a Go-based test service
