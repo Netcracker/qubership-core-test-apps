@@ -40,6 +40,7 @@ jobs:
           failures=0
           
           url="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/history.json"
+          
           if ! curl -s -f -o report/history.json "$url"; then
             echo "No history.json found, create a new one"
             echo "{}" > report/history.json
@@ -57,8 +58,9 @@ jobs:
               tests=$(echo "$line" | sed -n 's/.*tests="\([0-9]\+\)".*/\1/p')
               fails=$(echo "$line" | sed -n 's/.*failures="\([0-9]\+\)".*/\1/p')
               errs=$(echo "$line" | sed -n 's/.*errors="\([0-9]\+\)".*/\1/p')
-              tests=${tests:-0}; fails=${fails:-0}; errs=${errs:-0}
-              mod_succ=$((mod_succ + tests - fails - errs))
+              skipped=$(echo "$line" | sed -n 's/.*skipped="\([0-9]\+\)".*/\1/p')
+              tests=${tests:-0}; fails=${fails:-0}; errs=${errs:-0}; skipped=${skipped:-0}
+              mod_succ=$((mod_succ + tests - fails - errs - skipped))
               mod_fail=$((mod_fail + fails + errs))
             done
           
@@ -71,12 +73,15 @@ jobs:
               mv "report/reports/$modname/surefire.html" "report/reports/$modname/index.html" 
             fi
           
+            mod_job="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          
             jq --arg date "$today" \
                --arg proj "$modname" \
                --arg succ "$mod_succ" \
                --arg fail "$mod_fail" \
+               --arg job "$mod_job" \
                --arg p "reports/$modname/" \
-               '.[$date][$proj] = {successes: ($succ|tonumber), failures: ($fail|tonumber), path: $p}' \
+               '.[$date][$proj] = {successes: ($succ|tonumber), failures: ($fail|tonumber), path: $p, job: $job}' \
                report/history.json > report/tmp.json && mv report/tmp.json report/history.json
           done
           
