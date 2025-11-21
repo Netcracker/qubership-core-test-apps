@@ -28,7 +28,7 @@
             border-spacing: 0;
             border-radius: 10px;
             overflow: hidden;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
             background: white;
         }
 
@@ -83,7 +83,7 @@
             max-width: 95%;
             background: white;
             border-radius: 12px;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
             padding: 20px;
             cursor: pointer;
         }
@@ -143,7 +143,23 @@
 
             projectList.forEach(project => {
               const row = document.createElement('tr');
-              row.innerHTML = `<td>${project}</td>`;
+              const jobUrl = data[today] && data[today].job ? data[today].job : null;
+              const projectCell = document.createElement('td');
+
+              if (jobUrl) {
+                  const link = document.createElement('a');
+                  link.href = jobUrl;
+                  link.target = "_blank";
+                  link.textContent = project;
+                  link.style.fontWeight = "600";
+                  link.style.color = "#4f46e5";
+                  link.style.textDecoration = "none";
+                  projectCell.appendChild(link);
+              } else {
+                  projectCell.textContent = project;
+              }
+
+              row.appendChild(projectCell);
 
               dates.forEach((day, idx) => {
                 const cell = document.createElement('td');
