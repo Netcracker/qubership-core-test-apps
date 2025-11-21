@@ -203,7 +203,7 @@ run_integration_tests() {
     
     echo "Running Maven integration tests..."
     local maven_exit_code=0
-    mvn clean verify -P integration-test \
+    mvn clean surefire-report:report -P integration-test \
         -Dclouds.cloud.name="$KUBE_CONTEXT" \
         -Dclouds.cloud.namespaces.namespace="$NAMESPACE" \
         -DNODE_IP_MAPPING="$NODE_IP_MAPPING" \
