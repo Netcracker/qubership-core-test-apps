@@ -29,7 +29,7 @@
         <quarkus.platform.artifact-id>quarkus-universe-bom</quarkus.platform.artifact-id>
         <quarkus.platform.group-id>io.quarkus</quarkus.platform.group-id>
         <quarkus.core.version>7.1.2</quarkus.core.version>
-        <surefire-plugin.version>3.5.2</surefire-plugin.version>
+        <surefire-plugin.version>3.5.4</surefire-plugin.version>
         <lombok.version>1.18.36</lombok.version>
         <jacoco.plugin.version>0.8.12</jacoco.plugin.version>
         <sonar.coverage.exclusions>src/main/java/com/netcracker/quarkus/Main.java</sonar.coverage.exclusions>
