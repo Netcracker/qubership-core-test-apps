@@ -46,7 +46,7 @@ jobs:
       - name: Run integration tests
         continue-on-error: true
         run: |
-          ./mesh-test-install/mesh-test-apps.sh install core chore-initial-snapshot
+          ./mesh-test-install/mesh-test-apps.sh install core
           ./mesh-test-install/run-integration-tests.sh kind-kind core kind-control-plane:10.244.0.1
         env:
           GITHUB_ACTOR: ${{ github.actor }}
