@@ -3,6 +3,62 @@ name: Run integration tests
 on:
   workflow_call:
   workflow_dispatch:
+    inputs:
+      facade-operator-tag:
+        description: 'Docker image tag for Facade Operator'
+        required: false
+        default: 'latest'
+        type: string
+      ingress-gateway-tag:
+        description: 'Docker image tag for Ingress Gateway'
+        required: false
+        default: 'latest'
+        type: string
+      control-plane-tag:
+        description: 'Docker image tag for Control Plane'
+        required: false
+        default: 'latest'
+        type: string
+      paas-mediation-tag:
+        description: 'Docker image tag for PaaS Mediation'
+        required: false
+        default: 'latest'
+        type: string
+      dbaas-agent-tag:
+        description: 'Docker image tag for DBaaS Agent'
+        required: false
+        default: 'latest'
+        type: string
+      core-operator-tag:
+        description: 'Docker image tag for Core Operator'
+        required: false
+        default: 'latest'
+        type: string
+      config-server-tag:
+        description: 'Docker image tag for Config Server'
+        required: false
+        default: 'latest'
+        type: string
+      site-management-tag:
+        description: 'Docker image tag for Site Management'
+        required: false
+        default: 'latest'
+        type: string
+      mesh-test-spring-tag:
+        description: 'Docker image tag for Spring service'
+        required: false
+        default: 'latest'
+        type: string
+      mesh-test-quarkus-tag:
+        description: 'Docker image tag for Quarkus service'
+        required: false
+        default: 'latest'
+        type: string
+      mesh-test-go-tag:
+        description: 'Docker image tag for Go service'
+        required: false
+        default: 'latest'
+        type: string        
   push:
     branches: [main]
   pull_request:
@@ -41,12 +97,59 @@ jobs:
           path: core-bootstrap-repo
 
       - name: Deploy cloud core
-        run: make -C core-bootstrap-repo/cloud-core-local-dev/ install
+        run: |
+          MAKE_ARGS=""
+          FACADE_OPERATOR_TAG="${{ inputs.facade-operator-tag || 'latest' }}"
+          INGRESS_GATEWAY_TAG="${{ inputs.ingress-gateway-tag || 'latest' }}"
+          CONTROL_PLANE_TAG="${{ inputs.control-plane-tag || 'latest' }}"
+          PAAS_MEDIATION_TAG="${{ inputs.paas-mediation-tag || 'latest' }}"
+          DBAAS_AGENT_TAG="${{ inputs.dbaas-agent-tag || 'latest' }}"
+          CORE_OPERATOR_TAG="${{ inputs.core-operator-tag || 'latest' }}"
+          CONFIG_SERVER_TAG="${{ inputs.config-server-tag || 'latest' }}"
+          SITE_MANAGEMENT_TAG="${{ inputs.site-management-tag || 'latest' }}"
+          if [ "$FACADE_OPERATOR_TAG" != "latest" ] && [ -n "$FACADE_OPERATOR_TAG" ]; then
+            MAKE_ARGS="$MAKE_ARGS FACADE_OPERATOR_TAG=$FACADE_OPERATOR_TAG"
+          fi
+          if [ "$INGRESS_GATEWAY_TAG" != "latest" ] && [ -n "$INGRESS_GATEWAY_TAG" ]; then
+            MAKE_ARGS="$MAKE_ARGS INGRESS_GATEWAY_TAG=$INGRESS_GATEWAY_TAG"
+          fi
+          if [ "$CONTROL_PLANE_TAG" != "latest" ] && [ -n "$CONTROL_PLANE_TAG" ]; then
+            MAKE_ARGS="$MAKE_ARGS CONTROL_PLANE_TAG=$CONTROL_PLANE_TAG"
+          fi
+          if [ "$PAAS_MEDIATION_TAG" != "latest" ] && [ -n "$PAAS_MEDIATION_TAG" ]; then
+            MAKE_ARGS="$MAKE_ARGS PAAS_MEDIATION_TAG=$PAAS_MEDIATION_TAG"
+          fi
+          if [ "$DBAAS_AGENT_TAG" != "latest" ] && [ -n "$DBAAS_AGENT_TAG" ]; then
+            MAKE_ARGS="$MAKE_ARGS DBAAS_AGENT_TAG=$DBAAS_AGENT_TAG"
+          fi
+          if [ "$CORE_OPERATOR_TAG" != "latest" ] && [ -n "$CORE_OPERATOR_TAG" ]; then
+            MAKE_ARGS="$MAKE_ARGS CORE_OPERATOR_TAG=$CORE_OPERATOR_TAG"
+          fi
+          if [ "$CONFIG_SERVER_TAG" != "latest" ] && [ -n "$CONFIG_SERVER_TAG" ]; then
+            MAKE_ARGS="$MAKE_ARGS CONFIG_SERVER_TAG=$CONFIG_SERVER_TAG"
+          fi
+          if [ "$SITE_MANAGEMENT_TAG" != "latest" ] && [ -n "$SITE_MANAGEMENT_TAG" ]; then
+            MAKE_ARGS="$MAKE_ARGS SITE_MANAGEMENT_TAG=$SITE_MANAGEMENT_TAG"
+          fi
+          make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/ install
 
       - name: Run integration tests
         continue-on-error: true
         run: |
-          ./mesh-test-install/mesh-test-apps.sh install core
+          INSTALL_CMD="./mesh-test-install/mesh-test-apps.sh install core"
+          SPRING_TAG="${{ inputs.mesh-test-spring-tag || 'latest' }}"
+          QUARKUS_TAG="${{ inputs.mesh-test-quarkus-tag || 'latest' }}"
+          GO_TAG="${{ inputs.mesh-test-go-tag || 'latest' }}"
+          if [ "$SPRING_TAG" != "latest" ] && [ -n "$SPRING_TAG" ]; then
+            INSTALL_CMD="$INSTALL_CMD --spring-tag $SPRING_TAG"
+          fi
+          if [ "$QUARKUS_TAG" != "latest" ] && [ -n "$QUARKUS_TAG" ]; then
+            INSTALL_CMD="$INSTALL_CMD --quarkus-tag $QUARKUS_TAG"
+          fi
+          if [ "$GO_TAG" != "latest" ] && [ -n "$GO_TAG" ]; then
+            INSTALL_CMD="$INSTALL_CMD --go-tag $GO_TAG"
+          fi
+          $INSTALL_CMD
           ./mesh-test-install/run-integration-tests.sh kind-kind core kind-control-plane:10.244.0.1
         env:
           GITHUB_ACTOR: ${{ github.actor }}
