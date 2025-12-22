@@ -2,24 +2,28 @@
 
 # Mesh test applications management script
 # Manages mesh test services in order: spring, quarkus, go
-# Usage: ./mesh-test-apps.sh <operation> <namespace> [tag]
-# Operation: install/uninstall, Namespace is required, TAG is optional (defaults to 'latest' for install)
+# Usage: ./mesh-test-apps.sh <operation> <namespace> [--spring-tag TAG] [--quarkus-tag TAG] [--go-tag TAG]
+# Operation: install/uninstall, Namespace is required, Tags are optional (defaults to 'latest' for install)
 
 set -e  # Exit on any error
 
 # Function to show usage
 show_usage() {
-    echo "Usage: $0 <operation> <namespace> [tag]"
+    echo "Usage: $0 <operation> <namespace> [--spring-tag TAG] [--quarkus-tag TAG] [--go-tag TAG]"
     echo ""
     echo "Arguments:"
-    echo "  operation    Operation to perform: 'install' or 'uninstall' (required)"
-    echo "  namespace    Kubernetes namespace to operate on (required)"
-    echo "  tag          Docker image tag to use for install (optional, defaults to 'latest')"
+    echo "  operation       Operation to perform: 'install' or 'uninstall' (required)"
+    echo "  namespace       Kubernetes namespace to operate on (required)"
+    echo "  --spring-tag     Docker image tag for Spring service (optional, defaults to 'latest')"
+    echo "  --quarkus-tag    Docker image tag for Quarkus service (optional, defaults to 'latest')"
+    echo "  --go-tag         Docker image tag for Go service (optional, defaults to 'latest')"
     echo ""
     echo "Examples:"
-    echo "  $0 install mesh-test                    # Install in 'mesh-test' namespace with 'latest' tag"
-    echo "  $0 install mesh-test v1.2.3             # Install in 'mesh-test' namespace with 'v1.2.3' tag"
-    echo "  $0 uninstall mesh-test                  # Uninstall from 'mesh-test' namespace"
+    echo "  $0 install mesh-test                                    # Install all services with 'latest' tag"
+    echo "  $0 install mesh-test --quarkus-tag v2.0.0               # Install Quarkus with 'v2.0.0', others with 'latest'"
+    echo "  $0 install mesh-test --spring-tag v1.2.3 --go-tag v3.1.0  # Install Spring with 'v1.2.3', Go with 'v3.1.0', Quarkus with 'latest'"
+    echo "  $0 install mesh-test --spring-tag v1.2.3 --quarkus-tag v2.0.0 --go-tag v3.1.0  # Each service with its specific tag"
+    echo "  $0 uninstall mesh-test                                  # Uninstall from 'mesh-test' namespace"
     echo ""
 }
 
@@ -56,13 +60,64 @@ fi
 
 # Parse command line arguments
 NAMESPACE="$2"
-TAG="${3:-latest}"
+SPRING_TAG="latest"
+QUARKUS_TAG="latest"
+GO_TAG="latest"
+
+# Parse remaining arguments (skip operation and namespace)
+shift 2
+
+# Parse named flags
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --spring-tag)
+            if [[ -z "$2" ]]; then
+                echo "Error: --spring-tag requires a value"
+                echo ""
+                show_usage
+                exit 1
+            fi
+            SPRING_TAG="$2"
+            shift 2
+            ;;
+        --quarkus-tag)
+            if [[ -z "$2" ]]; then
+                echo "Error: --quarkus-tag requires a value"
+                echo ""
+                show_usage
+                exit 1
+            fi
+            QUARKUS_TAG="$2"
+            shift 2
+            ;;
+        --go-tag)
+            if [[ -z "$2" ]]; then
+                echo "Error: --go-tag requires a value"
+                echo ""
+                show_usage
+                exit 1
+            fi
+            GO_TAG="$2"
+            shift 2
+            ;;
+        *)
+            echo "Error: Unknown option: $1"
+            echo "Only --spring-tag, --quarkus-tag, and --go-tag flags are supported."
+            echo ""
+            show_usage
+            exit 1
+            ;;
+    esac
+done
 
 echo "Starting mesh test applications $OPERATION..."
 echo "Operation: $OPERATION"
 echo "Target namespace: $NAMESPACE"
 if [[ "$OPERATION" == "install" ]]; then
-    echo "Docker image tag: $TAG"
+    echo "Docker image tags:"
+    echo "  Spring:  $SPRING_TAG"
+    echo "  Quarkus: $QUARKUS_TAG"
+    echo "  Go:      $GO_TAG"
 fi
 
 # Function to check if helm is installed
@@ -79,6 +134,7 @@ install_helm_package() {
     local service_name=$1
     local chart_path=$2
     local namespace=$3
+    local tag=$4
     
     echo ""
     echo "===================================="
@@ -96,10 +152,10 @@ install_helm_package() {
     helm dependency update "$chart_path"
     
     # Install or upgrade the helm chart
-    echo "Installing/upgrading $service_name with tag: $TAG..."
+    echo "Installing/upgrading $service_name with tag: $tag..."
     helm upgrade --install "$service_name" "$chart_path" \
         --namespace "$namespace" \
-        --set TAG="$TAG" \
+        --set TAG="$tag" \
         --wait \
         --debug \
         --timeout=300s
@@ -166,13 +222,13 @@ install_services() {
     echo "🚀 Starting installation process..."
     
     # 1. Install Spring service first
-    install_helm_package "mesh-test-service-spring" "$SPRING_CHART" "$NAMESPACE"
+    install_helm_package "mesh-test-service-spring" "$SPRING_CHART" "$NAMESPACE" "$SPRING_TAG"
     
     # 2. Install Quarkus service second
-    install_helm_package "mesh-test-service-quarkus" "$QUARKUS_CHART" "$NAMESPACE"
+    install_helm_package "mesh-test-service-quarkus" "$QUARKUS_CHART" "$NAMESPACE" "$QUARKUS_TAG"
     
     # 3. Install Go service third
-    install_helm_package "mesh-test-service-go" "$GO_CHART" "$NAMESPACE"
+    install_helm_package "mesh-test-service-go" "$GO_CHART" "$NAMESPACE" "$GO_TAG"
     
     echo ""
     echo "🎉 All mesh test services installed successfully!"
