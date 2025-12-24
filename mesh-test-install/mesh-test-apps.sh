@@ -157,7 +157,6 @@ install_helm_package() {
         --namespace "$namespace" \
         --set TAG="$tag" \
         --wait \
-        --debug \
         --timeout=300s
 
     if [ $? -eq 0 ]; then

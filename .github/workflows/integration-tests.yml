@@ -45,17 +45,17 @@ on:
         default: 'latest'
         type: string
       mesh-test-spring-tag:
-        description: 'Docker image tag for Spring service'
+        description: 'Docker image tag for Mest test Spring service'
         required: false
         default: 'latest'
         type: string
       mesh-test-quarkus-tag:
-        description: 'Docker image tag for Quarkus service'
+        description: 'Docker image tag for Mest test Quarkus service'
         required: false
         default: 'latest'
         type: string
       mesh-test-go-tag:
-        description: 'Docker image tag for Go service'
+        description: 'Docker image tag for Mest test Go service'
         required: false
         default: 'latest'
         type: string        

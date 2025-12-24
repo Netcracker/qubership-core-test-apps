@@ -4,6 +4,8 @@ on:
   push:
     paths:
       - 'mesh-test-service-quarkus/**'
+      - '.github/mesh-test-service-quarkus-docker-config.json'
+      - '.github/workflows/mesh-test-service-quarkus-on-commit.yaml'
   pull_request:
     types: [ opened, synchronize, reopened ]
     paths:
@@ -25,7 +27,7 @@ jobs:
 
   docker-build:
     needs: [mvn]
-    uses: netcracker/qubership-core-infra/.github/workflows/docker-build.yaml@chore/debug-docker-action-v2-0-5
+    uses: netcracker/qubership-core-infra/.github/workflows/docker-build.yaml@chore/v1.2.1
     with:
       dry-run: false
       config-filename: mesh-test-service-quarkus-docker-config.json
