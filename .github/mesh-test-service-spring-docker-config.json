@@ -3,7 +3,7 @@
       {
         "name": "qubership-core-mesh-test-service-spring",
         "file": "./mesh-test-service-spring/Dockerfile",
-        "context": "./artifacts/pre-built-artifact/mesh-test-service-spring/",
+        "context": "./artifacts/mesh-test-service-spring/",
         "download-artifact": true
       }
     ],

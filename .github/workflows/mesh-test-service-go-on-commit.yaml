@@ -4,10 +4,14 @@ on:
   push:
     paths:
       - 'mesh-test-service-go/**'
+      - '.github/mesh-test-service-go-docker-config.json'
+      - '.github/workflows/mesh-test-service-go-on-commit.yaml'
   pull_request:
     types: [ opened, synchronize, reopened ]
     paths:
-      - 'mesh-test-service-go/**'
+      - 'mesh-test-service-go/**' 
+      - '.github/mesh-test-service-go-docker-config.json'
+      - '.github/workflows/mesh-test-service-go-on-commit.yaml'
 
 jobs:
   build:
