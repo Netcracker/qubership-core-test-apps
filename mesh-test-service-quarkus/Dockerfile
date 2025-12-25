@@ -2,7 +2,7 @@ FROM ghcr.io/netcracker/qubership/java-base:1.0.0
 LABEL maintainer="qubership"
 
 COPY --chown=10001:0 target/lib/* /app/lib/
-COPY --chown=10001:0 mesh-test-service-quarkus-*-runner.jar /app/mesh-test-service-quarkus-runner.jar
+COPY --chown=10001:0 target/mesh-test-service-quarkus-*-runner.jar /app/mesh-test-service-quarkus-runner.jar
 
 EXPOSE 8080
 

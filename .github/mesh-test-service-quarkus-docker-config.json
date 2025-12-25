@@ -3,7 +3,7 @@
       {
         "name": "qubership-core-mesh-test-service-quarkus",
         "file": "./mesh-test-service-quarkus/Dockerfile",
-        "context": "./artifacts/pre-built-artifact/mesh-test-service-quarkus/",
+        "context": "./artifacts/mesh-test-service-quarkus/",
         "download-artifact": true
       }
     ],
