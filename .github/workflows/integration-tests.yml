@@ -44,18 +44,23 @@ on:
         required: false
         default: 'latest'
         type: string
+      dummy-separator:
+          description: '--------------------------------'
+          required: false
+          default: 'Mesh test services tags'
+          type: string
       mesh-test-spring-tag:
-        description: 'Docker image tag for Mest test Spring service'
+        description: 'Docker image tag for Mesh test Spring service'
         required: false
         default: 'latest'
         type: string
-      mesh-test-quarkus-tag:
-        description: 'Docker image tag for Mest test Quarkus service'
+      mesh-test-quarkus-tag:  
+        description: 'Docker image tag for Mesh test Quarkus service'
         required: false
         default: 'latest'
         type: string
       mesh-test-go-tag:
-        description: 'Docker image tag for Mest test Go service'
+        description: 'Docker image tag for Mesh test Go service'
         required: false
         default: 'latest'
         type: string        
