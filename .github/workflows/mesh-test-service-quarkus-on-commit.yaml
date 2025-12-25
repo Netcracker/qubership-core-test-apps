@@ -27,7 +27,7 @@ jobs:
 
   docker-build:
     needs: [mvn]
-    uses: netcracker/qubership-core-infra/.github/workflows/docker-build.yaml@chore/v1.2.1
+    uses: netcracker/qubership-core-infra/.github/workflows/docker-build.yaml@v1.2.1
     with:
       dry-run: false
       config-filename: mesh-test-service-quarkus-docker-config.json
