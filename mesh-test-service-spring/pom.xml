@@ -10,7 +10,7 @@
     <parent>
         <groupId>com.netcracker.cloud</groupId>
         <artifactId>qubership-spring-boot-starter-parent</artifactId>
-        <version>11.1.2</version>
+        <version>11.2.8</version>
     </parent>
     <version>1.0.0-SNAPSHOT</version>
 
@@ -27,9 +27,9 @@
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <cloud.core.java.bom.version>11.1.2</cloud.core.java.bom.version>
-        <surefire-plugin.version>3.5.2</surefire-plugin.version>
-        <jacoco.plugin.version>0.8.12</jacoco.plugin.version>
+        <cloud.core.java.bom.version>11.2.7</cloud.core.java.bom.version>
+        <surefire-plugin.version>3.5.4</surefire-plugin.version>
+        <jacoco.plugin.version>0.8.14</jacoco.plugin.version>
         <sonar.exclusions>**/com/netcracker/cloud/meshtestservicespring/model/*.java</sonar.exclusions>
         <okhttp.version>4.12.0</okhttp.version>
     </properties>
