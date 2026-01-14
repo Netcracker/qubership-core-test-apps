@@ -178,8 +178,14 @@ jobs:
       - name: Aggregate Surefire reports
         run: |
           for module in $(find . -type d -path "*/target/surefire-reports" | sed -E 's#/target/surefire-reports##' | sort -u); do
-            modname=$(basename "$module")
-            echo "Found test reports for $modname"
+            
+          # Naming strategy: if path starts with ./repos/, take third item (repo name), otherwise use basename
+            if [[ "$module" == ./repos/* ]]; then
+              modname=$(echo "$module" | cut -d'/' -f3)
+            else
+              modname=$(basename "$module")
+            fi
+            echo "Found test reports for module: $module -> artifact: $modname"
             mkdir -p artifacts/$modname
             cp -r "$module/target/surefire-reports" artifacts/$modname/ || true
             if [ -d "$module/target/reports" ]; then
