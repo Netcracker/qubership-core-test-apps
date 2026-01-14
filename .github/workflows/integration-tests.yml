@@ -155,7 +155,22 @@ jobs:
             INSTALL_CMD="$INSTALL_CMD --go-tag $GO_TAG"
           fi
           $INSTALL_CMD
-          ./mesh-test-install/run-integration-tests.sh kind-kind core kind-control-plane:10.244.0.1
+          ./run-it/run-integration-tests.sh kind-kind core kind-control-plane:10.244.0.1 mesh-integration-tests:mesh-integration-tests
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout paas-mediation
+        uses: actions/checkout@v4
+        with:
+          repository: Netcracker/qubership-core-paas-mediation
+          ref: feat/integration-tests
+          path: repos/paas-mediation
+        
+      - name: Run paas-mediation integration tests
+        continue-on-error: true
+        run: |
+          ./run-it/run-integration-tests.sh kind-kind core kind-control-plane:10.244.0.1 paas-mediation-tests:repos/paas-mediation/integration-tests
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
