@@ -49,16 +49,6 @@ on:
           required: false
           default: 'Mesh test services tags'
           type: string
-      run-mesh:
-        description: 'Run mesh integration tests'
-        required: false
-        default: true
-        type: boolean
-      run-paas:
-        description: 'Run paas-mediation integration tests'
-        required: false
-        default: true
-        type: boolean
       mesh-test-spring-tag:
         description: 'Docker image tag for Mesh test Spring service'
         required: false
@@ -74,6 +64,21 @@ on:
         required: false
         default: 'latest'
         type: string        
+      dummy-separator-2:
+        description: '--------------------------------'
+        required: false
+        default: 'Run integration tests'
+        type: string
+      run-mesh:
+        description: 'Run mesh integration tests'
+        required: false
+        default: true
+        type: boolean
+      run-paas:
+        description: 'Run paas-mediation integration tests'
+        required: false
+        default: true
+        type: boolean        
   push:
     branches: [main]
   pull_request:
