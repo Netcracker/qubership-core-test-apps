@@ -49,6 +49,16 @@ on:
           required: false
           default: 'Mesh test services tags'
           type: string
+      run-mesh:
+        description: 'Run mesh integration tests'
+        required: false
+        default: true
+        type: boolean
+      run-paas:
+        description: 'Run paas-mediation integration tests'
+        required: false
+        default: true
+        type: boolean
       mesh-test-spring-tag:
         description: 'Docker image tag for Mesh test Spring service'
         required: false
@@ -138,7 +148,8 @@ jobs:
           fi
           make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/ install
 
-      - name: Run integration tests
+      - name: Run mesh integration tests
+        if: ${{ inputs.run-mesh != false }}
         continue-on-error: true
         run: |
           INSTALL_CMD="./mesh-test-install/mesh-test-apps.sh install core"
@@ -161,13 +172,15 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout paas-mediation
+        if: ${{ inputs.run-paas != false }}
         uses: actions/checkout@v4
         with:
           repository: Netcracker/qubership-core-paas-mediation
           ref: feat/integration-tests
-          path: repos/paas-mediation
+          path: repos/paas-mediation 
         
       - name: Run paas-mediation integration tests
+        if: ${{ inputs.run-paas != false }}
         continue-on-error: true
         run: |
           ./run-it/run-integration-tests.sh kind-kind core kind-control-plane:10.244.0.1 paas-mediation-tests:repos/paas-mediation/integration-tests
