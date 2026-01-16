@@ -151,7 +151,7 @@ jobs:
           if [ "$SITE_MANAGEMENT_TAG" != "latest" ] && [ -n "$SITE_MANAGEMENT_TAG" ]; then
             MAKE_ARGS="$MAKE_ARGS SITE_MANAGEMENT_TAG=$SITE_MANAGEMENT_TAG"
           fi
-          # make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/ install
+          make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/ install
 
       - name: Run mesh integration tests
         if: ${{ github.event.name != 'workflow_dispatch' || inputs.run-mesh == true }}
