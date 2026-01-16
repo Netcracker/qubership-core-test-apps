@@ -15,7 +15,7 @@ on:
 
 jobs:
   build:
-    uses: netcracker/qubership-core-infra/.github/workflows/go-build-with-sonar.yaml@v1.2.1
+    uses: netcracker/qubership-core-infra/.github/workflows/go-build-with-sonar.yaml@v1.3.1
     with:
       actor: ${{ github.actor }}
       sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
@@ -24,7 +24,7 @@ jobs:
 
   docker-build:
     needs: [build]
-    uses: netcracker/qubership-core-infra/.github/workflows/docker-build.yaml@v1.2.1
+    uses: netcracker/qubership-core-infra/.github/workflows/docker-build.yaml@v1.3.1
     with:
       dry-run: false
       config-filename: mesh-test-service-go-docker-config.json    
