@@ -221,3 +221,95 @@ jobs:
         with:
           name: surefire-reports
           path: artifacts/*
+
+      - name: Collect Kubernetes diagnostics
+        if: failure()
+        run: |
+          set +e
+
+          echo "==== Collecting cluster state ===="
+
+          {
+            echo "==== CLUSTER INFO ===="
+            kubectl version --short || true
+            kubectl cluster-info || true
+
+            echo
+            echo "==== NODES ===="
+            kubectl get nodes -o wide || true
+
+            echo
+            echo "==== PODS (ALL NAMESPACES) ===="
+            kubectl get pods -A -o wide || true
+
+            echo
+            echo "==== DEPLOYMENTS ===="
+            kubectl get deployments -A || true
+
+            echo
+            echo "==== EVENTS (CHRONOLOGICAL) ===="
+            kubectl get events -A --sort-by=.metadata.creationTimestamp || true
+
+            echo
+            echo "==== KIND CLUSTER ===="
+            kind get clusters || true
+            docker ps -a --filter "name=kind" || true
+
+            echo
+            echo "==== KIND CONTROL PLANE LOGS ===="
+            docker logs kind-control-plane || true
+
+            echo
+            echo "==== KUBELET LOGS ===="
+            docker exec kind-control-plane journalctl -u kubelet --no-pager || true
+
+          } > cluster-state.txt 2>&1
+
+
+          echo "==== Collecting unhealthy pod logs ===="
+
+          {
+            kubectl get pods -A \
+              -o jsonpath='{range .items[?(@.status.phase!="Running" && @.status.phase!="Succeeded")]}{.metadata.namespace} {.metadata.name} {.status.phase}{"\n"}{end}' \
+              > /tmp/unhealthy-pods.txt || true
+
+            if [ ! -s /tmp/unhealthy-pods.txt ]; then
+              echo "No unhealthy pods found"
+            fi
+
+            while read -r ns pod phase; do
+              echo
+              echo "################################################"
+              echo "# Pod: $pod"
+              echo "# Namespace: $ns"
+              echo "# Phase: $phase"
+              echo "################################################"
+
+              echo
+              echo "---- kubectl describe ----"
+              kubectl describe pod "$pod" -n "$ns" || true
+
+              echo
+              echo "---- container logs ----"
+              for c in $(kubectl get pod "$pod" -n "$ns" -o jsonpath='{.spec.containers[*].name}' 2>/dev/null); do
+                echo
+                echo "-- logs for container: $c"
+                kubectl logs -n "$ns" "$pod" -c "$c" --tail=200 || true
+
+                echo
+                echo "-- previous logs for container: $c"
+                kubectl logs -n "$ns" "$pod" -c "$c" --previous --tail=200 || true
+              done
+            done < /tmp/unhealthy-pods.txt
+
+          } > unhealthy-pods-logs.txt 2>&1
+      
+      - name: Upload Kubernetes diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kind-k8s-debug
+          path: |
+            cluster-state.txt
+            unhealthy-pods-logs.txt
+        
