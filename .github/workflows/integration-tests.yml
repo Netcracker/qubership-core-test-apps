@@ -2,6 +2,15 @@ name: Run integration tests
 
 on:
   workflow_call:
+    inputs:
+      run-mesh:
+        type: boolean
+        required: false
+        default: true
+      run-paas:
+        type: boolean
+        required: false
+        default: true    
   workflow_dispatch:
     inputs:
       facade-operator-tag:
@@ -79,10 +88,6 @@ on:
         required: false
         default: true
         type: boolean        
-  push:
-    branches: [main]
-  pull_request:
-    branches: [ main ]
 
 jobs:
   integration-tests:
@@ -154,9 +159,7 @@ jobs:
           make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/ install
 
       - name: Run mesh integration tests
-        if: |
-            github.event_name != 'workflow_dispatch' ||
-            inputs.run-mesh == true
+        if: ${{ inputs.run-mesh == true }}
         continue-on-error: true
         run: |
           INSTALL_CMD="./mesh-test-install/mesh-test-apps.sh install core"
@@ -179,9 +182,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout paas-mediation
-        if: |
-          github.event_name != 'workflow_dispatch' ||
-          inputs.run-paas == true
+        if: ${{ inputs.run-paas == true }}
         uses: actions/checkout@v4
         with:
           repository: Netcracker/qubership-core-paas-mediation
@@ -189,9 +190,7 @@ jobs:
           path: repos/paas-mediation 
         
       - name: Run paas-mediation integration tests
-        if: |
-          github.event_name != 'workflow_dispatch' ||
-          inputs.run-paas == true
+        if: ${{ inputs.run-paas == true }}
         continue-on-error: true
         run: |
           ./run-it/run-integration-tests.sh kind-kind core kind-control-plane:10.244.0.1 paas-mediation-tests:repos/paas-mediation/integration-tests
