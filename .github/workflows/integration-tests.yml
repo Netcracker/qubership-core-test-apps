@@ -159,6 +159,7 @@ jobs:
           make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/ install
 
       - name: Run mesh integration tests
+        id: mesh_tests
         if: ${{ inputs.run-mesh == true }}
         continue-on-error: true
         run: |
@@ -190,6 +191,7 @@ jobs:
           path: repos/paas-mediation 
         
       - name: Run paas-mediation integration tests
+        id: paas_tests
         if: ${{ inputs.run-paas == true }}
         continue-on-error: true
         run: |
@@ -223,7 +225,7 @@ jobs:
           path: artifacts/*
 
       - name: Collect Kubernetes diagnostics
-        if: failure()
+        if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' }}
         run: |
           set +e
 
@@ -305,7 +307,7 @@ jobs:
           } > unhealthy-pods-logs.txt 2>&1
       
       - name: Upload Kubernetes diagnostics
-        if: failure()
+        if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' }}
         uses: actions/upload-artifact@v4
         with:
           name: kind-k8s-debug
