@@ -180,7 +180,7 @@ jobs:
 
       - name: Checkout paas-mediation
         if: |
-          github.event_name != 'workflow_dispatch' &&
+          github.event_name != 'workflow_dispatch' ||
           inputs.run-paas == true
         uses: actions/checkout@v4
         with:
