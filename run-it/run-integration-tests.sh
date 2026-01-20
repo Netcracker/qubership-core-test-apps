@@ -107,7 +107,9 @@ else
     done
 fi
 
-echo "Starting integration tests for all mesh test services..."
+echo "--------------------------------"
+echo "Starting integration tests"
+echo "--------------------------------"
 echo "Kube context: $KUBE_CONTEXT"
 echo "Namespace: $NAMESPACE"
 echo "Node IP mapping: $NODE_IP_MAPPING"

@@ -178,6 +178,7 @@ jobs:
           fi
           $INSTALL_CMD
           ./run-it/run-integration-tests.sh kind-kind core kind-control-plane:10.244.0.1 mesh-integration-tests:mesh-integration-tests
+          ./mesh-test-install/mesh-test-apps.sh uninstall core
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

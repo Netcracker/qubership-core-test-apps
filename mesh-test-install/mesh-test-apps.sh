@@ -110,7 +110,9 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+echo "--------------------------------"
 echo "Starting mesh test applications $OPERATION..."
+echo "--------------------------------"
 echo "Operation: $OPERATION"
 echo "Target namespace: $NAMESPACE"
 if [[ "$OPERATION" == "install" ]]; then
