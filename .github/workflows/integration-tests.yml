@@ -188,7 +188,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: Netcracker/qubership-core-paas-mediation
-          ref: feat/integration-tests
           path: repos/paas-mediation 
         
       - name: Run paas-mediation integration tests
