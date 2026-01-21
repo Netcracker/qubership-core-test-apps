@@ -2,6 +2,15 @@ name: Run integration tests
 
 on:
   workflow_call:
+    inputs:
+      run-mesh:
+        type: boolean
+        required: false
+        default: true
+      run-paas:
+        type: boolean
+        required: false
+        default: true    
   workflow_dispatch:
     inputs:
       facade-operator-tag:
@@ -64,10 +73,21 @@ on:
         required: false
         default: 'latest'
         type: string        
-  push:
-    branches: [main]
-  pull_request:
-    branches: [ main ]
+      dummy-separator-2:
+        description: '--------------------------------'
+        required: false
+        default: 'Run integration tests'
+        type: string
+      run-mesh:
+        description: 'Run mesh integration tests'
+        required: false
+        default: true
+        type: boolean
+      run-paas:
+        description: 'Run paas-mediation integration tests'
+        required: false
+        default: true
+        type: boolean        
 
 jobs:
   integration-tests:
@@ -138,7 +158,9 @@ jobs:
           fi
           make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/ install
 
-      - name: Run integration tests
+      - name: Run mesh integration tests
+        id: mesh_tests
+        if: inputs.run-mesh
         continue-on-error: true
         run: |
           INSTALL_CMD="./mesh-test-install/mesh-test-apps.sh install core"
@@ -155,7 +177,25 @@ jobs:
             INSTALL_CMD="$INSTALL_CMD --go-tag $GO_TAG"
           fi
           $INSTALL_CMD
-          ./mesh-test-install/run-integration-tests.sh kind-kind core kind-control-plane:10.244.0.1
+          ./run-it/run-integration-tests.sh kind-kind core kind-control-plane:10.244.0.1 mesh-integration-tests:mesh-integration-tests
+          ./mesh-test-install/mesh-test-apps.sh uninstall core
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout paas-mediation
+        if: inputs.run-paas
+        uses: actions/checkout@v4
+        with:
+          repository: Netcracker/qubership-core-paas-mediation
+          path: repos/paas-mediation 
+        
+      - name: Run paas-mediation integration tests
+        id: paas_tests
+        if: inputs.run-paas
+        continue-on-error: true
+        run: |
+          ./run-it/run-integration-tests.sh kind-kind core kind-control-plane:10.244.0.1 paas-mediation-tests:repos/paas-mediation/integration-tests
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -163,8 +203,14 @@ jobs:
       - name: Aggregate Surefire reports
         run: |
           for module in $(find . -type d -path "*/target/surefire-reports" | sed -E 's#/target/surefire-reports##' | sort -u); do
-            modname=$(basename "$module")
-            echo "Found test reports for $modname"
+            
+          # Naming strategy: if path starts with ./repos/, take third item (repo name), otherwise use basename
+            if [[ "$module" == ./repos/* ]]; then
+              modname=$(echo "$module" | cut -d'/' -f3)
+            else
+              modname=$(basename "$module")
+            fi
+            echo "Found test reports for module: $module -> artifact: $modname"
             mkdir -p artifacts/$modname
             cp -r "$module/target/surefire-reports" artifacts/$modname/ || true
             if [ -d "$module/target/reports" ]; then
@@ -177,3 +223,95 @@ jobs:
         with:
           name: surefire-reports
           path: artifacts/*
+
+      - name: Collect Kubernetes diagnostics
+        if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' }}
+        run: |
+          set +e
+
+          echo "==== Collecting cluster state ===="
+
+          {
+            echo "==== CLUSTER INFO ===="
+            kubectl version --short || true
+            kubectl cluster-info || true
+
+            echo
+            echo "==== NODES ===="
+            kubectl get nodes -o wide || true
+
+            echo
+            echo "==== PODS (ALL NAMESPACES) ===="
+            kubectl get pods -A -o wide || true
+
+            echo
+            echo "==== DEPLOYMENTS ===="
+            kubectl get deployments -A || true
+
+            echo
+            echo "==== EVENTS (CHRONOLOGICAL) ===="
+            kubectl get events -A --sort-by=.metadata.creationTimestamp || true
+
+            echo
+            echo "==== KIND CLUSTER ===="
+            kind get clusters || true
+            docker ps -a --filter "name=kind" || true
+
+            echo
+            echo "==== KIND CONTROL PLANE LOGS ===="
+            docker logs kind-control-plane || true
+
+            echo
+            echo "==== KUBELET LOGS ===="
+            docker exec kind-control-plane journalctl -u kubelet --no-pager || true
+
+          } > cluster-state.txt 2>&1
+
+
+          echo "==== Collecting unhealthy pod logs ===="
+
+          {
+            kubectl get pods -A \
+              -o jsonpath='{range .items[?(@.status.phase!="Running" && @.status.phase!="Succeeded")]}{.metadata.namespace} {.metadata.name} {.status.phase}{"\n"}{end}' \
+              > /tmp/unhealthy-pods.txt || true
+
+            if [ ! -s /tmp/unhealthy-pods.txt ]; then
+              echo "No unhealthy pods found"
+            fi
+
+            while read -r ns pod phase; do
+              echo
+              echo "################################################"
+              echo "# Pod: $pod"
+              echo "# Namespace: $ns"
+              echo "# Phase: $phase"
+              echo "################################################"
+
+              echo
+              echo "---- kubectl describe ----"
+              kubectl describe pod "$pod" -n "$ns" || true
+
+              echo
+              echo "---- container logs ----"
+              for c in $(kubectl get pod "$pod" -n "$ns" -o jsonpath='{.spec.containers[*].name}' 2>/dev/null); do
+                echo
+                echo "-- logs for container: $c"
+                kubectl logs -n "$ns" "$pod" -c "$c" --tail=200 || true
+
+                echo
+                echo "-- previous logs for container: $c"
+                kubectl logs -n "$ns" "$pod" -c "$c" --previous --tail=200 || true
+              done
+            done < /tmp/unhealthy-pods.txt
+
+          } > unhealthy-pods-logs.txt 2>&1
+      
+      - name: Upload Kubernetes diagnostics
+        if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: kind-k8s-debug
+          path: |
+            cluster-state.txt
+            unhealthy-pods-logs.txt
+        

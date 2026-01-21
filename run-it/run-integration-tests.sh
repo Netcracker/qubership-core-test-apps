@@ -2,22 +2,36 @@
 
 # Integration tests runner script
 # Runs integration tests sequentially for all mesh test services
-# Usage: ./run-integration-tests.sh <kube-context> <namespace> <node-ip-mapping>
+# Usage: ./run-integration-tests.sh [--profile PROFILE] <kube-context> <namespace> <node-ip-mapping> [service-name:test-folder ...]
 
 set -e  # Exit on any error
 
+# Maven profile (optional, no default)
+MAVEN_PROFILE="integration-test"
+
 # Function to show usage
 show_usage() {
-    echo "Usage: $0 <kube-context> <namespace> <node-ip-mapping>"
+    echo "Usage: $0 [--profile PROFILE] <kube-context> <namespace> <node-ip-mapping> [service-name:test-folder ...]"
     echo ""
-    echo "Arguments (all required):"
+    echo "Options:"
+    echo "  --profile PROFILE, -p PROFILE  Maven profile to use (optional)"
+    echo ""
+    echo "Required arguments:"
     echo "  kube-context      Kubernetes context for tests"
     echo "  namespace         Kubernetes namespace"
     echo "  node-ip-mapping   Node IP mapping (use node ip that belongs to pods network)"
     echo ""
+    echo "Optional arguments:"
+    echo "  service-name:test-folder  One or more pairs of service name and test folder"
+    echo "                           Format: service-name:relative-or-absolute-path"
+    echo "                           If not provided, defaults to 'mesh-integration-tests:mesh-integration-tests'"
+    echo ""
     echo "Examples:"
     echo "  $0 minikube core minikube:10.244.0.1"
-    echo "  $0 docker-desktop test-ns docker-desktop:10.0.0.1"
+    echo "  $0 --profile integration-test minikube core minikube:10.244.0.1"
+    echo "  $0 -p custom-profile docker-desktop test-ns docker-desktop:10.0.0.1"
+    echo "  $0 minikube core minikube:10.244.0.1 service1:test-folder1 service2:test-folder2"
+    echo "  $0 --profile test minikube core minikube:10.244.0.1 mesh-integration-tests:mesh-integration-tests"
     echo ""
 }
 
@@ -27,9 +41,28 @@ if [[ "$1" == "-h" || "$1" == "--help" ]]; then
     exit 0
 fi
 
+# Parse optional profile flag
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --profile|-p)
+            if [[ -z "$2" ]]; then
+                echo "Error: --profile requires a value"
+                echo ""
+                show_usage
+                exit 1
+            fi
+            MAVEN_PROFILE="$2"
+            shift 2
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
 # Check if all required arguments are provided
 if [[ -z "$1" || -z "$2" || -z "$3" ]]; then
-    echo "Error: All arguments are required!"
+    echo "Error: All required arguments are missing!"
     echo ""
     show_usage
     exit 1
@@ -40,10 +73,53 @@ KUBE_CONTEXT="$1"
 NAMESPACE="$2"
 NODE_IP_MAPPING="$3"
 
-echo "Starting integration tests for all mesh test services..."
+# Parse test folders and service names from remaining arguments
+# Format: service-name:test-folder
+declare -a TEST_SERVICES=()
+declare -a TEST_FOLDERS=()
+
+shift 3  # Remove first 3 arguments
+
+if [[ $# -eq 0 ]]; then
+    # Default behavior: use mesh-integration-tests
+    TEST_SERVICES=("mesh-integration-tests")
+    TEST_FOLDERS=("mesh-integration-tests")
+else
+    # Parse service-name:test-folder pairs
+    for arg in "$@"; do
+        if [[ "$arg" == *:* ]]; then
+            # Split by colon
+            IFS=':' read -r service_name test_folder <<< "$arg"
+            if [[ -z "$service_name" || -z "$test_folder" ]]; then
+                echo "Error: Invalid format for test argument '$arg'. Expected format: service-name:test-folder"
+                echo ""
+                show_usage
+                exit 1
+            fi
+            TEST_SERVICES+=("$service_name")
+            TEST_FOLDERS+=("$test_folder")
+        else
+            echo "Error: Invalid format for test argument '$arg'. Expected format: service-name:test-folder"
+            echo ""
+            show_usage
+            exit 1
+        fi
+    done
+fi
+
+echo "--------------------------------"
+echo "Starting integration tests"
+echo "--------------------------------"
 echo "Kube context: $KUBE_CONTEXT"
 echo "Namespace: $NAMESPACE"
 echo "Node IP mapping: $NODE_IP_MAPPING"
+if [[ -n "$MAVEN_PROFILE" ]]; then
+    echo "Maven profile: $MAVEN_PROFILE"
+fi
+echo "Test services and folders:"
+for i in "${!TEST_SERVICES[@]}"; do
+    echo "  - ${TEST_SERVICES[$i]}: ${TEST_FOLDERS[$i]}"
+done
 echo ""
 
 # Extract API server port from kubeconfig and export as global var
@@ -201,15 +277,31 @@ run_integration_tests() {
     # Change to service directory
     cd "$service_dir"
     
-    echo "Running Maven integration tests..."
+    if [[ -n "$MAVEN_PROFILE" ]]; then
+        echo "Running Maven integration tests with profile: $MAVEN_PROFILE"
+    else
+        echo "Running Maven integration tests (no profile specified)"
+    fi
     local maven_exit_code=0
-    mvn clean surefire-report:report -P integration-test \
-        -Dclouds.cloud.name="$KUBE_CONTEXT" \
-        -Dclouds.cloud.namespaces.namespace="$NAMESPACE" \
-        -DNODE_IP_MAPPING="$NODE_IP_MAPPING" \
-        -DORIGIN_NAMESPACE="$NAMESPACE" \
-        -Denv.cloud-namespace="$NAMESPACE" \
-        -Dkubernetes.master="https://${CLUSTER_DOMAIN}:${API_SERVER_PORT}" || maven_exit_code=$?
+    
+    # Build Maven command with conditional profile flag
+    if [[ -n "$MAVEN_PROFILE" ]]; then
+        mvn clean surefire-report:report -P "$MAVEN_PROFILE" \
+            -Dclouds.cloud.name="$KUBE_CONTEXT" \
+            -Dclouds.cloud.namespaces.namespace="$NAMESPACE" \
+            -DNODE_IP_MAPPING="$NODE_IP_MAPPING" \
+            -DORIGIN_NAMESPACE="$NAMESPACE" \
+            -Denv.cloud-namespace="$NAMESPACE" \
+            -Dkubernetes.master="https://${CLUSTER_DOMAIN}:${API_SERVER_PORT}" || maven_exit_code=$?
+    else
+        mvn clean surefire-report:report \
+            -Dclouds.cloud.name="$KUBE_CONTEXT" \
+            -Dclouds.cloud.namespaces.namespace="$NAMESPACE" \
+            -DNODE_IP_MAPPING="$NODE_IP_MAPPING" \
+            -DORIGIN_NAMESPACE="$NAMESPACE" \
+            -Denv.cloud-namespace="$NAMESPACE" \
+            -Dkubernetes.master="https://${CLUSTER_DOMAIN}:${API_SERVER_PORT}" || maven_exit_code=$?
+    fi
     
     # Extract test results regardless of Maven exit code
     extract_test_results "$service_dir" "$service_name"
@@ -381,19 +473,33 @@ main() {
     # Store original directory
     ORIGINAL_DIR="$(pwd)"
     
-    # Define integration tests directory (all tests merged into this module)
-    INTEGRATION_DIR="$PROJECT_ROOT/mesh-integration-tests"
-    
-    echo ""
-    echo "Integration tests directory:"
-    echo "Tests:   $INTEGRATION_DIR"
-    
     # Run integration tests in sequence
     echo ""
     echo "🚀 Starting integration tests execution..."
     
-    # Run unified integration tests
-    run_integration_tests "mesh-integration-tests" "$INTEGRATION_DIR"
+    # Run tests for each service/folder pair
+    for i in "${!TEST_SERVICES[@]}"; do
+        local service_name="${TEST_SERVICES[$i]}"
+        local test_folder="${TEST_FOLDERS[$i]}"
+        
+        # Determine if test_folder is absolute or relative
+        local integration_dir
+        if [[ "$test_folder" == /* ]]; then
+            # Absolute path
+            integration_dir="$test_folder"
+        else
+            # Relative path from project root
+            integration_dir="$PROJECT_ROOT/$test_folder"
+        fi
+        
+        echo ""
+        echo "Processing test configuration:"
+        echo "  Service name: $service_name"
+        echo "  Test folder: $integration_dir"
+        
+        # Run integration tests for this service
+        run_integration_tests "$service_name" "$integration_dir"
+    done
     
     # Return to original directory
     cd "$ORIGINAL_DIR"
