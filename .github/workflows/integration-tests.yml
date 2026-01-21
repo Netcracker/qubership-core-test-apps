@@ -160,7 +160,7 @@ jobs:
 
       - name: Run mesh integration tests
         id: mesh_tests
-        if: ${{ inputs.run-mesh == true }}
+        if: inputs.run-mesh
         continue-on-error: true
         run: |
           INSTALL_CMD="./mesh-test-install/mesh-test-apps.sh install core"
@@ -184,7 +184,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout paas-mediation
-        if: ${{ inputs.run-paas == true }}
+        if: inputs.run-paas
         uses: actions/checkout@v4
         with:
           repository: Netcracker/qubership-core-paas-mediation
@@ -193,7 +193,7 @@ jobs:
         
       - name: Run paas-mediation integration tests
         id: paas_tests
-        if: ${{ inputs.run-paas == true }}
+        if: inputs.run-paas
         continue-on-error: true
         run: |
           ./run-it/run-integration-tests.sh kind-kind core kind-control-plane:10.244.0.1 paas-mediation-tests:repos/paas-mediation/integration-tests
