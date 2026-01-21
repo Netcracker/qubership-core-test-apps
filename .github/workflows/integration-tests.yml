@@ -95,7 +95,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Add cluster.local to hosts
         run: |
@@ -110,13 +110,13 @@ jobs:
         uses: azure/setup-kubectl@v4
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v5
         with:
           java-version: '21'
           distribution: 'temurin'
 
       - name: Checkout cloud core bootstrap repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: Netcracker/qubership-core-bootstrap
           path: core-bootstrap-repo
@@ -185,7 +185,7 @@ jobs:
 
       - name: Checkout paas-mediation
         if: inputs.run-paas
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: Netcracker/qubership-core-paas-mediation
           path: repos/paas-mediation 
@@ -219,7 +219,7 @@ jobs:
           done
 
       - name: Upload Surefire reports
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: surefire-reports
           path: artifacts/*
@@ -308,7 +308,7 @@ jobs:
       
       - name: Upload Kubernetes diagnostics
         if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: kind-k8s-debug
           path: |
