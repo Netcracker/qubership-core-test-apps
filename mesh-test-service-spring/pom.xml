@@ -29,7 +29,7 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <cloud.core.java.bom.version>11.1.2</cloud.core.java.bom.version>
         <surefire-plugin.version>3.5.2</surefire-plugin.version>
-        <jacoco.plugin.version>0.8.12</jacoco.plugin.version>
+        <jacoco.plugin.version>0.8.14</jacoco.plugin.version>
         <sonar.exclusions>**/com/netcracker/cloud/meshtestservicespring/model/*.java</sonar.exclusions>
         <okhttp.version>4.12.0</okhttp.version>
     </properties>
