@@ -87,8 +87,17 @@ on:
         description: 'Run paas-mediation integration tests'
         required: false
         default: true
-        type: boolean        
-
+        type: boolean
+      run-istio:
+        description: 'Run istio integration tests'
+        required: false
+        default: true
+        type: boolean
+      service_mesh_type:
+        description: 'routing type for service mesh tests (CORE or ISTIO)'
+        required: false
+        default: 'CORE'
+        type: string
 jobs:
   integration-tests:
     runs-on: ubuntu-latest
@@ -115,13 +124,16 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
+      # TODO: remove ref once tested
       - name: Checkout cloud core bootstrap repo
         uses: actions/checkout@v4
         with:
           repository: Netcracker/qubership-core-bootstrap
           path: core-bootstrap-repo
+          ref: feat/istio_services
 
       - name: Deploy cloud core
+        id: deploy_core
         run: |
           MAKE_ARGS=""
           FACADE_OPERATOR_TAG="${{ inputs.facade-operator-tag || 'latest' }}"
@@ -156,11 +168,60 @@ jobs:
           if [ "$SITE_MANAGEMENT_TAG" != "latest" ] && [ -n "$SITE_MANAGEMENT_TAG" ]; then
             MAKE_ARGS="$MAKE_ARGS SITE_MANAGEMENT_TAG=$SITE_MANAGEMENT_TAG"
           fi
+          echo "::set-output name=make_args::$MAKE_ARGS"
           make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/ install
+
+      - name: Deploy istio and components if service mesh type is ISTIO
+        id: deploy_istio
+        if: inputs.service_mesh_type == 'ISTIO'
+        run: |
+          MAKE_ARGS="${{ steps.deploy_core.outputs.make_args }}"
+          MAKE_ARGS="$MAKE_ARGS INSTALL_ISTIO=trueSERVICE_MESH_TYPE=$SERVICE_MESH_TYPE"
+          make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/istio install
+
+      # TODO: change ref once merged
+      - name: Checkout cloud core control-plane repo
+        uses: actions/checkout@v4
+        with:
+          repository: Netcracker/qubership-core-control-plane
+          path: core-control-plane
+          ref: feat/mesh-cr-transformer
+
+      - name: Prepare CRs if service mesh type is ISTIO
+        if: inputs.service_mesh_type == 'ISTIO'
+        run: |
+          cd core-control-plane 
+          mvn clean package && \
+          java -jar target/remesh-1.0.0.jar -d ../core-bootstrap-repo/.tmp -v
 
       - name: Run mesh integration tests
         id: mesh_tests
         if: inputs.run-mesh
+        continue-on-error: true
+        run: |
+          INSTALL_CMD="./mesh-test-install/mesh-test-apps.sh install core"
+          SPRING_TAG="${{ inputs.mesh-test-spring-tag || 'latest' }}"
+          QUARKUS_TAG="${{ inputs.mesh-test-quarkus-tag || 'latest' }}"
+          GO_TAG="${{ inputs.mesh-test-go-tag || 'latest' }}"
+          if [ "$SPRING_TAG" != "latest" ] && [ -n "$SPRING_TAG" ]; then
+            INSTALL_CMD="$INSTALL_CMD --spring-tag $SPRING_TAG"
+          fi
+          if [ "$QUARKUS_TAG" != "latest" ] && [ -n "$QUARKUS_TAG" ]; then
+            INSTALL_CMD="$INSTALL_CMD --quarkus-tag $QUARKUS_TAG"
+          fi
+          if [ "$GO_TAG" != "latest" ] && [ -n "$GO_TAG" ]; then
+            INSTALL_CMD="$INSTALL_CMD --go-tag $GO_TAG"
+          fi
+          $INSTALL_CMD
+          ./run-it/run-integration-tests.sh kind-kind core kind-control-plane:10.244.0.1 mesh-integration-tests:mesh-integration-tests
+          ./mesh-test-install/mesh-test-apps.sh uninstall core
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run mesh integration tests with istio
+        id: istio_mesh_tests
+        if: inputs.run-istio
         continue-on-error: true
         run: |
           INSTALL_CMD="./mesh-test-install/mesh-test-apps.sh install core"
