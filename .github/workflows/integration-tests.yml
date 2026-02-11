@@ -130,7 +130,7 @@ jobs:
         with:
           repository: Netcracker/qubership-core-bootstrap
           path: core-bootstrap-repo
-          ref: feat/istio
+          ref: feat/istio_services
 
       - name: Deploy cloud core
         id: deploy_core
@@ -171,30 +171,6 @@ jobs:
           echo "::set-output name=make_args::$MAKE_ARGS"
           make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/ install
 
-       # TODO: core namespace is hardcoded
-      - name: Deploy istio and components if service mesh type is ISTIO
-        id: deploy_istio
-        if: inputs.service_mesh_type == 'ISTIO'
-        run: |
-          MAKE_ARGS="${{ steps.deploy_core.outputs.make_args }}"
-          MAKE_ARGS="$MAKE_ARGS INSTALL_ISTIO=true SERVICE_MESH_TYPE=$SERVICE_MESH_TYPE MESH_NAMESPACES=core"
-          make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/istio install
-
-      # TODO: change ref once merged
-      - name: Checkout cloud core control-plane repo
-        uses: actions/checkout@v4
-        with:
-          repository: Netcracker/qubership-core-control-plane
-          path: core-control-plane
-          ref: feat/mesh-cr-transformer
-
-      - name: Prepare CRs if service mesh type is ISTIO
-        if: inputs.service_mesh_type == 'ISTIO'
-        run: |
-          cd core-control-plane/mesh-cr-transformer 
-          mvn clean package && \
-          java -jar target/remesh-1.0.0.jar -d $GITHUB_WORKSPACE/ -v
-
       - name: Run mesh integration tests
         id: mesh_tests
         if: inputs.run-mesh
@@ -220,6 +196,30 @@ jobs:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+       # TODO: core namespace is hardcoded
+      - name: Deploy istio and components if service mesh type is ISTIO
+        id: deploy_istio
+        if: inputs.service_mesh_type == 'ISTIO'
+        run: |
+          MAKE_ARGS="${{ steps.deploy_core.outputs.make_args }}"
+          MAKE_ARGS="$MAKE_ARGS INSTALL_ISTIO=true SERVICE_MESH_TYPE=$SERVICE_MESH_TYPE MESH_NAMESPACES=core"
+          make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/istio install
+
+      # TODO: change ref once merged
+      - name: Checkout cloud core control-plane repo
+        uses: actions/checkout@v4
+        with:
+          repository: Netcracker/qubership-core-control-plane
+          path: core-control-plane
+          ref: feat/mesh-cr-transformer
+
+      - name: Prepare CRs if service mesh type is ISTIO
+        if: inputs.service_mesh_type == 'ISTIO'
+        run: |
+          cd core-control-plane/mesh-cr-transformer 
+          mvn clean package && \
+          java -jar target/remesh-1.0.0.jar -d $GITHUB_WORKSPACE/ -v
+          
       - name: Run mesh integration tests with istio
         id: istio_mesh_tests
         if: inputs.run-istio
