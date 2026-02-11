@@ -93,11 +93,6 @@ on:
         required: false
         default: true
         type: boolean
-      service_mesh_type:
-        description: 'routing type for service mesh tests (CORE or ISTIO)'
-        required: false
-        default: 'CORE'
-        type: string
 jobs:
   integration-tests:
     runs-on: ubuntu-latest
@@ -130,7 +125,7 @@ jobs:
         with:
           repository: Netcracker/qubership-core-bootstrap
           path: core-bootstrap-repo
-          ref: feat/istio_services
+          ref: feat/istio
 
       - name: Deploy cloud core
         id: deploy_core
@@ -199,10 +194,10 @@ jobs:
        # TODO: core namespace is hardcoded
       - name: Deploy istio and components if service mesh type is ISTIO
         id: deploy_istio
-        if: inputs.service_mesh_type == 'ISTIO'
+        if: inputs.run-istio
         run: |
           MAKE_ARGS="${{ steps.deploy_core.outputs.make_args }}"
-          MAKE_ARGS="$MAKE_ARGS INSTALL_ISTIO=true SERVICE_MESH_TYPE=$SERVICE_MESH_TYPE MESH_NAMESPACES=core"
+          MAKE_ARGS="$MAKE_ARGS INSTALL_ISTIO=true SERVICE_MESH_TYPE=ISTIO MESH_NAMESPACES=core"
           make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/istio install
 
       # TODO: change ref once merged
@@ -214,12 +209,13 @@ jobs:
           ref: feat/mesh-cr-transformer
 
       - name: Prepare CRs if service mesh type is ISTIO
-        if: inputs.service_mesh_type == 'ISTIO'
+        if: inputs.run-istio
         run: |
           cd core-control-plane/mesh-cr-transformer 
           mvn clean package && \
-          java -jar target/remesh-1.0.0.jar -d $GITHUB_WORKSPACE/ -v
-          
+          java -jar target/remesh-1.0.0.jar -d $GITHUB_WORKSPACE/mesh-test-service-go/ -v
+          find "$GITHUB_WORKSPACE/mesh-test-service-go/helm-templates/mesh-test-service-go/templates" -type f -exec sh -c 'echo "===== {} ====="; cat "$0"; echo ""' {} \;
+
       - name: Run mesh integration tests with istio
         id: istio_mesh_tests
         if: inputs.run-istio
