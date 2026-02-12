@@ -198,6 +198,7 @@ jobs:
         run: |
           MAKE_ARGS="${{ steps.deploy_core.outputs.make_args }}"
           MAKE_ARGS="$MAKE_ARGS INSTALL_ISTIO=true SERVICE_MESH_TYPE=ISTIO MESH_NAMESPACES=core"
+          make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/maas uninstall 
           make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/istio install
 
       # TODO: change ref once merged
@@ -213,7 +214,7 @@ jobs:
         run: |
           cd core-control-plane/mesh-cr-transformer 
           mvn clean package && \
-          java -jar target/remesh-1.0.0.jar -d $GITHUB_WORKSPACE/mesh-test-service-go/ -v
+          java -jar target/remesh-1.0.0.jar -d $GITHUB_WORKSPACE/mesh-test-service-go/ 
           find "$GITHUB_WORKSPACE/mesh-test-service-go/helm-templates/mesh-test-service-go/templates" -type f -exec sh -c 'echo "===== {} ====="; cat "$0"; echo ""' {} \;
 
       - name: Run mesh integration tests with istio
