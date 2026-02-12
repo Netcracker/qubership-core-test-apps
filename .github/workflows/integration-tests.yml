@@ -93,6 +93,11 @@ on:
         required: false
         default: true
         type: boolean
+      run-smtg:
+        description: 'prevent execution'
+        required: false
+        default: false
+        type: boolean
 jobs:
   integration-tests:
     runs-on: ubuntu-latest
@@ -210,7 +215,7 @@ jobs:
           ref: feat/mesh-cr-transformer
 
       - name: Prepare CRs if service mesh type is ISTIO
-        if: !inputs.run-istio
+        if: inputs.run-smtg
         run: |
           cd core-control-plane/mesh-cr-transformer 
           mvn clean package && \
