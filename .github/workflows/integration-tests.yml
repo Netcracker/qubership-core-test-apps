@@ -13,6 +13,16 @@ on:
         default: true    
   workflow_dispatch:
     inputs:
+      core-bootstrap-branch:
+        description: 'Branch of core-bootstrap repo'
+        required: false
+        default: 'main'
+        type: string        
+      dummy-separator-0:
+        description: '--------------------------------'
+        required: false
+        default: 'Docker image tags for core components'
+        type: string      
       facade-operator-tag:
         description: 'Docker image tag for Facade Operator'
         required: false
@@ -119,11 +129,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: Netcracker/qubership-core-bootstrap
+          ref: ${{ inputs.core-bootstrap-branch }}
           path: core-bootstrap-repo
 
       - name: Deploy cloud core
         run: |
-          MAKE_ARGS=""
+          MAKE_ARGS="INSTALL_MAAS=false CORE_CONFIG_MAAS_ENABLED=false INSTALL_ISTIO=true MESH_NAMESPACES=core"
           FACADE_OPERATOR_TAG="${{ inputs.facade-operator-tag || 'latest' }}"
           INGRESS_GATEWAY_TAG="${{ inputs.ingress-gateway-tag || 'latest' }}"
           CONTROL_PLANE_TAG="${{ inputs.control-plane-tag || 'latest' }}"
