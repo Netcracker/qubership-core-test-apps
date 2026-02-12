@@ -236,12 +236,12 @@ jobs:
           path: artifacts/*
 
       - name: Upload Istio logs
-        if: ${{ (failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure') && hashFiles('core-bootstrap-repo/cloud-core-local-dev/istio/test/logs/**') != '' }}
+        if: ${{ (failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure') }}
         uses: actions/upload-artifact@v4
         with:
           name: istio-logs
           path: |
-            core-bootstrap-repo/cloud-core-local-dev/istio/test/logs
+            ./core-bootstrap-repo/cloud-core-local-dev/istio/test/istio-logs
 
       - name: Collect Kubernetes diagnostics
         if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' }}
