@@ -235,6 +235,14 @@ jobs:
           name: surefire-reports
           path: artifacts/*
 
+      - name: Upload Istio logs
+        if: ${{ (failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure') && hashFiles('core-bootstrap-repo/cloud-core-local-dev/istio/test/logs/**') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: istio-logs
+          path: |
+            core-bootstrap-repo/cloud-core-local-dev/istio/test/logs
+
       - name: Collect Kubernetes diagnostics
         if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' }}
         run: |
