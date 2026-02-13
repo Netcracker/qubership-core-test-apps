@@ -1,3 +1,4 @@
+{{- if eq .Values.SERVICE_MESH_TYPE "ISTIO" }}
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -307,3 +308,4 @@ spec:
     - kind: Service
       name: public-gateway-service
       port: 8080.0
+{{- end }}
