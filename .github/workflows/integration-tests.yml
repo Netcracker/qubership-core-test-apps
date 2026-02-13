@@ -167,14 +167,11 @@ jobs:
           if [ "$SITE_MANAGEMENT_TAG" != "latest" ] && [ -n "$SITE_MANAGEMENT_TAG" ]; then
             MAKE_ARGS="$MAKE_ARGS SITE_MANAGEMENT_TAG=$SITE_MANAGEMENT_TAG"
           fi
-          
           make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/ install
+          echo "Waiting for 120 seconds"
           sleep 120
-          
-          echo "Waiting for 120 seconds to let the core components deploy"
-          
           MAKE_ARGS="INSTALL_ISTIO=true"
-          make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/istio install
+          make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/ deploy-istio
 
       - name: Run mesh integration tests
         id: mesh_tests
