@@ -169,9 +169,9 @@ jobs:
           fi
           make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/ install
           echo "Waiting for 120 seconds"
-          sleep 120
           MAKE_ARGS="INSTALL_ISTIO=true"
           make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/ deploy-istio
+          make -C core-bootstrap-repo/cloud-core-local-dev/ mesh-smoke-test
 
       - name: Run mesh integration tests
         id: mesh_tests
