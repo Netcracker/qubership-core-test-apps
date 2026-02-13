@@ -203,7 +203,7 @@ jobs:
         run: |
           MAKE_ARGS="${{ steps.deploy_core.outputs.make_args }}"
           MAKE_ARGS="$MAKE_ARGS INSTALL_ISTIO=true SERVICE_MESH_TYPE=ISTIO MESH_NAMESPACES=core"
-          # make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/maas uninstall 
+          make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/maas uninstall 
           make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/istio install
 
       # TODO: change ref once merged
