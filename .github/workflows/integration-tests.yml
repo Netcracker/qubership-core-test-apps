@@ -168,7 +168,6 @@ jobs:
             MAKE_ARGS="$MAKE_ARGS SITE_MANAGEMENT_TAG=$SITE_MANAGEMENT_TAG"
           fi
           make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/ install
-          make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/ deploy-istio
           make -C core-bootstrap-repo/cloud-core-local-dev/istio/test full-test
 
       - name: Run mesh integration tests
