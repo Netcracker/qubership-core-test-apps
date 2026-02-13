@@ -134,7 +134,7 @@ jobs:
 
       - name: Deploy cloud core
         run: |
-          MAKE_ARGS="INSTALL_MAAS=false CORE_CONFIG_MAAS_ENABLED=false"
+          MAKE_ARGS="INSTALL_MAAS=false CORE_CONFIG_MAAS_ENABLED=false INSTALL_ISTIO=true"
           FACADE_OPERATOR_TAG="${{ inputs.facade-operator-tag || 'latest' }}"
           INGRESS_GATEWAY_TAG="${{ inputs.ingress-gateway-tag || 'latest' }}"
           CONTROL_PLANE_TAG="${{ inputs.control-plane-tag || 'latest' }}"
@@ -168,10 +168,8 @@ jobs:
             MAKE_ARGS="$MAKE_ARGS SITE_MANAGEMENT_TAG=$SITE_MANAGEMENT_TAG"
           fi
           make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/ install
-          echo "Waiting for 120 seconds"
-          MAKE_ARGS="INSTALL_ISTIO=true"
           make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/ deploy-istio
-          make -C core-bootstrap-repo/cloud-core-local-dev/ mesh-smoke-test
+          make -C core-bootstrap-repo/cloud-core-local-dev/istio/test full-test
 
       - name: Run mesh integration tests
         id: mesh_tests
