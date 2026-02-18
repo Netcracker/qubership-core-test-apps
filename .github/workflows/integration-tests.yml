@@ -99,7 +99,7 @@ on:
         default: true
         type: boolean
       run-cr-transformer:
-        description: 'Run CR transformer integration tests'
+        description: 'Run CR transformer before the integration tests'
         required: false
         default: true
         type: boolean
@@ -194,7 +194,12 @@ jobs:
         if: inputs.run-mesh
         continue-on-error: true
         run: |
-          INSTALL_CMD="./mesh-test-install/mesh-test-apps.sh install core ISTIO"
+          INSTALL_CMD="./mesh-test-install/mesh-test-apps.sh install core"
+          if [ "${{ inputs.run-cr-transformer }}" == "true" ]; then
+            INSTALL_CMD="$INSTALL_CMD ISTIO"
+          else
+            INSTALL_CMD="$INSTALL_CMD CORE"
+          fi
           SPRING_TAG="${{ inputs.mesh-test-spring-tag || 'latest' }}"
           QUARKUS_TAG="${{ inputs.mesh-test-quarkus-tag || 'latest' }}"
           GO_TAG="${{ inputs.mesh-test-go-tag || 'latest' }}"
