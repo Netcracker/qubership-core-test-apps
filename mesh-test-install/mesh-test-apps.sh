@@ -255,7 +255,7 @@ install_services() {
     if [[ "$MESH_TYPE" == "ISTIO" ]]; then
         clone_or_update_repo "core-control-plane" "https://github.com/Netcracker/qubership-core-control-plane.git" "feat/mesh-cr-transformer"
         cd $PROJECT_ROOT/core-control-plane/mesh-cr-transformer 
-        mvn clean package
+        mvn clean package -q
 
         echo "Prepare CRs for ISTIO mesh installation"
         for chart in "$SPRING_CHART" "$QUARKUS_CHART" "$GO_CHART"; do

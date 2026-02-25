@@ -278,6 +278,10 @@ jobs:
             kubectl get deployments -A || true
 
             echo
+            echo "==== HTTPROUTES ===="
+            kubectl get httproute -A -o yaml|| true
+
+            echo
             echo "==== EVENTS (CHRONOLOGICAL) ===="
             kubectl get events -A --sort-by=.metadata.creationTimestamp || true
 
