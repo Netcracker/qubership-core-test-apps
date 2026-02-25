@@ -138,7 +138,7 @@ jobs:
 
       - name: Deploy cloud core
         run: |
-          MAKE_ARGS="INSTALL_MAAS=false CORE_CONFIG_MAAS_ENABLED=false INSTALL_ISTIO=true SERVICE_MESH_TYPE=ISTIO"
+          MAKE_ARGS="INSTALL_MAAS=false CORE_CONFIG_MAAS_ENABLED=false INSTALL_ISTIO=true"
           FACADE_OPERATOR_TAG="${{ inputs.facade-operator-tag || 'latest' }}"
           INGRESS_GATEWAY_TAG="${{ inputs.ingress-gateway-tag || 'latest' }}"
           CONTROL_PLANE_TAG="${{ inputs.control-plane-tag || 'latest' }}"
@@ -173,21 +173,6 @@ jobs:
           fi
           make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/ install
           make -C core-bootstrap-repo/cloud-core-local-dev/istio/test full-test NAMESPACE=core
-
-      # TODO: change ref once merged
-      - name: Checkout cloud core control-plane repo
-        if: inputs.run-cr-transformer
-        uses: actions/checkout@v4
-        with:
-          repository: Netcracker/qubership-core-control-plane
-          path: core-control-plane
-          ref: feat/mesh-cr-transformer
-
-      - name: Prepare CRs if service mesh type is ISTIO
-        if: inputs.run-cr-transformer
-        run: |
-          cd core-control-plane/mesh-cr-transformer 
-          mvn clean package && cp target/remesh-1.0.0.jar $GITHUB_WORKSPACE/mesh-test-install/
 
       - name: Run mesh integration tests
         id: mesh_tests
