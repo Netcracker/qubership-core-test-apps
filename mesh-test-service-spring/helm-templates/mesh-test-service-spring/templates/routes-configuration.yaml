@@ -130,7 +130,6 @@ kind: Mesh
 subKind: RouteConfiguration
 metadata:
   name: test-ingress-gateway-spring-routes
-
   labels:
     app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
     app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check

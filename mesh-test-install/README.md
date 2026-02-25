@@ -25,7 +25,7 @@ Run the script with required operation, namespace, and optional tag arguments:
 
 ```bash
 # Install in mesh-test namespace with default 'latest' tag
-./mesh-test-apps.sh install mesh-test
+./mesh-test-apps.sh install mesh-test 
 
 # Install in mesh-test namespace with specific tag
 ./mesh-test-apps.sh install mesh-test v1.2.3

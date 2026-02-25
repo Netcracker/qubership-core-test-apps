@@ -97,8 +97,12 @@ on:
         description: 'Run paas-mediation integration tests'
         required: false
         default: true
-        type: boolean        
-
+        type: boolean
+      run-cr-transformer:
+        description: 'Run CR transformer before the integration tests'
+        required: false
+        default: true
+        type: boolean
 jobs:
   integration-tests:
     runs-on: ubuntu-latest
@@ -176,6 +180,11 @@ jobs:
         continue-on-error: true
         run: |
           INSTALL_CMD="./mesh-test-install/mesh-test-apps.sh install core"
+          if [ "${{ inputs.run-cr-transformer }}" == "true" ]; then
+            INSTALL_CMD="$INSTALL_CMD ISTIO"
+          else
+            INSTALL_CMD="$INSTALL_CMD CORE"
+          fi
           SPRING_TAG="${{ inputs.mesh-test-spring-tag || 'latest' }}"
           QUARKUS_TAG="${{ inputs.mesh-test-quarkus-tag || 'latest' }}"
           GO_TAG="${{ inputs.mesh-test-go-tag || 'latest' }}"
@@ -269,6 +278,10 @@ jobs:
             kubectl get deployments -A || true
 
             echo
+            echo "==== HTTPROUTES ===="
+            kubectl get httproute -A -o yaml|| true
+
+            echo
             echo "==== EVENTS (CHRONOLOGICAL) ===="
             kubectl get events -A --sort-by=.metadata.creationTimestamp || true
 
@@ -334,4 +347,3 @@ jobs:
           path: |
             cluster-state.txt
             unhealthy-pods-logs.txt
-        
