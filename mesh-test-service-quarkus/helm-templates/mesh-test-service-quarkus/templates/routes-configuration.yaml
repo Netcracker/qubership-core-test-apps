@@ -7,7 +7,6 @@ metadata:
   labels:
     app.kubernetes.io/instance: "{{ .Values.SERVICE }}"
     app.kubernetes.io/managed-by: core-operator
-    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
 spec:
   gateways: [ "mesh-test-app-gateway" ]
   listenerPort: 8080
@@ -38,7 +37,6 @@ metadata:
   labels:
     app.kubernetes.io/instance: "{{ .Values.SERVICE }}"
     app.kubernetes.io/managed-by: core-operator
-    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
 spec:
   gateways: ["egress-gateway"]
   virtualServices:
@@ -64,7 +62,6 @@ metadata:
   labels:
     app.kubernetes.io/instance: "{{ .Values.SERVICE }}"
     app.kubernetes.io/managed-by: core-operator
-    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
 spec:
   gateways: [ "test-ingress-gateway" ]
   virtualServices:
@@ -93,7 +90,6 @@ metadata:
   labels:
     app.kubernetes.io/instance: "{{ .Values.SERVICE }}"
     app.kubernetes.io/managed-by: core-operator
-    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
 spec:
   gateways: [ "test-ingress-gateway-2" ]
   virtualServices:
