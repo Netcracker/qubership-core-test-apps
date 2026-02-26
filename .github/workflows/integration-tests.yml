@@ -282,6 +282,14 @@ jobs:
             kubectl get httproute -A -o yaml|| true
 
             echo
+            echo "==== GATEWAYS ===="
+            kubectl get gtw -A -o yaml || true
+
+            echo
+            echo "==== ingressclass ===="
+            kubectl get ingressclass -A || true
+
+            echo
             echo "==== EVENTS (CHRONOLOGICAL) ===="
             kubectl get events -A --sort-by=.metadata.creationTimestamp || true
 
@@ -304,9 +312,17 @@ jobs:
           echo "==== Collecting unhealthy pod logs ===="
 
           {
+            kubectl get pods --all-namespaces --field-selector=status.phase!=Running -o name | xargs -I{} kubectl logs {} --all-containers --prefix \
+              >> /tmp/unhealthy-pods.txt || true
+            echo --------------- >> /tmp/unhealthy-pods.txt || true
+
+            kubectl logs -l job-name=finalyzer-postinstall-job-mesh-test-service-spring -n core --all-containers --prefix >> /tmp/unhealthy-pods.txt || true
+
+            echo --------------- >> /tmp/unhealthy-pods.txt || true
+
             kubectl get pods -A \
               -o jsonpath='{range .items[?(@.status.phase!="Running" && @.status.phase!="Succeeded")]}{.metadata.namespace} {.metadata.name} {.status.phase}{"\n"}{end}' \
-              > /tmp/unhealthy-pods.txt || true
+              >> /tmp/unhealthy-pods.txt || true
 
             if [ ! -s /tmp/unhealthy-pods.txt ]; then
               echo "No unhealthy pods found"

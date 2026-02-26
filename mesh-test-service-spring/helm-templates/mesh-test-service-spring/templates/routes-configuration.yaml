@@ -10,7 +10,7 @@ metadata:
     app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
     deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
 spec:
-  gateways: ["public-gateway-service"]
+  gateways: ["public-gateway"]
   virtualServices:
     - name: public-gateway-service
       hosts: ["*"]
@@ -134,7 +134,6 @@ metadata:
     app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
     app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
     app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
-    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
 spec:
   gateways: [ "test-ingress-gateway" ]
   virtualServices:
@@ -168,7 +167,6 @@ metadata:
     app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
     app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
     app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
-    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
 spec:
   gateways: [ "test-ingress-gateway-2" ]
   virtualServices:
