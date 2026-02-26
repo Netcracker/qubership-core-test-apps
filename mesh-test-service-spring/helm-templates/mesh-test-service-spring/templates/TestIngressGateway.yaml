@@ -1,47 +1,39 @@
 {{- if eq .Values.SERVICE_MESH_TYPE "ISTIO" }}
 ---
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
 metadata:
-  name: '{{ .Values.INGRESS_GATEWAY_NAME }}'
-  annotations:
+  name: {{ .Values.INGRESS_GATEWAY_NAME }}
   labels:
     app.kubernetes.io/part-of: 'mesh-test-app'
+    app.kubernetes.io/processed-by-operator: "core-operator"
 spec:
-  ingressClassName: {{ if (default "" .Values.PEER_NAMESPACE) }}mesh.qubership.org{{ else }}{{ .Values.INGRESS_CLASS }}{{ end }}
-  rules:
-    - host: '{{ .Values.INGRESS_GATEWAY_NAME }}-{{ .Release.Namespace }}.{{ .Values.CLOUD_PUBLIC_HOST }}'
-      http:
-        paths:
-          - pathType: Prefix
-            path: "/"
-            backend:
-              service:
-                name: '{{ .Values.INGRESS_GATEWAY_NAME }}'
-                port:
-                  name: web
+  gatewayClassName: istio
+  listeners:
+  - name: default
+    port: 8080
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: All
 {{ if .Values.DEPLOY_SECOND_INGRESS }}
 ---
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
 metadata:
   name: '{{ .Values.INGRESS_GATEWAY_NAME }}-2'
-  annotations:
   labels:
     app.kubernetes.io/part-of: 'mesh-test-app'
+    app.kubernetes.io/processed-by-operator: "core-operator"
 spec:
-  ingressClassName: {{ if (default "" .Values.PEER_NAMESPACE) }}mesh.qubership.org{{ else }}{{ .Values.INGRESS_CLASS }}{{ end }}
-  rules:
-    - host: '{{ .Values.INGRESS_GATEWAY_NAME }}-2-{{ .Release.Namespace }}.{{ .Values.CLOUD_PUBLIC_HOST }}'
-      http:
-        paths:
-          - pathType: Prefix
-            path: "/"
-            backend:
-              service:
-                name: '{{ .Values.INGRESS_GATEWAY_NAME }}-2'
-                port:
-                  name: web
+  gatewayClassName: istio
+  listeners:
+  - name: default
+    port: 8080
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: All
 {{- end }}
 {{- else }}
 ---
