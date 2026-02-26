@@ -46,3 +46,4 @@ CLOUD_PRIVATE_HOST: "svc.cluster.local"
 CR_SYNCHRONIZER_IMAGE: "ghcr.io/netcracker/cr-synchronizer:feat-istio_components-snapshot"
 EXTERNAL_IPS: '' # TO_BE_REPLACED
 DEPLOYMENT_SESSION_ID:
+RESOURCE_POLLING_TIMEOUT: 60
