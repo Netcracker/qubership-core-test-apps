@@ -97,6 +97,16 @@
         </dependency>
         <dependency>
             <groupId>com.netcracker.cloud</groupId>
+            <artifactId>route-registration-common-spring</artifactId>
+            <version>6.4.1-alpha-1</version>
+        </dependency>
+        <dependency>
+            <groupId>com.netcracker.cloud</groupId>
+            <artifactId>route-registration-common</artifactId>
+            <version>6.4.1-alpha-1</version>
+        </dependency>        
+        <dependency>
+            <groupId>com.netcracker.cloud</groupId>
             <artifactId>framework-contexts</artifactId>
         </dependency>
         <dependency>
