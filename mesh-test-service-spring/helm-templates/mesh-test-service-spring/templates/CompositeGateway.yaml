@@ -1,20 +1,18 @@
 {{- if eq .Values.SERVICE_MESH_TYPE "ISTIO" }}
-apiVersion: gateway.networking.k8s.io/v1
-kind: Gateway
+kind: Service
+apiVersion: v1
 metadata:
-  name: mesh-test-app-gateway
-  labels:
-    app.kubernetes.io/part-of: 'mesh-test-app'
-    app.kubernetes.io/processed-by-operator: "core-operator"
+    name: mesh-test-app-gateway
+    labels:
+        app.kubernetes.io/part-of: 'mesh-test-app'
 spec:
-  gatewayClassName: istio
-  listeners:
-  - name: default
-    port: 8080
-    protocol: HTTP
-    allowedRoutes:
-      namespaces:
-        from: All
+    ports:
+    -   name: web
+        port: 8080
+        targetPort: 8080
+    {{ if  eq .Values.K8S_SERVICE_TYPE "HEADLESS" }}
+    clusterIP: None
+    {{ end }}
 {{- else }}
 apiVersion: core.netcracker.com/v1
 kind: Gateway

@@ -1,3 +1,19 @@
+{{- if eq .Values.SERVICE_MESH_TYPE "ISTIO" }}
+kind: Service
+apiVersion: v1
+metadata:
+    name: '{{ .Values.SERVICE }}'
+    labels:
+        app.kubernetes.io/part-of: 'mesh-test-app'
+spec:
+    ports:
+    -   name: web
+        port: 8080
+        targetPort: 8080
+    {{ if  eq .Values.K8S_SERVICE_TYPE "HEADLESS" }}
+    clusterIP: None
+    {{ end }}
+{{- else }}
 apiVersion: netcracker.com/v1alpha
 kind: FacadeService
 metadata:
@@ -11,3 +27,4 @@ spec:
     facadeGatewayMemoryLimit: 64Mi
     facadeGatewayMemoryRequest: 64Mi
   gateway: 'mesh-test-app-gateway'
+{{- end}}

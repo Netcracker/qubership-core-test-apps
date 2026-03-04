@@ -312,16 +312,7 @@ jobs:
           echo "==== Collecting unhealthy pod logs ===="
 
           {
-            kubectl get pods --all-namespaces --field-selector=status.phase!=Running -o name | xargs -I{} kubectl logs {} --all-containers --prefix \
-              >> /tmp/unhealthy-pods.txt || true
-            echo --------------- >> /tmp/unhealthy-pods.txt || true
-
-            kubectl logs -l job-name=finalyzer-postinstall-job-mesh-test-service-spring -n core --all-containers --prefix >> /tmp/unhealthy-pods.txt || true
-
-            echo --------------- >> /tmp/unhealthy-pods.txt || true
-
-            kubectl get pods -A \
-              -o jsonpath='{range .items[?(@.status.phase!="Running" && @.status.phase!="Succeeded")]}{.metadata.namespace} {.metadata.name} {.status.phase}{"\n"}{end}' \
+            kubectl get pods --all-namespaces --field-selector=status.phase!=Running -o name | xargs -I{} kubectl logs {} -n core --all-containers --prefix \
               >> /tmp/unhealthy-pods.txt || true
 
             if [ ! -s /tmp/unhealthy-pods.txt ]; then
