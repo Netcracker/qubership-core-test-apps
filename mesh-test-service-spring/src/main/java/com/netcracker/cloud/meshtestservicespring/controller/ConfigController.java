@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Slf4j
 public class ConfigController {
 
-    @Value("${consul.test.property}")
+    @Value("${consul.test.property:}")
     private String consulTestProperty;
 
     @RequestMapping(method = RequestMethod.GET)
