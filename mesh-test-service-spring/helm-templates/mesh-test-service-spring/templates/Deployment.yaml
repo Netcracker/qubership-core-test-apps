@@ -78,6 +78,8 @@ spec:
                     value: "http://internal-gateway-service:8080"
                 -   name: PUBLIC_GATEWAY_URL
                     value: '{{ .Values.PUBLIC_GATEWAY_URL }}'
+                -   name: SERVICE_MESH_TYPE
+                    value: '{{ .Values.SERVICE_MESH_TYPE }}'
                 resources:
                     requests:
                         cpu: '{{ .Values.CPU_REQUEST }}'

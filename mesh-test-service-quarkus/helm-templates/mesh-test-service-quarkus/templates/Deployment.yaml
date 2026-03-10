@@ -65,6 +65,8 @@ spec:
                           fieldRef:
                             apiVersion: v1
                             fieldPath: metadata.name
+                      - name: SERVICE_MESH_TYPE
+                        value: '{{ .Values.SERVICE_MESH_TYPE }}'                            
                   resources:
                       requests:
                           cpu: "{{ .Values.CPU_REQUEST }}"
