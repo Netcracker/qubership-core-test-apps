@@ -3,6 +3,7 @@ package main
 import (
 	"time"
 
+	"github.com/netcracker/qubership-core-lib-go-rest-utils/v2/consul-propertysource"
 	"github.com/netcracker/qubership-mesh-test-service-go/controller"
 
 	"github.com/gofiber/fiber/v2"
@@ -23,13 +24,15 @@ var (
 )
 
 func init() {
-	configloader.Init(configloader.BasePropertySources()...)
 	logger = logging.GetLogger("server")
 	serviceloader.Register(1, &security.DummyToken{})
 	serviceloader.Register(1, &fibersecurity.DummyFiberServerSecurityMiddleware{})
 }
 
 func main() {
+	consulPS := consul.NewPropertySource()
+	configloader.InitWithSourcesArray(append(configloader.BasePropertySources(), consulPS))
+
 	fiberConfig := fiber.Config{Network: fiber.NetworkTCP, IdleTimeout: 30 * time.Second}
 	healthService, err := health.NewHealthService()
 	if err != nil {
@@ -46,11 +49,12 @@ func main() {
 		return
 	}
 
-	control := controller.NewController()
+	control := controller.NewController(consulPS)
 	apiV1 := app.Group("/api/v1")
 	apiV1.Get("/hello", control.HelloHandler)
 	apiV1.Get("/hello/spring", control.HelloSpringHandler)
 	apiV1.Post("/proxy/tcp", control.ProxyTCP)
+	apiV1.Get("/config", control.ConsulConfigHandler)
 
 	routeregistration.NewRegistrar().WithRoutes(
 		routeregistration.Route{From: "/api/v1/mesh-test-service-go",
@@ -63,10 +67,10 @@ func main() {
 		server.StartServer(app, "http.server.bind")
 	}()
 
-	startSecondServer(fiberConfig)
+	startSecondServer(fiberConfig, consulPS)
 }
 
-func startSecondServer(fiberConfig fiber.Config) {
+func startSecondServer(fiberConfig fiber.Config, consulPS *configloader.PropertySource) {
 	logger.Info("Start second server")
 	app2, err := fiberserver.New(fiberConfig).Process()
 	if err != nil {
@@ -74,7 +78,7 @@ func startSecondServer(fiberConfig fiber.Config) {
 		return
 	}
 
-	control := controller.NewController()
+	control := controller.NewController(consulPS)
 	apiV1 := app2.Group("/api/v1")
 	apiV1.Get("/1234/hello", control.HelloHandler)
 
