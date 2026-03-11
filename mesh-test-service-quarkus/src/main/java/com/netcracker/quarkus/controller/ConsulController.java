@@ -13,8 +13,8 @@ import org.eclipse.microprofile.config.ConfigProvider;
 
 @Produces(MediaType.TEXT_PLAIN)
 @Route(RouteType.PUBLIC)
-@Gateway(ApiVersions.API + ApiVersions.V1 + ApiVersions.SERVICE_NAME + "/config")
-@Path(ApiVersions.API + ApiVersions.V1 + "/config")
+@Gateway(ApiVersions.API + ApiVersions.V1 + ApiVersions.SERVICE_NAME + "/consul/test/property")
+@Path(ApiVersions.API + ApiVersions.V1 + "/consul/test/property")
 @Slf4j
 public class ConsulController {
 

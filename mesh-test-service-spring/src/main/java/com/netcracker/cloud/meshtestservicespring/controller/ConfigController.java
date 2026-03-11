@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RefreshScope
 @RestController
 @RequestMapping(ApiVersions.API + ApiVersions.V1 + "/config")
-@GatewayRequestMapping(path = ApiVersions.API + ApiVersions.V1 + ApiVersions.SERVICE_NAME + "/config")
+@GatewayRequestMapping(path = ApiVersions.API + ApiVersions.V1 + ApiVersions.SERVICE_NAME + "/consul/test/property")
 @Slf4j
 public class ConfigController {
 

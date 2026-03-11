@@ -25,7 +25,7 @@ public abstract class ConsulITBase {
     private static URL consulUrl;
 
     private static final String CONSUL_TEST_PROPERTY_PATH = "config/core/application/consul/test/property";
-    private static final String SERVICE_TEST_PROPERTY_PATH = "api/v1/config";
+    private static final String SERVICE_TEST_PROPERTY_PATH = "api/v1/consul/test/property";
 
     @BeforeAll
     static void beforeAll() {

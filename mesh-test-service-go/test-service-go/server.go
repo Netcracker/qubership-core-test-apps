@@ -54,7 +54,7 @@ func main() {
 	apiV1.Get("/hello", control.HelloHandler)
 	apiV1.Get("/hello/spring", control.HelloSpringHandler)
 	apiV1.Post("/proxy/tcp", control.ProxyTCP)
-	apiV1.Get("/config", control.ConsulConfigHandler)
+	apiV1.Get("/consul/test/property", control.ConsulConfigHandler)
 
 	routeregistration.NewRegistrar().WithRoutes(
 		routeregistration.Route{From: "/api/v1/mesh-test-service-go",
