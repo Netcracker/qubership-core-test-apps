@@ -159,10 +159,10 @@
                     <outputDirectory>target/jacoco-ut</outputDirectory>
                 </configuration>
             </plugin>
-            <!-- <plugin>
+            <plugin>
                 <groupId>org.qubership.cloud.core</groupId>
                 <artifactId>httproutes-generator-maven-plugin</artifactId>
-                <version>1.0.0-SNAPSHOT</version>
+                <version>0.0.1-SNAPSHOT</version>
                 <executions>
                     <execution>
                         <goals>
@@ -178,7 +178,7 @@
                     <outputFile>helm-templates/mesh-test-service-quarkus/templates/annotations-httproutes.yaml</outputFile>
                     <backendRefVal>{{ .Values.DEPLOYMENT_RESOURCE_NAME }}</backendRefVal>
                 </configuration>
-            </plugin>    -->
+            </plugin>   
         </plugins>
     </build>
 
