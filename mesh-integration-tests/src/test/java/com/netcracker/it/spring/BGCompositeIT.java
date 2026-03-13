@@ -55,6 +55,6 @@ public class BGCompositeIT {
 		testIngressWithHeader(PROTOCOL_PREFIX + foundRouteHost, 200, SATELLITE, "v2", QUARKUS_SERVICE_NAME, X_VERSION_NAME_VALUE_CANDIDATE,  "/quarkus?namespace=" + SATELLITE);
 
 		//Check that token got on base with header (on base Candidate) can be used on Satellite
-		testRequestWithoutHeader(PROTOCOL_PREFIX + foundRouteHostSatellite + "/api/v1/" + SPRING_SERVICE_NAME + "/hello", 200, SATELLITE, SPRING_SERVICE_NAME, false);
+		testRequestWithoutHeader(PROTOCOL_PREFIX + foundRouteHostSatellite + "api/v1/" + SPRING_SERVICE_NAME + "/hello", 200, SATELLITE, SPRING_SERVICE_NAME, false);
 	}
 }

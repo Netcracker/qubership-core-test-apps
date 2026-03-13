@@ -58,7 +58,7 @@ public class HttpIT {
 	@Test
 	public void testRouteRegisteredByLib() throws IOException {
 		Request request = new Request.Builder()
-				.url(publicGWServerUrl + "/api/v1/mesh-test-service-spring/hello")
+				.url(publicGWServerUrl + "api/v1/mesh-test-service-spring/hello")
 				.get()
 				.build();
 		try (Response response = okHttpClient.newCall(request).execute()) {
@@ -72,7 +72,7 @@ public class HttpIT {
 	@Test
 	public void testRouteRegisteredDeclarative() throws IOException {
 		Request request = new Request.Builder()
-				.url(publicGWServerUrl + "/api/v1/mesh-test-service-spring/declarative_hello")
+				.url(publicGWServerUrl + "api/v1/mesh-test-service-spring/declarative_hello")
 				.get()
 				.build();
 		try (Response response = okHttpClient.newCall(request).execute()) {
@@ -85,7 +85,7 @@ public class HttpIT {
 	@Test
 	public void testRouteRegisteredInCompositeGWWIthRoutingByHost() throws IOException {
 		Request request = new Request.Builder()
-				.url(compositeGWServerUrl+ "/api/v1/mesh-test-service-spring/declarative_hello")
+				.url(compositeGWServerUrl+ "api/v1/mesh-test-service-spring/declarative_hello")
 				.get()
 				.build();
 		try (Response response = okHttpClient.newCall(request).execute()) {
@@ -98,7 +98,7 @@ public class HttpIT {
 	@Test
 	public void testRouteRegisteredInEgressGWtoCP() throws IOException {
 		Request request = new Request.Builder()
-				.url(publicGWServerUrl + "/api/v1/mesh-test-service-spring/egress")
+				.url(publicGWServerUrl + "api/v1/mesh-test-service-spring/egress")
 				.get()
 				.build();
 		try (Response response = okHttpClient.newCall(request).execute()) {
@@ -111,7 +111,7 @@ public class HttpIT {
 	@Test//Send not existed deployment version
 	public void testContextPropagation() throws IOException {
 		Request request = new Request.Builder()
-				.url(publicGWServerUrl + "/api/v1/mesh-test-service-spring/hello/quarkus")
+				.url(publicGWServerUrl + "api/v1/mesh-test-service-spring/hello/quarkus")
 				.addHeader("X-Version","v999")
 				.get()
 				.build();
@@ -127,7 +127,7 @@ public class HttpIT {
 	@Test
 	public void testRouteToQuarkusService() throws IOException {
 		Request request = new Request.Builder()
-				.url(publicGWServerUrl + "/api/v1/mesh-test-service-spring/hello/quarkus")
+				.url(publicGWServerUrl + "api/v1/mesh-test-service-spring/hello/quarkus")
 				.get()
 				.build();
 		try (Response response = okHttpClient.newCall(request).execute()) {
@@ -147,7 +147,7 @@ public class HttpIT {
 	private void testCheckTrace(String url) throws Exception {
 		log.info("testCheckTrace, url: {}", url);
 		Request request = new Request.Builder()
-				.url(publicGWServerUrl + "/api/v1/mesh-test-service-spring/spring/proxy?url=" + url)
+				.url(publicGWServerUrl + "api/v1/mesh-test-service-spring/spring/proxy?url=" + url)
 				.get()
 				.build();
 		try (Response response = okHttpClient.newCall(request).execute()) {

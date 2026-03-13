@@ -64,7 +64,7 @@ public class RequestTestCase {
     }
 
     public void runTestRequest(final long replicationStartTime, final URL url) throws IOException {
-        final String testUrl = url.toString() + "/api/v1/hello";
+        final String testUrl = url.toString() + "api/v1/hello";
         final Request.Builder request = new Request.Builder().url(testUrl);
         if (withHeader) {
             request.addHeader("x-version-name", "candidate");
