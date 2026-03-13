@@ -57,6 +57,13 @@
         </repository>
     </repositories>
 
+    <pluginRepositories>
+      <pluginRepository>
+        <id>github</id>
+        <url>https://maven.pkg.github.com/netcracker/*</url>
+      </pluginRepository>
+    </pluginRepositories>
+
     <dependencyManagement>
         <dependencies>
             <dependency>
