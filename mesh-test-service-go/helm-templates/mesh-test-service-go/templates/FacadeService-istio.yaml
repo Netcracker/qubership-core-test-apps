@@ -1,0 +1,18 @@
+{{- if eq .Values.SERVICE_MESH_TYPE "ISTIO" }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: '{{ .Values.SERVICE }}'
+spec:
+  ports:
+  - name: web
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  - name: web2
+    port: 1234
+    targetPort: 1234
+    protocol: TCP
+  selector:
+    name: '{{ .Values.DEPLOYMENT_RESOURCE_NAME }}'
+{{- end }}

@@ -1,3 +1,4 @@
+{{- if eq .Values.SERVICE_MESH_TYPE "CORE" }}
 ---
 apiVersion: core.netcracker.com/v1
 kind: Mesh
@@ -25,6 +26,8 @@ spec:
                   prefix: /api/v1/mesh-test-service-go
                 allowed: true
                 prefixRewrite: /api/v1
+{{- end }}
+{{- if eq .Values.SERVICE_MESH_TYPE "CORE" }}
 ---
 apiVersion: core.netcracker.com/v1
 kind: Mesh
@@ -49,6 +52,8 @@ spec:
                   prefix: /api/v1/mesh-test-service-go
                 allowed: true
                 prefixRewrite: /api/v1
+{{- end }}
+{{- if eq .Values.SERVICE_MESH_TYPE "CORE" }}
 ---
 apiVersion: core.netcracker.com/v1
 kind: Mesh
@@ -73,6 +78,8 @@ spec:
                   prefix: /api/v1/mesh-test-service-go
                 allowed: true
                 prefixRewrite: /api/v1
+{{- end }}
+{{- if eq .Values.SERVICE_MESH_TYPE "CORE" }}
 ---
 apiVersion: core.netcracker.com/v1
 kind: Mesh
@@ -100,3 +107,4 @@ spec:
                   prefix: /api/v1/mesh-test-service-go/1234
                 allowed: true
                 prefixRewrite: /api/v1/1234
+{{- end }}

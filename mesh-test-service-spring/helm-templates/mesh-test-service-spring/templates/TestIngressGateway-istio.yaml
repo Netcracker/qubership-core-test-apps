@@ -1,0 +1,43 @@
+{{- if eq .Values.SERVICE_MESH_TYPE "ISTIO" }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ .Values.INGRESS_GATEWAY_NAME }}
+  labels:
+    app.kubernetes.io/part-of: 'mesh-test-app'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "istiod"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  gatewayClassName: istio
+  listeners:
+  - name: default
+    port: 8080
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Same
+{{- end }}
+{{ if .Values.DEPLOY_SECOND_INGRESS }}
+{{- if eq .Values.SERVICE_MESH_TYPE "ISTIO" }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: '{{ .Values.INGRESS_GATEWAY_NAME }}-2'
+  labels:
+    app.kubernetes.io/part-of: 'mesh-test-app'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "istiod"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  gatewayClassName: istio
+  listeners:
+  - name: default
+    port: 8080
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Same
+{{- end }}
+{{ end }}

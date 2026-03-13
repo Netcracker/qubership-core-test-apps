@@ -1,0 +1,312 @@
+{{- if eq .Values.SERVICE_MESH_TYPE "ISTIO" }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: mesh-test-service-spring-public-routes
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "istiod"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  parentRefs:
+  - name: public-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/mesh-test-service-spring/declarative_hello
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /api/v1/declarative_hello
+    backendRefs:
+    - kind: Service
+      name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
+      port: 8080
+{{- end }}
+{{- if eq .Values.SERVICE_MESH_TYPE "ISTIO" }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: mesh-test-app-gateway-spring-routes
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "istiod"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  parentRefs:
+  - kind: Service
+    group: ''
+    name: "{{ .Values.SERVICE }}"
+    port: 8080
+  hostnames:
+  - "{{ .Values.SERVICE }}"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/mesh-test-service-spring/hello
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /api/v1/hello
+    backendRefs:
+    - kind: Service
+      name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
+      port: 8080
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/mesh-test-service-spring/declarative_hello
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /api/v1/declarative_hello
+    backendRefs:
+    - kind: Service
+      name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
+      port: 8080
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/mesh-test-service-spring/egress
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /api/v1/egress
+    backendRefs:
+    - kind: Service
+      name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
+      port: 8080
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/mesh-test-service-spring/sleep
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /api/v1/sleep
+    backendRefs:
+    - kind: Service
+      name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
+      port: 8080
+{{- end }}
+{{- if eq .Values.SERVICE_MESH_TYPE "ISTIO" }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: egress-routes-spring-control-plane-routes
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "istiod"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  parentRefs:
+  - name: egress-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v3/control-plane/versions/registry
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        remove:
+        - Origin
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /api/v3/versions/registry
+    backendRefs:
+    - kind: Service
+      name: control-plane
+      port: 8080
+{{- end }}
+{{- if eq .Values.SERVICE_MESH_TYPE "ISTIO" }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: egress-routes-spring
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "istiod"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  parentRefs:
+  - name: egress-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/mesh-test-service-spring/sleep
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        remove:
+        - Origin
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /api/v1/sleep
+    backendRefs:
+    - kind: Service
+      name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
+      port: 8080
+{{- end }}
+{{- if eq .Values.SERVICE_MESH_TYPE "ISTIO" }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: test-ingress-gateway-spring-routes
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "istiod"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  parentRefs:
+  - name: {{ .Values.INGRESS_GATEWAY_NAME }}
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/mesh-test-service-spring/hello
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        remove:
+        - Origin
+    backendRefs:
+    - kind: Service
+      name: public-gateway-service
+      port: 8080
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/mesh-test-service-spring/declarative_hello
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        remove:
+        - Origin
+    backendRefs:
+    - kind: Service
+      name: public-gateway-service
+      port: 8080
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/mesh-test-service-spring/egress
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        remove:
+        - Origin
+    backendRefs:
+    - kind: Service
+      name: public-gateway-service
+      port: 8080
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/mesh-test-service-spring/sleep
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        remove:
+        - Origin
+    backendRefs:
+    - kind: Service
+      name: public-gateway-service
+      port: 8080
+{{- end }}
+{{ if .Values.DEPLOY_SECOND_INGRESS }}
+{{- if eq .Values.SERVICE_MESH_TYPE "ISTIO" }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: test-ingress-gateway-2-spring-routes
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "istiod"
+spec:
+  parentRefs:
+  - name: '{{ .Values.INGRESS_GATEWAY_NAME }}-2'
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/mesh-test-service-spring/hello
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        remove:
+        - Origin
+    backendRefs:
+    - kind: Service
+      name: public-gateway-service
+      port: 8080
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/mesh-test-service-spring/declarative_hello
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        remove:
+        - Origin
+    backendRefs:
+    - kind: Service
+      name: public-gateway-service
+      port: 8080
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/mesh-test-service-spring/egress
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        remove:
+        - Origin
+    backendRefs:
+    - kind: Service
+      name: public-gateway-service
+      port: 8080
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/mesh-test-service-spring/sleep
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        remove:
+        - Origin
+    backendRefs:
+    - kind: Service
+      name: public-gateway-service
+      port: 8080
+{{- end }}
+{{ end }}

@@ -1,0 +1,33 @@
+{{- if eq .Values.SERVICE_MESH_TYPE "ISTIO" }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: egress-gateway
+  labels:
+    app.kubernetes.io/part-of: 'mesh-test-app'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "istiod"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  gatewayClassName: istio
+  listeners:
+  - name: default
+    port: 8080
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: All
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: egress-gateway
+spec:
+  type: ClusterIP
+  selector:
+    gateway.networking.k8s.io/gateway-name: egress-gateway
+  ports:
+  - port: 8080
+    protocol: TCP
+    name: default
+{{- end }}

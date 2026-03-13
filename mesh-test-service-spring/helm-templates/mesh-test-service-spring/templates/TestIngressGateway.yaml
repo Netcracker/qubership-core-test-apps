@@ -1,42 +1,4 @@
-{{- if eq .Values.SERVICE_MESH_TYPE "ISTIO" }}
----
-apiVersion: gateway.networking.k8s.io/v1
-kind: Gateway
-metadata:
-  name: {{ .Values.INGRESS_GATEWAY_NAME }}
-  labels:
-    app.kubernetes.io/part-of: 'mesh-test-app'
-    app.kubernetes.io/processed-by-operator: "core-operator"
-spec:
-  gatewayClassName: istio
-  listeners:
-  - name: default
-    port: 8080
-    protocol: HTTP
-    allowedRoutes:
-      namespaces:
-        from: All
-{{ if .Values.DEPLOY_SECOND_INGRESS }}
----
-apiVersion: gateway.networking.k8s.io/v1
-kind: Gateway
-metadata:
-  name: '{{ .Values.INGRESS_GATEWAY_NAME }}-2'
-  labels:
-    app.kubernetes.io/part-of: 'mesh-test-app'
-    app.kubernetes.io/processed-by-operator: "core-operator"
-spec:
-  gatewayClassName: istio
-  listeners:
-  - name: default
-    port: 8080
-    protocol: HTTP
-    allowedRoutes:
-      namespaces:
-        from: All
-{{- end }}
-{{- else }}
----
+{{- if eq .Values.SERVICE_MESH_TYPE "CORE" }}
 apiVersion: core.netcracker.com/v1
 kind: Gateway
 metadata:
@@ -59,7 +21,9 @@ spec:
   ingresses:
     - hostname: {{ .Values.INGRESS_GATEWAY_NAME }}-{{ .Release.Namespace }}.{{ .Values.CLOUD_PUBLIC_HOST }}
       gatewayPort: 8080
+{{- end }}
 {{ if .Values.DEPLOY_SECOND_INGRESS }}
+{{- if eq .Values.SERVICE_MESH_TYPE "CORE" }}
 ---
 apiVersion: core.netcracker.com/v1
 kind: Gateway
@@ -83,5 +47,5 @@ spec:
   ingresses:
     - hostname: {{ .Values.INGRESS_GATEWAY_NAME }}-2-{{ .Release.Namespace }}.{{ .Values.CLOUD_PUBLIC_HOST }}
       gatewayPort: 8080
-{{ end }}
 {{- end }}
+{{ end }}

@@ -143,6 +143,18 @@
       "examples": [
         "kubernetes.io/hostname"
       ]
+    },
+    "SERVICE_MESH_TYPE": {
+      "$id": "#/properties/SERVICE_MESH_TYPE",
+      "type": "string",
+      "title": "The SERVICE_MESH_TYPE schema",
+      "description": "Service mesh type. Use CORE for Qubership Cloud Core Mesh or ISTIO for Istio Ambient Mesh.",
+      "enum": ["CORE", "ISTIO"],
+      "default": "CORE",
+      "examples": [
+        "CORE",
+        "ISTIO"
+      ]
     }
   },
   "additionalProperties": true

@@ -1,21 +1,4 @@
-{{- if eq .Values.SERVICE_MESH_TYPE "ISTIO" }}
-apiVersion: gateway.networking.k8s.io/v1
-kind: Gateway
-metadata:
-  name: egress-gateway
-  labels:
-    app.kubernetes.io/part-of: 'mesh-test-app'
-    app.kubernetes.io/processed-by-operator: "core-operator"
-spec:
-  gatewayClassName: istio
-  listeners:
-  - name: default
-    port: 8080
-    protocol: HTTP
-    allowedRoutes:
-      namespaces:
-        from: All
-{{- else }}
+{{- if eq .Values.SERVICE_MESH_TYPE "CORE" }}
 ---
 apiVersion: core.netcracker.com/v1
 kind: Gateway
