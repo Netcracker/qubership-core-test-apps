@@ -31,7 +31,7 @@ on:
         default: 'main'
         type: string
       install-maas:
-        description: 'Install MaaS (also sets CORE_CONFIG_MAAS_ENABLED)'
+        description: 'Install MaaS'
         required: false
         default: false
         type: boolean
@@ -123,7 +123,7 @@ on:
       mesh-type:
         description: 'Mesh type for test services — CORE or ISTIO'
         required: false
-        default: 'ISTIO'
+        default: 'CORE'
         type: string
       run-mesh:
         description: 'Run mesh integration tests'
@@ -144,7 +144,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Kind cluster and deploy cloud core
+      - name: Setup Kind cluster and deploy Cloud Core
         uses: ./.github/actions/setup-kind-with-cloud-core
         with:
           core-bootstrap-branch: ${{ inputs.core-bootstrap-branch }}

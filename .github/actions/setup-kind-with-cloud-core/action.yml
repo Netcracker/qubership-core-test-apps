@@ -70,6 +70,12 @@ runs:
       with:
         cluster_name: kind
 
+    # Install Helm 4 - required by core-mesh-config
+    - name: Install Helm 4
+      uses: azure/setup-helm@v4
+      with:
+         version: v4.0.1  
+
     - name: Set up kubectl
       uses: azure/setup-kubectl@v4
 
