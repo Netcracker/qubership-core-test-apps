@@ -51,11 +51,11 @@ inputs:
   istio-repo-branch:
     description: Branch of the Istio repo
     required: false
-    default: ''
+    default: 'main'
   core-mesh-config-repo-branch:
     description: Branch of the Core Mesh Config repo
     required: false
-    default: ''
+    default: 'main'
 
 runs:
   using: composite
