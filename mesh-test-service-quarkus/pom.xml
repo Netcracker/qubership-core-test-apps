@@ -204,6 +204,13 @@
         </repository>
     </repositories>
 
+    <pluginRepositories>
+      <pluginRepository>
+        <id>github</id>
+        <url>https://maven.pkg.github.com/netcracker/*</url>
+      </pluginRepository>
+    </pluginRepositories>
+
     <scm>
         <connection>scm:git:https://github.com/Netcracker/qubership-core-test-apps.git</connection>
         <developerConnection>scm:git:https://github.com/Netcracker/qubership-core-test-apps.git
