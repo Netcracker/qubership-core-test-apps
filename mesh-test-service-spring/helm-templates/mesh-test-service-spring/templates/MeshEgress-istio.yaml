@@ -1,4 +1,8 @@
-{{- if and (eq .Values.SERVICE_MESH_TYPE "ISTIO") false }}
+# This always false condition is used to skip template in Istio mesh
+# File is kept to describe the difference between Cloud-Core and Istio mesh with regard to egress-gateway:
+# in Cloud-Core facade-operator brings FacadeService `egress-gateway` and test app brings Gateway `egress-gateway`, facade-operator can deal with it.
+# In Istio mesh Gateway`egress-gateway` is owned by core-mesh-config, application can't bring it, it should use platform-managed gateway.
+{{- if false }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
