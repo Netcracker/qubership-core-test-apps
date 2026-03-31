@@ -179,8 +179,7 @@ metadata:
     app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
     app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
     app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
-    # TODO: route depends on optional gateway, removing sessionId excludes route from CR synch scope
-    # deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
 spec:
   gateways: [ "test-ingress-gateway-2" ]
   virtualServices:
