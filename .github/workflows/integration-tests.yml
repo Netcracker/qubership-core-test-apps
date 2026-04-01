@@ -3,29 +3,120 @@ name: Run integration tests
 on:
   workflow_call:
     inputs:
-      install-maas:
-        type: boolean
+      core-bootstrap-branch:
+        description: 'Branch of core-bootstrap repo'
         required: false
-        default: false
-      install-istio:
-        type: boolean
-        required: false
-        default: false
-      mesh-type:
+        default: 'main'
         type: string
+      install-maas:
+        description: 'Install MaaS'
+        required: false
+        default: false
+        type: boolean
+      install-istio:
+        description: 'Install Istio'
+        required: false
+        default: false
+        type: boolean
+      istio-repo-branch:
+        description: 'Branch of the Istio repo'
+        required: false
+        default: 'main'
+        type: string
+      core-mesh-config-repo-branch:
+        description: 'Branch of the Core Mesh Config repo'
+        required: false
+        default: 'main'
+        type: string
+      dummy-separator-0:
+        description: '--------------------------------'
+        required: false
+        default: 'Docker image tags for core components'
+        type: string      
+      facade-operator-tag:
+        description: 'Docker image tag for Facade Operator'
+        required: false
+        default: 'latest'
+        type: string
+      ingress-gateway-tag:
+        description: 'Docker image tag for Ingress Gateway'
+        required: false
+        default: 'latest'
+        type: string
+      control-plane-tag:
+        description: 'Docker image tag for Control Plane'
+        required: false
+        default: 'latest'
+        type: string
+      paas-mediation-tag:
+        description: 'Docker image tag for PaaS Mediation'
+        required: false
+        default: 'latest'
+        type: string
+      dbaas-agent-tag:
+        description: 'Docker image tag for DBaaS Agent'
+        required: false
+        default: 'latest'
+        type: string
+      core-operator-tag:
+        description: 'Docker image tag for Core Operator'
+        required: false
+        default: 'latest'
+        type: string
+      config-server-tag:
+        description: 'Docker image tag for Config Server'
+        required: false
+        default: 'latest'
+        type: string
+      site-management-tag:
+        description: 'Docker image tag for Site Management'
+        required: false
+        default: 'latest'
+        type: string
+      dummy-separator:
+        description: '--------------------------------'
+        required: false
+        default: 'Mesh test services tags'
+        type: string
+      mesh-test-spring-tag:
+        description: 'Docker image tag for Mesh test Spring service'
+        required: false
+        default: 'latest'
+        type: string
+      mesh-test-quarkus-tag:  
+        description: 'Docker image tag for Mesh test Quarkus service'
+        required: false
+        default: 'latest'
+        type: string
+      mesh-test-go-tag:
+        description: 'Docker image tag for Mesh test Go service'
+        required: false
+        default: 'latest'
+        type: string        
+      dummy-separator-2:
+        description: '--------------------------------'
+        required: false
+        default: 'Run integration tests'
+        type: string
+      mesh-type:
+        description: 'Mesh type for test services — CORE or ISTIO'
         required: false
         default: 'CORE'
+        type: string
       run-mesh:
-        type: boolean
+        description: 'Run mesh integration tests'
         required: false
         default: true
-      run-paas:
         type: boolean
-        required: false
-        default: false
       mesh-test-alias:
         type: string
         required: false
+        description: Rename `mesh-integration-tests` folder to alias name - to distiguish mesh test modes in report        
+      run-paas:
+        description: 'Run paas-mediation integration tests'
+        required: false
+        default: true
+        type: boolean
 
   workflow_dispatch:
     inputs:

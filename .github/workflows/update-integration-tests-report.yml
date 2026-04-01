@@ -16,6 +16,7 @@ jobs:
   run-tests-core-mesh:
     uses: ./.github/workflows/integration-tests.yml
     with:
+      core-bootstrap-branch: feat/sitio
       install-istio: false
       run-mesh: true
       mesh-type: 'CORE'
@@ -25,6 +26,7 @@ jobs:
   run-tests-istio-mesh-fallback-mode:
     uses: ./.github/workflows/integration-tests.yml
     with:
+      core-bootstrap-branch: feat/sitio
       install-istio: true
       run-mesh: true
       mesh-type: 'CORE'
@@ -34,6 +36,7 @@ jobs:
   run-tests-istio-mesh-migrated-mode:
     uses: ./.github/workflows/integration-tests.yml
     with:
+      core-bootstrap-branch: feat/sitio
       install-istio: true
       run-mesh: true
       mesh-type: 'ISTIO'
@@ -55,7 +58,7 @@ jobs:
         with:
           path: artifacts
           merge-multiple: true
-          
+
       - name: Update report
         run: |
           today=$(date +%Y-%m-%d)
