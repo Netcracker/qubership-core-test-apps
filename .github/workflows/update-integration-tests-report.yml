@@ -16,7 +16,7 @@ jobs:
   run-tests-core-mesh:
     uses: ./.github/workflows/integration-tests.yml
     with:
-      core-bootstrap-branch: feat/sitio
+      core-bootstrap-branch: feat/istio
       install-istio: false
       run-mesh: true
       mesh-type: 'CORE'
@@ -26,7 +26,7 @@ jobs:
   run-tests-istio-mesh-fallback-mode:
     uses: ./.github/workflows/integration-tests.yml
     with:
-      core-bootstrap-branch: feat/sitio
+      core-bootstrap-branch: feat/istio
       install-istio: true
       run-mesh: true
       mesh-type: 'CORE'
@@ -36,7 +36,7 @@ jobs:
   run-tests-istio-mesh-migrated-mode:
     uses: ./.github/workflows/integration-tests.yml
     with:
-      core-bootstrap-branch: feat/sitio
+      core-bootstrap-branch: feat/istio
       install-istio: true
       run-mesh: true
       mesh-type: 'ISTIO'
