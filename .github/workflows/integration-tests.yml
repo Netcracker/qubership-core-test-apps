@@ -22,7 +22,11 @@ on:
       run-paas:
         type: boolean
         required: false
-        default: true
+        default: false
+      mesh-test-alias:
+        type: string
+        required: false
+
   workflow_dispatch:
     inputs:
       core-bootstrap-branch:
@@ -130,6 +134,10 @@ on:
         required: false
         default: true
         type: boolean
+      mesh-test-alias:
+        type: string
+        required: false
+        description: Rename `mesh-integration-tests` folder to alias name - to distiguish mesh test modes in report        
       run-paas:
         description: 'Run paas-mediation integration tests'
         required: false
@@ -143,6 +151,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Rename mesh integration tests folder
+        if: inputs.mesh-test-alias
+        run: |
+          mv mesh-integration-tests ${{ inputs.mesh-test-alias }}
 
       - name: Setup Kind cluster and deploy Cloud Core
         uses: ./.github/actions/setup-kind-with-cloud-core
@@ -161,7 +174,7 @@ jobs:
           config-server-tag: ${{ inputs.config-server-tag || 'latest' }}
           site-management-tag: ${{ inputs.site-management-tag || 'latest' }}
 
-      - name: Run mesh integration tests
+      - name: Run mesh integration tests (test apps in CORE mesh mode)
         id: mesh_tests
         if: inputs.run-mesh
         continue-on-error: true
@@ -211,7 +224,7 @@ jobs:
       - name: Upload Surefire reports
         uses: actions/upload-artifact@v4
         with:
-          name: surefire-reports
+          name: ${{ inputs.mesh-test-alias || 'surefire-reports' }}
           path: artifacts/*
 
       - name: Upload Istio logs
