@@ -263,7 +263,7 @@ jobs:
       - name: preserve-cpu-resources-workaround
         run: |
           # to preserve some resources for tests
-          helm uninstall site-management -n core 
+          kubectl scale deployment site-management config-server facade-operator core-operator -n core --replicas=0
 
       - name: Run mesh integration tests (test apps in ${{ inputs.mesh-type || 'CORE' }} mesh mode)
         id: mesh_tests
