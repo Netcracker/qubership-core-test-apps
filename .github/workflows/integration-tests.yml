@@ -260,6 +260,11 @@ jobs:
           config-server-tag: ${{ inputs.config-server-tag || 'latest' }}
           site-management-tag: ${{ inputs.site-management-tag || 'latest' }}
 
+      - name: uninstall-site-management-WA
+        run: |
+          # to preserve some resources for tests
+          helm uninstall site-management -n core 
+
       - name: Run mesh integration tests (test apps in ${{ inputs.mesh-type || 'CORE' }} mesh mode)
         id: mesh_tests
         if: inputs.run-mesh
@@ -276,7 +281,6 @@ jobs:
         if: inputs.mesh-test-usecase
         run: |
           mv mesh-integration-tests ${{ inputs.mesh-test-usecase }}
-
 
       - name: Checkout paas-mediation
         if: inputs.run-paas
@@ -417,7 +421,7 @@ jobs:
         if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' }}
         uses: actions/upload-artifact@v4
         with:
-          name: kind-k8s-debug
+          name: kind-k8s-debug${{ inputs.mesh-test-usecase != '' && format('-{0}', inputs.mesh-test-usecase) || '' }}
           path: |
             cluster-state.txt
             unhealthy-pods-logs.txt
