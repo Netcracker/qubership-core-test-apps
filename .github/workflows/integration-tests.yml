@@ -263,7 +263,7 @@ jobs:
       - name: preserve-cpu-resources-workaround
         run: |
           # to preserve some resources for tests
-          kubectl scale deployment site-management facade-operator core-operator -n core --replicas=0
+          kubectl scale deployment site-management -n core --replicas=0
 
       - name: Run mesh integration tests (test apps in ${{ inputs.mesh-type || 'CORE' }} mesh mode)
         id: mesh_tests
