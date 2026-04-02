@@ -20,7 +20,7 @@ jobs:
       install-istio: false
       run-mesh: true
       mesh-type: 'CORE'
-      mesh-test-alias: 'core-mesh'
+      mesh-test-usecase: 'core-mesh'
       run-paas: true
 
   run-tests-istio-mesh-fallback-mode:
@@ -30,7 +30,7 @@ jobs:
       install-istio: true
       run-mesh: true
       mesh-type: 'CORE'
-      mesh-test-alias: 'istio-fallback'
+      mesh-test-usecase: 'istio-fallback'
       run-paas: false
 
   run-tests-istio-mesh-migrated-mode:
@@ -40,7 +40,7 @@ jobs:
       install-istio: true
       run-mesh: true
       mesh-type: 'ISTIO'
-      mesh-test-alias: 'istio-migrated'
+      mesh-test-usecase: 'istio-migrated'
       run-paas: false          
 
   update-report:
