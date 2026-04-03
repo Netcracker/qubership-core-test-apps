@@ -29,7 +29,7 @@ on:
         default: 'main'
         type: string
       do-resources-workaround:
-        description: 'Do resources workaround for site-management deployment'
+        description: 'Do resources workaround'
         required: false
         default: false
         type: boolean
@@ -150,6 +150,11 @@ on:
         required: false
         default: 'main'
         type: string
+      do-resources-workaround:
+        description: 'Do resources workaround'
+        required: false
+        default: false
+        type: boolean        
       dummy-separator-0:
         description: '--------------------------------'
         required: false
@@ -283,7 +288,7 @@ jobs:
           go-tag: ${{ inputs.mesh-test-go-tag || 'latest' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Rename mesh integration tests folder
+      - name: Name mesh tests result with inputs.mesh-test-usecase
         if: inputs.mesh-test-usecase
         run: |
           mv mesh-integration-tests ${{ inputs.mesh-test-usecase }}
@@ -326,7 +331,7 @@ jobs:
       - name: Upload Surefire reports
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.mesh-test-usecase || 'surefire-reports' }}
+          name: surefire-reports${{ inputs.mesh-test-usecase != '' && format('-{0}', inputs.mesh-test-usecase) || '' }}
           path: artifacts/*
 
       - name: Upload Istio logs

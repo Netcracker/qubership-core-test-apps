@@ -58,6 +58,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+          pattern: surefire-reports*
           merge-multiple: true
 
       - name: Update report
