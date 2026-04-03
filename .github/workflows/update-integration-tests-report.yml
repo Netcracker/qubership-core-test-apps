@@ -32,6 +32,7 @@ jobs:
       mesh-type: 'CORE'
       mesh-test-usecase: 'istio-fallback'
       run-paas: false
+      do-resources-workaround: true
 
   run-tests-istio-mesh-migrated-mode:
     uses: ./.github/workflows/integration-tests.yml

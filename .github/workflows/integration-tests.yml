@@ -28,6 +28,11 @@ on:
         required: false
         default: 'main'
         type: string
+      do-resources-workaround:
+        description: 'Do resources workaround for site-management deployment'
+        required: false
+        default: false
+        type: boolean
       dummy-separator-0:
         description: '--------------------------------'
         required: false
@@ -261,6 +266,7 @@ jobs:
           site-management-tag: ${{ inputs.site-management-tag || 'latest' }}
 
       - name: preserve-cpu-resources-workaround
+        if: ${{ inputs.do-resources-workaround }}
         run: |
           # to preserve some resources for tests
           kubectl scale deployment site-management -n core --replicas=0
