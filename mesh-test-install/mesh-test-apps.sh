@@ -209,9 +209,10 @@ install_helm_package() {
 }
 
 transform_routing_to_istio() {
-    echo "Transforming annotations routing to ISTIO for java services..."
+    echo "Transforming annotations routing to Istio for java services..."
     for project in "$SPRING_ROOT" "$QUARKUS_ROOT"; do
-        mvn package -q -f $project/pom.xml
+        # process-classes will trigger httproutes-generator-maven-plugin:generate-routes
+        mvn clean process-classes -f $project/pom.xml
     done
 }
 
