@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"sync"
 
 	"github.com/netcracker/qubership-core-lib-go-rest-utils/v2/consul-propertysource"
 	"github.com/netcracker/qubership-mesh-test-service-go/domain"
@@ -22,8 +23,10 @@ import (
 )
 
 type Controller struct {
-	consulPS           *configloader.PropertySource
-	consulTestProperty string
+	consulPS             *configloader.PropertySource
+	startConsulWatchOnce sync.Once
+	consulTestPropertyMu sync.RWMutex
+	consulTestProperty   string
 }
 
 var (
@@ -163,8 +166,22 @@ func (c *Controller) HelloSpringHandler(fiberCtx *fiber.Ctx) error {
 }
 
 func (c *Controller) ConsulConfigHandler(fiberCtx *fiber.Ctx) error {
-	consul.StartWatchingForPropertiesWithRetry(context.Background(), c.consulPS, func(event interface{}, err error) {
-		c.consulTestProperty = configloader.GetOrDefaultString("consul.test.property", "")
+	c.startConsulWatchOnce.Do(func() {
+		c.startConsulWatch()
 	})
-	return utils.RespondWithString(fiberCtx, fiber.StatusOK, c.consulTestProperty)
+
+	c.consulTestPropertyMu.RLock()
+	val := c.consulTestProperty
+	c.consulTestPropertyMu.RUnlock()
+
+	return utils.RespondWithString(fiberCtx, fiber.StatusOK, val)
+}
+
+func (c *Controller) startConsulWatch() {
+	consul.StartWatchingForPropertiesWithRetry(context.Background(), c.consulPS, func(event interface{}, err error) {
+		val := configloader.GetOrDefaultString("consul.test.property", "")
+		c.consulTestPropertyMu.Lock()
+		c.consulTestProperty = val
+		c.consulTestPropertyMu.Unlock()
+	})
 }
