@@ -8,9 +8,9 @@ inputs:
     required: false
     default: core
   mesh-type:
-    description: Mesh type to deploy — CORE or ISTIO
+    description: Mesh type to deploy — Core or Istio
     required: false
-    default: ISTIO
+    default: Istio
   spring-tag:
     description: Docker image tag for mesh-test-service-spring
     required: false

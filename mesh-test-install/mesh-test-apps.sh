@@ -14,7 +14,7 @@ show_usage() {
     echo "Arguments:"
     echo "  operation       Operation to perform: 'install' or 'uninstall' (required)"
     echo "  namespace       Kubernetes namespace to operate on (required)"
-    echo "  mesh-type       Mesh type to use: ISTIO or CORE (required)"
+    echo "  mesh-type       Mesh type to use: Istio or Core (required)"
     echo "  --spring-tag     Docker image tag for Spring service (optional, defaults to 'latest')"
     echo "  --quarkus-tag    Docker image tag for Quarkus service (optional, defaults to 'latest')"
     echo "  --go-tag         Docker image tag for Go service (optional, defaults to 'latest')"
@@ -70,8 +70,8 @@ fi
 # Parse command line arguments
 NAMESPACE="$2"
 MESH_TYPE="$3"
-if [[ "$MESH_TYPE" != "ISTIO" && "$MESH_TYPE" != "CORE" ]]; then
-    echo "Error: Mesh type must be 'ISTIO' or 'CORE', got: $MESH_TYPE"
+if [[ "$MESH_TYPE" != "Istio" && "$MESH_TYPE" != "Core" ]]; then
+    echo "Error: Mesh type must be 'Istio' or 'Core', got: $MESH_TYPE"
     echo ""
     show_usage
     exit 1
@@ -311,11 +311,11 @@ uninstall_services() {
 # Main function
 main() {
     if [[ "$OPERATION" == "install" ]]; then
-        if [[ "$MESH_TYPE" == "ISTIO" ]]; then
-            echo "Using ISTIO mesh type for installation"
+        if [[ "$MESH_TYPE" == "Istio" ]]; then
+            echo "Using Istio mesh type for installation"
             transform_routing_to_istio
         else 
-            echo "Using CORE mesh type for installation"
+            echo "Using Core mesh type for installation"
         fi
         install_services
     elif [[ "$OPERATION" == "uninstall" ]]; then

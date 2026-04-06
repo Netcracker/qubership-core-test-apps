@@ -1,4 +1,4 @@
-{{- if eq .Values.SERVICE_MESH_TYPE "CORE" }}
+{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}
 ---
 apiVersion: core.netcracker.com/v1
 kind: Gateway

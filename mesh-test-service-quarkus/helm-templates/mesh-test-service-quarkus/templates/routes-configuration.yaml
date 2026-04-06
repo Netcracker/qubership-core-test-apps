@@ -1,4 +1,4 @@
-{{- if eq .Values.SERVICE_MESH_TYPE "CORE" }}
+{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}
 ---
 apiVersion: core.netcracker.com/v1
 kind: Mesh
@@ -30,7 +30,7 @@ spec:
                 allowed: true
                 prefixRewrite: /api/v1/sleep
 {{- end }}
-{{- if eq .Values.SERVICE_MESH_TYPE "CORE" }}
+{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}
 ---
 apiVersion: core.netcracker.com/v1
 kind: Mesh
@@ -57,7 +57,7 @@ spec:
                 allowed: true
                 prefixRewrite: /api/v1/sleep
 {{- end }}
-{{- if eq .Values.SERVICE_MESH_TYPE "CORE" }}
+{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}
 ---
 apiVersion: core.netcracker.com/v1
 kind: Mesh
@@ -87,7 +87,7 @@ spec:
                 allowed: true
                 prefixRewrite: /api/v1/sleep
 {{- end }}
-{{- if eq .Values.SERVICE_MESH_TYPE "CORE" }}
+{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}
 ---
 apiVersion: core.netcracker.com/v1
 kind: Mesh

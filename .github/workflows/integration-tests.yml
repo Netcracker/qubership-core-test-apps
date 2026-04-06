@@ -104,9 +104,9 @@ on:
         default: 'Run integration tests'
         type: string
       mesh-type:
-        description: 'Mesh type for test services — CORE or ISTIO'
+        description: 'Mesh type for test services — Core or Istio'
         required: false
-        default: 'CORE'
+        default: 'Core'
         type: string
       run-mesh:
         description: 'Run mesh integration tests'
@@ -226,9 +226,9 @@ on:
         default: 'Run integration tests'
         type: string
       mesh-type:
-        description: 'Mesh type for test services — CORE or ISTIO'
+        description: 'Mesh type for test services — Core or Istio'
         required: false
-        default: 'CORE'
+        default: 'Core'
         type: string
       run-mesh:
         description: 'Run mesh integration tests'
@@ -276,13 +276,13 @@ jobs:
           # to preserve some resources for tests
           kubectl scale deployment site-management -n core --replicas=0
 
-      - name: Run mesh integration tests (test apps in ${{ inputs.mesh-type || 'CORE' }} mesh mode)
+      - name: Run mesh integration tests (test apps in ${{ inputs.mesh-type || 'Core' }} mesh mode)
         id: mesh_tests
         if: inputs.run-mesh
         continue-on-error: true
         uses: ./.github/actions/run-mesh-tests
         with:
-          mesh-type: ${{ inputs.mesh-type || 'CORE' }}
+          mesh-type: ${{ inputs.mesh-type || 'Core' }}
           spring-tag: ${{ inputs.mesh-test-spring-tag || 'latest' }}
           quarkus-tag: ${{ inputs.mesh-test-quarkus-tag || 'latest' }}
           go-tag: ${{ inputs.mesh-test-go-tag || 'latest' }}

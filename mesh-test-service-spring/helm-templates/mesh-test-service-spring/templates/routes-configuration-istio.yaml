@@ -1,4 +1,4 @@
-{{- if eq .Values.SERVICE_MESH_TYPE "ISTIO" }}
+{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -28,7 +28,7 @@ spec:
       name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
       port: 8080
 {{- end }}
-{{- if eq .Values.SERVICE_MESH_TYPE "ISTIO" }}
+{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -105,7 +105,7 @@ spec:
       name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
       port: 8080
 {{- end }}
-{{- if eq .Values.SERVICE_MESH_TYPE "ISTIO" }}
+{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -139,7 +139,7 @@ spec:
       name: control-plane
       port: 8080
 {{- end }}
-{{- if eq .Values.SERVICE_MESH_TYPE "ISTIO" }}
+{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -173,7 +173,7 @@ spec:
       name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
       port: 8080
 {{- end }}
-{{- if eq .Values.SERVICE_MESH_TYPE "ISTIO" }}
+{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -242,7 +242,7 @@ spec:
       port: 8080
 {{- end }}
 {{ if .Values.DEPLOY_SECOND_INGRESS }}
-{{- if eq .Values.SERVICE_MESH_TYPE "ISTIO" }}
+{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute

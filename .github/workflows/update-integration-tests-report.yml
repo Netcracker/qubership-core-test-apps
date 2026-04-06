@@ -19,7 +19,7 @@ jobs:
       core-bootstrap-branch: feat/istio
       install-istio: false
       run-mesh: true
-      mesh-type: 'CORE'
+      mesh-type: 'Core'
       mesh-test-usecase: 'core-mesh'
       run-paas: true
 
@@ -29,7 +29,7 @@ jobs:
       core-bootstrap-branch: feat/istio
       install-istio: true
       run-mesh: true
-      mesh-type: 'CORE'
+      mesh-type: 'Core'
       mesh-test-usecase: 'istio-fallback'
       run-paas: false
       do-resources-workaround: true
@@ -40,7 +40,7 @@ jobs:
       core-bootstrap-branch: feat/istio
       install-istio: true
       run-mesh: true
-      mesh-type: 'ISTIO'
+      mesh-type: 'Istio'
       mesh-test-usecase: 'istio-migrated'
       run-paas: false          
 
