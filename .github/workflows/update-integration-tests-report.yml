@@ -42,8 +42,9 @@ jobs:
       run-mesh: true
       mesh-type: 'Istio'
       mesh-test-usecase: 'istio-migrated'
-      run-paas: false          
-
+      run-paas: false            
+      do-resources-workaround: true
+      
   update-report:
     needs: [run-tests-core-mesh, run-tests-istio-mesh-fallback-mode, run-tests-istio-mesh-migrated-mode]
     runs-on: ubuntu-latest
