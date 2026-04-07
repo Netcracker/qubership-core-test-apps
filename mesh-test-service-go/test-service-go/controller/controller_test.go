@@ -27,7 +27,7 @@ func TestController_HelloHandler(t *testing.T) {
 	defer os.Unsetenv("CLOUD_SERVICE_NAME")
 	configloader.Init(configloader.EnvPropertySource())
 	serviceloader.Register(1, &security.DummyFiberServerSecurityMiddleware{})
-	control := NewController()
+	control := NewController(nil)
 
 	app, err := fiberserver.New().Process()
 	assert.Nil(t, err)

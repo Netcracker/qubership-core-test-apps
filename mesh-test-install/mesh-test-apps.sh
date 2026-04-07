@@ -158,6 +158,8 @@ install_helm_package() {
     helm upgrade --install "$service_name" "$chart_path" \
         --namespace "$namespace" \
         --set TAG="$tag" \
+        --set CONSUL_ENABLED="true" \
+        --set CONSUL_URL="http://consul-consul-server.consul.svc.cluster.local:8500" \
         --wait \
         --timeout=300s
 

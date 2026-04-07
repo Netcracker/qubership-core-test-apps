@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.netcracker.it.common.HttpClient.okHttpClient;
 import static com.netcracker.it.spring.CommonOperations.*;
 import static com.netcracker.it.spring.Const.*;
 import static com.netcracker.it.spring.ResourceOperations.*;
