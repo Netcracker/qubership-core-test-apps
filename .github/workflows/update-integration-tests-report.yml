@@ -18,6 +18,7 @@ jobs:
     with:
       core-bootstrap-branch: feat/istio
       install-istio: false
+      install-maas: true
       run-mesh: true
       mesh-type: 'Core'
       mesh-test-usecase: 'core-mesh'
