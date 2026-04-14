@@ -80,6 +80,10 @@ spec:
                     value: '{{ .Values.PUBLIC_GATEWAY_URL }}'
                 -   name: SERVICE_MESH_TYPE
                     value: '{{ .Values.SERVICE_MESH_TYPE }}'
+                -   name: CONSUL_ENABLED
+                    value: '{{ .Values.CONSUL_ENABLED }}'
+                -   name: CONSUL_URL
+                    value: '{{ .Values.CONSUL_URL }}'
                 resources:
                     requests:
                         cpu: '{{ .Values.CPU_REQUEST }}'

@@ -8,6 +8,16 @@ cloud:
     namespace: ${CLOUD_NAMESPACE:unknown}
     bg_version: ${DEPLOYMENT_VERSION:v1}
 
+spring:
+  cloud:
+    consul:
+      config:
+        prefixes: config/${CLOUD_NAMESPACE:unknown}
+        enabled: ${CONSUL_ENABLED:false}
+        m2m:
+          enabled: false
+  config:
+    import: optional:consul:${CONSUL_URL:}
 policy:
   update:
     enabled: true

@@ -12,6 +12,8 @@ import okhttp3.ResponseBody;
 import java.io.IOException;
 import java.net.URL;
 
+import static com.netcracker.it.common.HttpClient.okHttpClient;
+
 @Slf4j
 @Data
 public class RequestTestCase {
@@ -74,7 +76,7 @@ public class RequestTestCase {
             request.addHeader("Host", hostHeaderValue);
         }
         log.debug("Calling {}", testUrl);
-        try (final Response response = CommonOperations.okHttpClient.newCall(request.build()).execute()) {
+        try (final Response response = okHttpClient.newCall(request.build()).execute()) {
             actualCode = response.code();
             if (response.code() == expectedCode) {
                 setTookMillis(System.currentTimeMillis() - replicationStartTime);

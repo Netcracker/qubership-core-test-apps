@@ -1,13 +1,16 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
 	"net"
 	"net/http"
 	"os"
+	"sync"
 
+	"github.com/netcracker/qubership-core-lib-go-rest-utils/v2/consul-propertysource"
 	"github.com/netcracker/qubership-mesh-test-service-go/domain"
 	"github.com/netcracker/qubership-mesh-test-service-go/utils"
 
@@ -20,6 +23,10 @@ import (
 )
 
 type Controller struct {
+	consulPS             *configloader.PropertySource
+	startConsulWatchOnce sync.Once
+	consulTestPropertyMu sync.RWMutex
+	consulTestProperty   string
 }
 
 var (
@@ -79,7 +86,7 @@ func (c *Controller) ProxyTCP(fiberCtx *fiber.Ctx) error {
 	return utils.RespondWithString(fiberCtx, fiber.StatusOK, resp)
 }
 
-func NewController() *Controller {
+func NewController(consulPS *configloader.PropertySource) *Controller {
 	familyName = configloader.GetOrDefaultString("microservice.name", "")
 	deploymentVersion = configloader.GetOrDefaultString("deployment.version", "")
 	serviceName = os.Getenv("CLOUD_SERVICE_NAME")
@@ -87,16 +94,17 @@ func NewController() *Controller {
 	host = os.Getenv("HOSTNAME")
 	springPort = "8080"
 	springProtocol = "http"
-	return &Controller{}
+
+	return &Controller{consulPS: consulPS, consulTestProperty: configloader.GetOrDefaultString("consul.test.property", "")}
 }
 
-func (с *Controller) HelloHandler(fiberCtx *fiber.Ctx) error {
+func (c *Controller) HelloHandler(fiberCtx *fiber.Ctx) error {
 	logger.Info("hello")
 	allHeaders := fiberCtx.GetReqHeaders()
 	logger.Debugf("All headers:%+v", allHeaders)
-	xVersionHeader := с.getHeaderValue(allHeaders, "X-Version")
+	xVersionHeader := c.getHeaderValue(allHeaders, "X-Version")
 	logger.Debugf("X-Version header:%+v", xVersionHeader)
-	xVersionNameHeader := с.getHeaderValue(allHeaders, "X-Version-Name")
+	xVersionNameHeader := c.getHeaderValue(allHeaders, "X-Version-Name")
 	logger.Debugf("X-Version-Name header:%+v", xVersionNameHeader)
 	fastHttpCtx := fiberCtx.Context()
 	path := string(fiberCtx.Request().URI().Path())
@@ -128,7 +136,7 @@ func (c *Controller) getHeaderValue(headers map[string][]string, headerName stri
 	return values[0]
 }
 
-func (с *Controller) HelloSpringHandler(fiberCtx *fiber.Ctx) error {
+func (c *Controller) HelloSpringHandler(fiberCtx *fiber.Ctx) error {
 	ctx := fiberCtx.UserContext()
 	logger.Info("hello from spring")
 	client := coretls.GetClient()
@@ -155,4 +163,25 @@ func (с *Controller) HelloSpringHandler(fiberCtx *fiber.Ctx) error {
 	responseMessage := fmt.Sprintf("Spring answered:%s", string(body))
 	logger.Info(responseMessage)
 	return utils.RespondWithString(fiberCtx, fiber.StatusOK, string(body))
+}
+
+func (c *Controller) ConsulConfigHandler(fiberCtx *fiber.Ctx) error {
+	c.startConsulWatchOnce.Do(func() {
+		c.startConsulWatch()
+	})
+
+	c.consulTestPropertyMu.RLock()
+	val := c.consulTestProperty
+	c.consulTestPropertyMu.RUnlock()
+
+	return utils.RespondWithString(fiberCtx, fiber.StatusOK, val)
+}
+
+func (c *Controller) startConsulWatch() {
+	consul.StartWatchingForPropertiesWithRetry(context.Background(), c.consulPS, func(event interface{}, err error) {
+		val := configloader.GetOrDefaultString("consul.test.property", "")
+		c.consulTestPropertyMu.Lock()
+		c.consulTestProperty = val
+		c.consulTestPropertyMu.Unlock()
+	})
 }

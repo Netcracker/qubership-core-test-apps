@@ -14,9 +14,9 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.net.URL;
 
-import static com.netcracker.it.spring.CommonOperations.*;
+import static com.netcracker.it.common.HttpClient.okHttpClient;
+import static com.netcracker.it.spring.CommonOperations.ENVOY_ADMIN_PORT;
 import static com.netcracker.it.spring.Const.*;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 
 @EnableExtension
@@ -24,36 +24,36 @@ import static org.junit.jupiter.api.Assertions.*;
 @Tag("Mesh")
 public class HttpIT {
 
-	static String NAMESPACE = System.getenv("ENV_NAMESPACE");
+    static String NAMESPACE = System.getenv("ENV_NAMESPACE");
 
-	@PortForward(serviceName = @Value(PUBLIC_GW_SERVICE_NAME))
-	private static URL publicGWServerUrl;
+    @PortForward(serviceName = @Value(PUBLIC_GW_SERVICE_NAME))
+    private static URL publicGWServerUrl;
 
-	@PortForward(serviceName = @Value(PRIVATE_GW_SERVICE_NAME))
-	private static URL privateGWServerUrl;
+    @PortForward(serviceName = @Value(PRIVATE_GW_SERVICE_NAME))
+    private static URL privateGWServerUrl;
 
-	@PortForward(serviceName = @Value(INTERNAL_GW_SERVICE_NAME))
-	private static URL internalGWServerUrl;
+    @PortForward(serviceName = @Value(INTERNAL_GW_SERVICE_NAME))
+    private static URL internalGWServerUrl;
 
-	@PortForward(serviceName = @Value(SERVICE_NAME))
-	private static URL compositeGWServerUrl;
+    @PortForward(serviceName = @Value(SERVICE_NAME))
+    private static URL compositeGWServerUrl;
 
-	@PortForward(serviceName = @Value(EGRESS_GW_SERVICE_NAME))
-	private static URL egressGWServerUrl;
+    @PortForward(serviceName = @Value(EGRESS_GW_SERVICE_NAME))
+    private static URL egressGWServerUrl;
 
-	@PortForward(serviceName = @Value(EGRESS_GW_SERVICE_NAME), port = @IntValue(value = ENVOY_ADMIN_PORT))
-	private static URL egressGWAdminServerUrl;
+    @PortForward(serviceName = @Value(EGRESS_GW_SERVICE_NAME), port = @IntValue(value = ENVOY_ADMIN_PORT))
+    private static URL egressGWAdminServerUrl;
 
-	@Cloud
-	private static KubernetesClient platformClient;
+    @Cloud
+    private static KubernetesClient platformClient;
 
-	@BeforeAll
-	public static void init() throws Exception {
-		assertNotNull(publicGWServerUrl);
-		assertNotNull(internalGWServerUrl);
-		assertNotNull(egressGWServerUrl);
-		assertNotNull(platformClient);
-	}
+    @BeforeAll
+    public static void init() throws Exception {
+        assertNotNull(publicGWServerUrl);
+        assertNotNull(internalGWServerUrl);
+        assertNotNull(egressGWServerUrl);
+        assertNotNull(platformClient);
+    }
 
 	@Test
 	public void testRouteRegisteredByLib() throws IOException {
@@ -138,11 +138,11 @@ public class HttpIT {
 		}
 	}
 
-	@Test
-	public void testCheckTrace() throws Exception {
-		testCheckTrace("mesh-test-service-go:8080/api/v1/mesh-test-service-go/hello");
-		testCheckTrace("mesh-test-service-go:1234/api/v1/mesh-test-service-go/1234/hello");
-	}
+    @Test
+    public void testCheckTrace() throws Exception {
+        testCheckTrace("mesh-test-service-go:8080/api/v1/mesh-test-service-go/hello");
+        testCheckTrace("mesh-test-service-go:1234/api/v1/mesh-test-service-go/1234/hello");
+    }
 
 	private void testCheckTrace(String url) throws Exception {
 		log.info("testCheckTrace, url: {}", url);
