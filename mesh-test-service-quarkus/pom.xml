@@ -17,21 +17,18 @@
     </licenses>
 
     <properties>
-        <quarkus.version>3.27.2</quarkus.version>
-        <quarkus.version>3.27.2</quarkus.version>
+        <quarkus.version>3.33.1</quarkus.version>
         <quarkus-plugin.version>${quarkus.version}</quarkus-plugin.version>
         <quarkus.platform.version>${quarkus.version}</quarkus.platform.version>
         <compiler-plugin.version>3.13.0</compiler-plugin.version>
         <maven.compiler.parameters>true</maven.compiler.parameters>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <quarkus.platform.artifact-id>quarkus-universe-bom</quarkus.platform.artifact-id>
         <quarkus.platform.group-id>io.quarkus</quarkus.platform.group-id>
-        <quarkus.core.version>8.4.1</quarkus.core.version>
+        <quarkus.core.version>10.0.0-SNAPSHOT</quarkus.core.version>
         <surefire-plugin.version>3.5.2</surefire-plugin.version>
         <lombok.version>1.18.36</lombok.version>
         <jacoco.plugin.version>0.8.12</jacoco.plugin.version>
@@ -106,7 +103,7 @@
         </dependency>
         <dependency>
             <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-junit5</artifactId>
+            <artifactId>quarkus-junit</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -139,6 +136,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>${surefire-plugin.version}</version>
                 <configuration>
+                    <argLine>@{argLine}</argLine>
                     <systemProperties>
                         <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
                         <maven.repo.local>${maven.repo.local}</maven.repo.local>
