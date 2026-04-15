@@ -100,17 +100,14 @@
         <dependency>
             <groupId>com.netcracker.cloud</groupId>
             <artifactId>route-registration-webclient</artifactId>
-            <version>6.4.1-alpha-1</version>
         </dependency>
         <dependency>
             <groupId>com.netcracker.cloud</groupId>
             <artifactId>route-registration-common-spring</artifactId>
-            <version>6.4.1-alpha-1</version>
         </dependency>
         <dependency>
             <groupId>com.netcracker.cloud</groupId>
             <artifactId>route-registration-common</artifactId>
-            <version>6.4.1-alpha-1</version>
         </dependency>        
         <dependency>
             <groupId>com.netcracker.cloud</groupId>
@@ -123,7 +120,6 @@
         <dependency>
             <groupId>com.netcracker.cloud</groupId>
             <artifactId>consul-config-provider-spring-webclient</artifactId>
-            <version>7.0.0</version>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
