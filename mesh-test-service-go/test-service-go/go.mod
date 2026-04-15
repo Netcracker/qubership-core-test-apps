@@ -1,7 +1,6 @@
 module github.com/netcracker/qubership-mesh-test-service-go
 
 go 1.25.7
-go 1.25.7
 
 require (
 	github.com/gofiber/fiber/v2 v2.52.6
@@ -52,7 +51,7 @@ require (
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.0.1
 	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.0.1
-	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.4.0
+	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.5.0
 	github.com/netcracker/qubership-core-lib-go/v3 v3.6.0
 	github.com/openzipkin/zipkin-go v0.4.3 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
