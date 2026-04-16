@@ -65,6 +65,8 @@ spec:
                           fieldRef:
                             apiVersion: v1
                             fieldPath: metadata.name
+                      - name: SERVICE_MESH_TYPE
+                        value: '{{ .Values.SERVICE_MESH_TYPE }}'                            
                       - name: CONSUL_ENABLED
                         value: '{{ .Values.CONSUL_ENABLED }}'
                       - name: CONSUL_URL

@@ -55,88 +55,88 @@ public class HttpIT {
         assertNotNull(platformClient);
     }
 
-    @Test
-    public void testRouteRegisteredByLib() throws IOException {
-        Request request = new Request.Builder()
-                .url(publicGWServerUrl + "/api/v1/mesh-test-service-spring/hello")
-                .get()
-                .build();
-        try (Response response = okHttpClient.newCall(request).execute()) {
-            assertEquals(200, response.code());
-            String jsonResponse = response.body().string();
-            TraceResponse traceResponse = new Gson().fromJson(jsonResponse, TraceResponse.class);
-            assertEquals(SERVICE_NAME, traceResponse.getFamilyName());
-        }
-    }
+	@Test
+	public void testRouteRegisteredByLib() throws IOException {
+		Request request = new Request.Builder()
+				.url(publicGWServerUrl + "api/v1/mesh-test-service-spring/hello")
+				.get()
+				.build();
+		try (Response response = okHttpClient.newCall(request).execute()) {
+			assertEquals(200, response.code());
+			String jsonResponse = response.body().string();
+			TraceResponse traceResponse = new Gson().fromJson(jsonResponse, TraceResponse.class);
+			assertEquals(SERVICE_NAME, traceResponse.getFamilyName());
+		}
+	}
 
-    @Test
-    public void testRouteRegisteredDeclarative() throws IOException {
-        Request request = new Request.Builder()
-                .url(publicGWServerUrl + "/api/v1/mesh-test-service-spring/declarative_hello")
-                .get()
-                .build();
-        try (Response response = okHttpClient.newCall(request).execute()) {
-            assertEquals(200, response.code());
-            String stringResponse = response.body().string();
-            assertEquals("Declarative hello from spring mesh test service", stringResponse);
-        }
-    }
+	@Test
+	public void testRouteRegisteredDeclarative() throws IOException {
+		Request request = new Request.Builder()
+				.url(publicGWServerUrl + "api/v1/mesh-test-service-spring/declarative_hello")
+				.get()
+				.build();
+		try (Response response = okHttpClient.newCall(request).execute()) {
+			assertEquals(200, response.code());
+			String stringResponse = response.body().string();
+			assertEquals("Declarative hello from spring mesh test service", stringResponse);
+		}
+	}
 
-    @Test
-    public void testRouteRegisteredInCompositeGWWIthRoutingByHost() throws IOException {
-        Request request = new Request.Builder()
-                .url(compositeGWServerUrl + "/api/v1/mesh-test-service-spring/declarative_hello")
-                .get()
-                .build();
-        try (Response response = okHttpClient.newCall(request).execute()) {
-            assertEquals(200, response.code());
-            String stringResponse = response.body().string();
-            assertEquals("Declarative hello from spring mesh test service", stringResponse);
-        }
-    }
+	@Test
+	public void testRouteRegisteredInCompositeGWWIthRoutingByHost() throws IOException {
+		Request request = new Request.Builder()
+				.url(compositeGWServerUrl+ "api/v1/mesh-test-service-spring/declarative_hello")
+				.get()
+				.build();
+		try (Response response = okHttpClient.newCall(request).execute()) {
+			assertEquals(200, response.code());
+			String stringResponse = response.body().string();
+			assertEquals("Declarative hello from spring mesh test service", stringResponse);
+		}
+	}
 
-    @Test
-    public void testRouteRegisteredInEgressGWtoCP() throws IOException {
-        Request request = new Request.Builder()
-                .url(publicGWServerUrl + "/api/v1/mesh-test-service-spring/egress")
-                .get()
-                .build();
-        try (Response response = okHttpClient.newCall(request).execute()) {
-            assertEquals(200, response.code());
-            String stringResponse = response.body().string();
-            assertTrue(stringResponse.startsWith("Egress answered:"));
-        }
-    }
+	@Test
+	public void testRouteRegisteredInEgressGWtoCP() throws IOException {
+		Request request = new Request.Builder()
+				.url(publicGWServerUrl + "api/v1/mesh-test-service-spring/egress")
+				.get()
+				.build();
+		try (Response response = okHttpClient.newCall(request).execute()) {
+			assertEquals(200, response.code());
+			String stringResponse = response.body().string();
+			assertTrue(stringResponse.startsWith("Egress answered:"));
+		}
+	}
 
-    @Test//Send not existed deployment version
-    public void testContextPropagation() throws IOException {
-        Request request = new Request.Builder()
-                .url(publicGWServerUrl + "/api/v1/mesh-test-service-spring/hello/quarkus")
-                .addHeader("X-Version", "v999")
-                .get()
-                .build();
-        try (Response response = okHttpClient.newCall(request).execute()) {
-            assertEquals(200, response.code());
-            String jsonResponse = response.body().string();
-            TraceResponse traceResponse = new Gson().fromJson(jsonResponse, TraceResponse.class);
-            assertEquals("mesh-test-service-quarkus", traceResponse.getFamilyName());
-            assertEquals("v999", traceResponse.getXversion());
-        }
-    }
+	@Test//Send not existed deployment version
+	public void testContextPropagation() throws IOException {
+		Request request = new Request.Builder()
+				.url(publicGWServerUrl + "api/v1/mesh-test-service-spring/hello/quarkus")
+				.addHeader("X-Version","v999")
+				.get()
+				.build();
+		try (Response response = okHttpClient.newCall(request).execute()) {
+			assertEquals(200, response.code());
+			String jsonResponse = response.body().string();
+			TraceResponse traceResponse = new Gson().fromJson(jsonResponse, TraceResponse.class);
+			assertEquals("mesh-test-service-quarkus", traceResponse.getFamilyName());
+			assertEquals("v999", traceResponse.getXversion());
+		}
+	}
 
-    @Test
-    public void testRouteToQuarkusService() throws IOException {
-        Request request = new Request.Builder()
-                .url(publicGWServerUrl + "/api/v1/mesh-test-service-spring/hello/quarkus")
-                .get()
-                .build();
-        try (Response response = okHttpClient.newCall(request).execute()) {
-            assertEquals(200, response.code());
-            String jsonResponse = response.body().string();
-            TraceResponse traceResponse = new Gson().fromJson(jsonResponse, TraceResponse.class);
-            assertEquals("mesh-test-service-quarkus", traceResponse.getFamilyName());
-        }
-    }
+	@Test
+	public void testRouteToQuarkusService() throws IOException {
+		Request request = new Request.Builder()
+				.url(publicGWServerUrl + "api/v1/mesh-test-service-spring/hello/quarkus")
+				.get()
+				.build();
+		try (Response response = okHttpClient.newCall(request).execute()) {
+			assertEquals(200, response.code());
+			String jsonResponse = response.body().string();
+			TraceResponse traceResponse = new Gson().fromJson(jsonResponse, TraceResponse.class);
+			assertEquals("mesh-test-service-quarkus", traceResponse.getFamilyName());
+		}
+	}
 
     @Test
     public void testCheckTrace() throws Exception {
@@ -144,16 +144,16 @@ public class HttpIT {
         testCheckTrace("mesh-test-service-go:1234/api/v1/mesh-test-service-go/1234/hello");
     }
 
-    private void testCheckTrace(String url) throws Exception {
-        log.info("testCheckTrace, url: {}", url);
-        Request request = new Request.Builder()
-                .url(publicGWServerUrl + "/api/v1/mesh-test-service-spring/spring/proxy?url=" + url)
-                .get()
-                .build();
-        try (Response response = okHttpClient.newCall(request).execute()) {
-            assertEquals(200, response.code());
-            String jsonResponse = response.body().string();
-            log.info("traceResponse: {}", jsonResponse);
-        }
-    }
+	private void testCheckTrace(String url) throws Exception {
+		log.info("testCheckTrace, url: {}", url);
+		Request request = new Request.Builder()
+				.url(publicGWServerUrl + "api/v1/mesh-test-service-spring/spring/proxy?url=" + url)
+				.get()
+				.build();
+		try (Response response = okHttpClient.newCall(request).execute()) {
+			assertEquals(200, response.code());
+			String jsonResponse = response.body().string();
+			log.info("traceResponse: {}", jsonResponse);
+		}
+	}
 }

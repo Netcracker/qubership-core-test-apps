@@ -199,7 +199,7 @@ public class CommonOperations {
 
     public static void testIngressWithHeader(String ingressUrl, int expectedCode, String expectedNamespace, String expectedXVersion, String expectedService, String headerXVersionNameValue, String requestEnding) throws IOException {
         testRequestWithHeader(
-                ingressUrl + "/api/v1/" + SPRING_SERVICE_NAME + "/hello" + requestEnding,
+                ingressUrl + "api/v1/" + SPRING_SERVICE_NAME + "/hello" + requestEnding,
                 expectedCode,
                 expectedNamespace,
                 expectedXVersion,
@@ -237,7 +237,7 @@ public class CommonOperations {
 
     public static void testIngressWithoutHeader(String ingressUrl, int expectedCode, String expectedNamespace, String expectedService, String requestEnding) throws IOException {
         testRequestWithoutHeader(
-                ingressUrl + "/api/v1/" + SPRING_SERVICE_NAME + "/hello" + requestEnding,
+                ingressUrl + "api/v1/" + SPRING_SERVICE_NAME + "/hello" + requestEnding,
                 expectedCode,
                 expectedNamespace,
                 expectedService

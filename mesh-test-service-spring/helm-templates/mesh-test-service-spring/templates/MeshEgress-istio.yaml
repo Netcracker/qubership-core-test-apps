@@ -1,0 +1,37 @@
+# This always false condition is used to skip template in Istio mesh
+# File is kept to describe the difference between Cloud-Core and Istio mesh with regard to egress-gateway:
+# in Cloud-Core facade-operator brings FacadeService `egress-gateway` and test app brings Gateway `egress-gateway`, facade-operator can deal with it.
+# In Istio mesh Gateway`egress-gateway` is owned by core-mesh-config, application can't bring it, it should use platform-managed gateway.
+{{- if false }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: egress-gateway
+  labels:
+    app.kubernetes.io/part-of: 'mesh-test-app'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "istiod"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  gatewayClassName: istio
+  listeners:
+  - name: default
+    port: 8080
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: All
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: egress-gateway
+spec:
+  type: ClusterIP
+  selector:
+    gateway.networking.k8s.io/gateway-name: egress-gateway
+  ports:
+  - port: 8080
+    protocol: TCP
+    name: default
+{{- end }}

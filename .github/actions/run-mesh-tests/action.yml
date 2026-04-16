@@ -1,0 +1,54 @@
+name: Run mesh integration tests
+description: >
+  Installs mesh test services, runs mesh integration tests, then uninstalls.
+
+inputs:
+  namespace:
+    description: Kubernetes namespace to install mesh test services into
+    required: false
+    default: core
+  mesh-type:
+    description: Mesh type to deploy — Core or Istio
+    required: false
+    default: Istio
+  spring-tag:
+    description: Docker image tag for mesh-test-service-spring
+    required: false
+    default: latest
+  quarkus-tag:
+    description: Docker image tag for mesh-test-service-quarkus
+    required: false
+    default: latest
+  go-tag:
+    description: Docker image tag for mesh-test-service-go
+    required: false
+    default: latest
+  github-token:
+    description: GitHub token for pulling images
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Run mesh integration tests
+      shell: bash
+      env:
+        GITHUB_ACTOR: ${{ github.actor }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        INSTALL_CMD="./mesh-test-install/mesh-test-apps.sh install ${{ inputs.namespace }} ${{ inputs.mesh-type }}"
+        SPRING_TAG="${{ inputs.spring-tag }}"
+        QUARKUS_TAG="${{ inputs.quarkus-tag }}"
+        GO_TAG="${{ inputs.go-tag }}"
+        if [ "$SPRING_TAG" != "latest" ] && [ -n "$SPRING_TAG" ]; then
+          INSTALL_CMD="$INSTALL_CMD --spring-tag $SPRING_TAG"
+        fi
+        if [ "$QUARKUS_TAG" != "latest" ] && [ -n "$QUARKUS_TAG" ]; then
+          INSTALL_CMD="$INSTALL_CMD --quarkus-tag $QUARKUS_TAG"
+        fi
+        if [ "$GO_TAG" != "latest" ] && [ -n "$GO_TAG" ]; then
+          INSTALL_CMD="$INSTALL_CMD --go-tag $GO_TAG"
+        fi
+        $INSTALL_CMD
+        ./run-it/run-integration-tests.sh kind-kind ${{ inputs.namespace }} kind-control-plane:10.244.0.1 mesh-integration-tests:mesh-integration-tests
+        ./mesh-test-install/mesh-test-apps.sh uninstall ${{ inputs.namespace }} ${{ inputs.mesh-type }}

@@ -45,5 +45,8 @@ CLOUD_PUBLIC_HOST: "svc.cluster.local"
 CLOUD_PRIVATE_HOST: "svc.cluster.local"
 CR_SYNCHRONIZER_IMAGE: "ghcr.io/netcracker/cr-synchronizer:latest"
 EXTERNAL_IPS: '' # TO_BE_REPLACED
+DEPLOYMENT_SESSION_ID:
+RESOURCE_POLLING_TIMEOUT: 60
+SERVICE_MESH_TYPE: "Core"
 CONSUL_ENABLED: false
 CONSUL_URL: ''

@@ -1,3 +1,4 @@
+{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}
 ---
 apiVersion: core.netcracker.com/v1
 kind: Mesh
@@ -25,6 +26,8 @@ spec:
                   prefix: /api/v1/mesh-test-service-spring/declarative_hello
                 allowed: true
                 prefixRewrite: /api/v1/declarative_hello
+{{- end }}
+{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}
 ---
 apiVersion: core.netcracker.com/v1
 kind: Mesh
@@ -68,6 +71,8 @@ spec:
                   prefix: /api/v1/mesh-test-service-spring/sleep
                 allowed: true
                 prefixRewrite: /api/v1/sleep
+{{- end }}
+{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}
 ---
 apiVersion: core.netcracker.com/v1
 kind: Mesh
@@ -94,6 +99,8 @@ spec:
                   prefix: /api/v3/control-plane/versions/registry
                 allowed: true
                 prefixRewrite: /api/v3/versions/registry
+{{- end }}
+{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}
 ---
 apiVersion: core.netcracker.com/v1
 kind: Mesh
@@ -124,13 +131,14 @@ spec:
                   prefix: /api/v1/mesh-test-service-spring/sleep
                 allowed: true
                 prefixRewrite: /api/v1/sleep
+{{- end }}
+{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}
 ---
 apiVersion: core.netcracker.com/v1
 kind: Mesh
 subKind: RouteConfiguration
 metadata:
   name: test-ingress-gateway-spring-routes
-
   labels:
     app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
     app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
@@ -159,6 +167,8 @@ spec:
               - match:
                   prefix: /api/v1/mesh-test-service-spring/sleep
                 allowed: true
+{{- end }}
+{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}
 ---
 apiVersion: core.netcracker.com/v1
 kind: Mesh
@@ -193,3 +203,4 @@ spec:
               - match:
                   prefix: /api/v1/mesh-test-service-spring/sleep
                 allowed: true
+{{- end }}

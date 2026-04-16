@@ -56,6 +56,8 @@ spec:
                         value: "http://{{ .Values.DEPLOYMENT_RESOURCE_NAME }}:8080"
                       - name: DEPLOYMENT_VERSION
                         value: "{{ .Values.DEPLOYMENT_VERSION }}"
+                      - name: SERVICE_MESH_TYPE
+                        value: '{{ .Values.SERVICE_MESH_TYPE }}'                        
                       - name: CONSUL_ENABLED
                         value: '{{ .Values.CONSUL_ENABLED }}'
                       - name: CONSUL_URL

@@ -1,3 +1,4 @@
+{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}
 apiVersion: netcracker.com/v1alpha
 kind: FacadeService
 metadata:
@@ -10,3 +11,4 @@ spec:
     facadeGatewayMemoryLimit: 128Mi
     facadeGatewayMemoryRequest: 128Mi
   gateway: 'mesh-test-app-gateway'
+{{- end }}
