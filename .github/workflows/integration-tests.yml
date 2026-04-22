@@ -244,6 +244,11 @@ on:
         required: false
         default: true
         type: boolean
+      run-control-plane:
+        description: 'Run control-plane integration tests'
+        required: false
+        default: true
+        type: boolean
 
 jobs:
   integration-tests:
@@ -309,6 +314,25 @@ jobs:
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout control-plane-integration-tests
+        if: inputs.run-control-plane
+        uses: actions/checkout@v4
+        with:
+          repository: Netcracker/qubership-core-control-plane
+          path: repos/control-plane 
+          ref: feat/routes_for_istio
+        
+      - name: Run control-plane integration tests
+        id: control_plane_tests
+        if: inputs.run-control-plane
+        continue-on-error: true
+        run: |
+          ./run-it/run-integration-tests.sh --profile integration-test kind-core default kind-control-plane:10.244.0.1 control-plane:repos/control-plane/integration-tests
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
       - name: Aggregate Surefire reports
         run: |
