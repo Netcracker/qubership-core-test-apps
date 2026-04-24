@@ -145,10 +145,6 @@ on:
         required: false
         default: false
         type: boolean
-      service-mesh-type:
-        description: Service mesh type 'Core' or 'Istio'
-        required: false
-        default: 'Core'
       istio-repo-branch:
         description: 'Branch of the Istio repo'
         required: false
@@ -253,16 +249,6 @@ on:
         required: false
         default: true
         type: boolean
-      run-control-plane:
-        description: 'Run control-plane integration tests'
-        required: false
-        default: true
-        type: boolean
-      run-site-management:
-        description: 'Run site-management integration tests'
-        required: false
-        default: true
-        type: boolean
 
 jobs:
   integration-tests:
@@ -278,7 +264,7 @@ jobs:
           core-bootstrap-branch: ${{ inputs.core-bootstrap-branch }}
           install-maas: ${{ inputs.install-maas || 'false' }}
           install-istio: ${{ inputs.install-istio || 'false' }}
-          service-mesh-type: ${{ inputs.service-mesh-type || 'Core' }}
+          service-mesh-type: ${{ inputs.mesh-type || 'Core' }}
           istio-repo-branch: ${{ inputs.istio-repo-branch }}
           core-mesh-config-repo-branch: ${{ inputs.core-mesh-config-repo-branch }}
           facade-operator-tag: ${{ inputs.facade-operator-tag || 'latest' }}
@@ -326,13 +312,13 @@ jobs:
         if: inputs.run-paas
         continue-on-error: true
         run: |
-          ./run-it/run-integration-tests.sh kind-kind core kind-control-plane:10.244.0.1 ${{ inputs.service-mesh-type || 'Core' }} paas-mediation-tests:repos/paas-mediation/integration-tests
+          ./run-it/run-integration-tests.sh kind-kind core kind-control-plane:10.244.0.1 ${{ inputs.mesh-type || 'Core' }} paas-mediation-tests:repos/paas-mediation/integration-tests
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout control-plane-integration-tests
-        if: inputs.run-control-plane
+        if: inputs.run-mesh
         uses: actions/checkout@v4
         with:
           repository: Netcracker/qubership-core-control-plane
@@ -341,17 +327,17 @@ jobs:
         
       - name: Run control-plane integration tests
         id: control_plane_tests
-        if: inputs.run-control-plane
+        if: inputs.run-mesh
         continue-on-error: true
         run: |
 
-          ./run-it/run-integration-tests.sh --profile integration-test kind-core default kind-control-plane:10.244.0.1 ${{ inputs.service-mesh-type || 'Core' }} control-plane:repos/control-plane/integration-tests
+          ./run-it/run-integration-tests.sh --profile integration-test kind-core default kind-control-plane:10.244.0.1 ${{ inputs.mesh-type || 'Core' }} control-plane:repos/control-plane/integration-tests
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout site-management-integration-tests
-        if: inputs.run-site-management
+        if: inputs.run-mesh
         uses: actions/checkout@v4
         with:
           repository: Netcracker/qubership-core-site-management
@@ -360,10 +346,10 @@ jobs:
         
       - name: Run site-management integration tests
         id: site-management_tests
-        if: inputs.run-site-management
+        if: inputs.run-mesh
         continue-on-error: true
         run: |
-          ./run-it/run-integration-tests.sh --profile integration-test kind-core default kind-control-plane:10.244.0.1 ${{ inputs.service-mesh-type || 'Core' }} site-management-tests:repos/site-management/integration-tests
+          ./run-it/run-integration-tests.sh --profile integration-test kind-core default kind-control-plane:10.244.0.1 ${{ inputs.mesh-type || 'Core' }} site-management-tests:repos/site-management/integration-tests
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
