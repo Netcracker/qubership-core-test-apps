@@ -331,7 +331,7 @@ jobs:
         continue-on-error: true
         run: |
 
-          ./run-it/run-integration-tests.sh --profile integration-test kind-core default kind-control-plane:10.244.0.1 ${{ inputs.mesh-type || 'Core' }} control-plane:repos/control-plane/integration-tests
+          ./run-it/run-integration-tests.sh kind-kind core kind-control-plane:10.244.0.1  ${{ inputs.mesh-type || 'Core' }} control-plane:repos/control-plane/integration-tests
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -349,7 +349,7 @@ jobs:
         if: inputs.run-mesh
         continue-on-error: true
         run: |
-          ./run-it/run-integration-tests.sh --profile integration-test kind-core default kind-control-plane:10.244.0.1 ${{ inputs.mesh-type || 'Core' }} site-management-tests:repos/site-management/integration-tests
+          ./run-it/run-integration-tests.sh kind-kind core kind-control-plane:10.244.0.1 ${{ inputs.mesh-type || 'Core' }} site-management-tests:repos/site-management/integration-tests
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
