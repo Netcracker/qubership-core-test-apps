@@ -323,7 +323,7 @@ jobs:
         with:
           repository: Netcracker/qubership-core-control-plane
           path: repos/control-plane
-          ref: feat/routes_for_istio
+          ref: ${{ inputs.test-branch || 'main' }}
         
       - name: Run control-plane integration tests
         id: control_plane_tests
@@ -342,7 +342,7 @@ jobs:
         with:
           repository: Netcracker/qubership-core-site-management
           path: repos/site-management
-          ref: feat/routes_for_istio
+          ref: ${{ inputs.test-branch || 'main' }}
         
       - name: Run site-management integration tests
         id: site-management_tests
