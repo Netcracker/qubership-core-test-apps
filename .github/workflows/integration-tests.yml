@@ -130,6 +130,11 @@ on:
         required: false
         default: 'main'
         type: string
+      test-branch:
+        description: 'Branch of microservices repos for test, "main" by default'
+        required: false
+        default: 'main'
+        type: string   
       install-maas:
         description: 'Install MaaS'
         required: false
@@ -140,6 +145,10 @@ on:
         required: false
         default: false
         type: boolean
+      service-mesh-type:
+        description: Service mesh type 'Core' or 'Istio'
+        required: false
+        default: 'Core'
       istio-repo-branch:
         description: 'Branch of the Istio repo'
         required: false
@@ -249,6 +258,11 @@ on:
         required: false
         default: true
         type: boolean
+      run-site-management:
+        description: 'Run site-management integration tests'
+        required: false
+        default: true
+        type: boolean
 
 jobs:
   integration-tests:
@@ -264,6 +278,7 @@ jobs:
           core-bootstrap-branch: ${{ inputs.core-bootstrap-branch }}
           install-maas: ${{ inputs.install-maas || 'false' }}
           install-istio: ${{ inputs.install-istio || 'false' }}
+          service-mesh-type: ${{ inputs.service-mesh-type || 'Core' }}
           istio-repo-branch: ${{ inputs.istio-repo-branch }}
           core-mesh-config-repo-branch: ${{ inputs.core-mesh-config-repo-branch }}
           facade-operator-tag: ${{ inputs.facade-operator-tag || 'latest' }}
@@ -274,6 +289,7 @@ jobs:
           core-operator-tag: ${{ inputs.core-operator-tag || 'latest' }}
           config-server-tag: ${{ inputs.config-server-tag || 'latest' }}
           site-management-tag: ${{ inputs.site-management-tag || 'latest' }}
+          test-branch: ${{ inputs.test-branch || 'main' }}
 
       - name: preserve-cpu-resources-workaround
         if: ${{ inputs.do-resources-workaround }}
@@ -310,7 +326,7 @@ jobs:
         if: inputs.run-paas
         continue-on-error: true
         run: |
-          ./run-it/run-integration-tests.sh kind-kind core kind-control-plane:10.244.0.1 paas-mediation-tests:repos/paas-mediation/integration-tests
+          ./run-it/run-integration-tests.sh kind-kind core kind-control-plane:10.244.0.1 ${{ inputs.service-mesh-type || 'Core' }} paas-mediation-tests:repos/paas-mediation/integration-tests
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -328,13 +344,29 @@ jobs:
         if: inputs.run-control-plane
         continue-on-error: true
         run: |
-          pwd
-          ls -la /home/runner/work/qubership-core-test-apps/qubership-core-test-apps/repos/control-plane
-          ./run-it/run-integration-tests.sh --profile integration-test kind-core default kind-control-plane:10.244.0.1 control-plane:repos/control-plane/integration-tests
+
+          ./run-it/run-integration-tests.sh --profile integration-test kind-core default kind-control-plane:10.244.0.1 ${{ inputs.service-mesh-type || 'Core' }} control-plane:repos/control-plane/integration-tests
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Checkout site-management-integration-tests
+        if: inputs.run-site-management
+        uses: actions/checkout@v4
+        with:
+          repository: Netcracker/qubership-core-site-management
+          path: repos/site-management
+          ref: feat/routes_for_istio
+        
+      - name: Run site-management integration tests
+        id: site-management_tests
+        if: inputs.run-site-management
+        continue-on-error: true
+        run: |
+          ./run-it/run-integration-tests.sh --profile integration-test kind-core default kind-control-plane:10.244.0.1 ${{ inputs.service-mesh-type || 'Core' }} site-management-tests:repos/site-management/integration-tests
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Aggregate Surefire reports
         run: |

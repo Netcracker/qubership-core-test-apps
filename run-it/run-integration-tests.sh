@@ -61,7 +61,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Check if all required arguments are provided
-if [[ -z "$1" || -z "$2" || -z "$3" ]]; then
+if [[ -z "$1" || -z "$2" || -z "$3" || -z "$4" ]]; then
     echo "Error: All required arguments are missing!"
     echo ""
     show_usage
@@ -72,13 +72,20 @@ fi
 KUBE_CONTEXT="$1"
 NAMESPACE="$2"
 NODE_IP_MAPPING="$3"
+REQUEST_MODE="$4"
+
+if [[ "$REQUEST_MODE" == "Istio" ]]; then
+    REQUEST_MODE="EXEC_IN_POD"
+else
+    REQUEST_MODE="PORT_FORWARD"
+fi
 
 # Parse test folders and service names from remaining arguments
 # Format: service-name:test-folder
 declare -a TEST_SERVICES=()
 declare -a TEST_FOLDERS=()
 
-shift 3  # Remove first 3 arguments
+shift 4  # Remove first 4 arguments
 
 if [[ $# -eq 0 ]]; then
     # Default behavior: use mesh-integration-tests
@@ -292,6 +299,7 @@ run_integration_tests() {
             -DNODE_IP_MAPPING="$NODE_IP_MAPPING" \
             -DORIGIN_NAMESPACE="$NAMESPACE" \
             -Denv.cloud-namespace="$NAMESPACE" \
+            -Dexecutor.mode="$REQUEST_MODE" \
             -Dkubernetes.master="https://${CLUSTER_DOMAIN}:${API_SERVER_PORT}" || maven_exit_code=$?
     else
         mvn clean surefire-report:report \
@@ -300,6 +308,7 @@ run_integration_tests() {
             -DNODE_IP_MAPPING="$NODE_IP_MAPPING" \
             -DORIGIN_NAMESPACE="$NAMESPACE" \
             -Denv.cloud-namespace="$NAMESPACE" \
+            -Dexecutor.mode="$REQUEST_MODE" \
             -Dkubernetes.master="https://${CLUSTER_DOMAIN}:${API_SERVER_PORT}" || maven_exit_code=$?
     fi
     
