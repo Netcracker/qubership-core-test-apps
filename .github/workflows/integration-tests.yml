@@ -306,6 +306,7 @@ jobs:
         with:
           repository: Netcracker/qubership-core-paas-mediation
           path: repos/paas-mediation 
+          ref: ${{ inputs.test-branch || 'main' }}
         
       - name: Run paas-mediation integration tests
         id: paas_tests
