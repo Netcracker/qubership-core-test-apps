@@ -420,6 +420,10 @@ jobs:
             kubectl get httproute -A -o yaml|| true
 
             echo
+            echo "==== SERVICES ===="
+            kubectl get services -A -o yaml|| true
+
+            echo
             echo "==== EVENTS (CHRONOLOGICAL) ===="
             kubectl get events -A --sort-by=.metadata.creationTimestamp || true
 
