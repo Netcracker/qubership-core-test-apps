@@ -412,6 +412,10 @@ jobs:
             kubectl get deployments -A || true
 
             echo
+            echo "==== CP DEPLOYMENT ===="
+            kubectl get deployment control-plane -n core -o yaml || true
+
+            echo
             echo "==== HTTPROUTES ===="
             kubectl get httproute -A -o yaml|| true
 
@@ -472,6 +476,15 @@ jobs:
             done < /tmp/unhealthy-pods.txt
 
           } > unhealthy-pods-logs.txt 2>&1
+
+          echo "==== Collecting istio pods logs ===="
+
+          {
+            echo
+            echo "==== KIND WAYPOINT LOGS ===="
+            kubectl logs deployment/waypoint -n core || true
+
+          } > istio-pods-logs.txt 2>&1
       
       - name: Upload Kubernetes diagnostics
         if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' }}
@@ -481,3 +494,4 @@ jobs:
           path: |
             cluster-state.txt
             unhealthy-pods-logs.txt
+            istio-pods-logs.txt
