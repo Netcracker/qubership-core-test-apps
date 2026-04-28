@@ -16,7 +16,6 @@ jobs:
   run-tests-core-mesh:
     uses: ./.github/workflows/integration-tests.yml
     with:
-      core-bootstrap-branch: feat/istio
       install-istio: false
       install-maas: true
       run-mesh: true
