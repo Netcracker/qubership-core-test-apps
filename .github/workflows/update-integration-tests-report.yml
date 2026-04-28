@@ -27,7 +27,6 @@ jobs:
   run-tests-istio-mesh-fallback-mode:
     uses: ./.github/workflows/integration-tests.yml
     with:
-      core-bootstrap-branch: feat/istio
       install-istio: true
       run-mesh: true
       mesh-type: 'Core'
@@ -38,7 +37,6 @@ jobs:
   run-tests-istio-mesh-migrated-mode:
     uses: ./.github/workflows/integration-tests.yml
     with:
-      core-bootstrap-branch: feat/istio
       install-istio: true
       run-mesh: true
       mesh-type: 'Istio'
