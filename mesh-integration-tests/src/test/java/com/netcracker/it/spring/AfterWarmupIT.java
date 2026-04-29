@@ -159,7 +159,7 @@ public class AfterWarmupIT {
         try (ClosablePortForward portForward = new ClosablePortForward(portForwardService,
                 PEER_NAMESPACE, SERVICE_NAME, 8080)) {
             Request request = new Request.Builder()
-                    .url(portForward.getUrl() + "/api/v1/mesh-test-service-spring/hello")
+                    .url(portForward.getUrl() + "api/v1/mesh-test-service-spring/hello")
                     .get()
                     .build();
             try (Response response = okHttpClient.newCall(request).execute()) {

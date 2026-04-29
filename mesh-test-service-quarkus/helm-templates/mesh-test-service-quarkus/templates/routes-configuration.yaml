@@ -1,3 +1,4 @@
+{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}
 ---
 apiVersion: core.netcracker.com/v1
 kind: Mesh
@@ -28,6 +29,8 @@ spec:
                   prefix: /api/v1/mesh-test-service-quarkus/sleep
                 allowed: true
                 prefixRewrite: /api/v1/sleep
+{{- end }}
+{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}
 ---
 apiVersion: core.netcracker.com/v1
 kind: Mesh
@@ -53,6 +56,8 @@ spec:
                   prefix: /api/v1/mesh-test-service-quarkus/sleep
                 allowed: true
                 prefixRewrite: /api/v1/sleep
+{{- end }}
+{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}
 ---
 apiVersion: core.netcracker.com/v1
 kind: Mesh
@@ -81,6 +86,8 @@ spec:
                   prefix: /api/v1/mesh-test-service-quarkus/sleep
                 allowed: true
                 prefixRewrite: /api/v1/sleep
+{{- end }}
+{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}
 ---
 apiVersion: core.netcracker.com/v1
 kind: Mesh
@@ -109,3 +116,4 @@ spec:
                   prefix: /api/v1/mesh-test-service-quarkus/sleep
                 allowed: true
                 prefixRewrite: /api/v1/sleep
+{{- end }}

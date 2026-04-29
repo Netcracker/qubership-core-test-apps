@@ -161,7 +161,7 @@ func (c *Controller) HelloSpringHandler(fiberCtx *fiber.Ctx) error {
 	}
 
 	responseMessage := fmt.Sprintf("Spring answered:%s", string(body))
-	logger.Info(responseMessage)
+	logger.Infof("%s", responseMessage)
 	return utils.RespondWithString(fiberCtx, fiber.StatusOK, string(body))
 }
 

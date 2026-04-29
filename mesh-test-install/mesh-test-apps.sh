@@ -2,18 +2,19 @@
 
 # Mesh test applications management script
 # Manages mesh test services in order: spring, quarkus, go
-# Usage: ./mesh-test-apps.sh <operation> <namespace> [--spring-tag TAG] [--quarkus-tag TAG] [--go-tag TAG]
-# Operation: install/uninstall, Namespace is required, Tags are optional (defaults to 'latest' for install)
+# Usage: ./mesh-test-apps.sh <operation> <namespace> <mesh-type> [--spring-tag TAG] [--quarkus-tag TAG] [--go-tag TAG]
+# Operation: install/uninstall, Namespace is required, Mesh type is required, Tags are optional (defaults to 'latest' for install)
 
 set -e  # Exit on any error
 
 # Function to show usage
 show_usage() {
-    echo "Usage: $0 <operation> <namespace> [--spring-tag TAG] [--quarkus-tag TAG] [--go-tag TAG]"
+    echo "Usage: $0 <operation> <namespace> <mesh-type> [--spring-tag TAG] [--quarkus-tag TAG] [--go-tag TAG]"
     echo ""
     echo "Arguments:"
     echo "  operation       Operation to perform: 'install' or 'uninstall' (required)"
     echo "  namespace       Kubernetes namespace to operate on (required)"
+    echo "  mesh-type       Mesh type to use: Istio or Core (required)"
     echo "  --spring-tag     Docker image tag for Spring service (optional, defaults to 'latest')"
     echo "  --quarkus-tag    Docker image tag for Quarkus service (optional, defaults to 'latest')"
     echo "  --go-tag         Docker image tag for Go service (optional, defaults to 'latest')"
@@ -49,6 +50,14 @@ if [[ -z "$2" ]]; then
     exit 1
 fi
 
+# Check if mesh type argument is provided
+if [[ -z "$3" ]]; then
+    echo "Error: Mesh type argument is required!"
+    echo ""
+    show_usage
+    exit 1
+fi
+
 # Validate operation
 OPERATION="$1"
 if [[ "$OPERATION" != "install" && "$OPERATION" != "uninstall" ]]; then
@@ -60,12 +69,20 @@ fi
 
 # Parse command line arguments
 NAMESPACE="$2"
+MESH_TYPE="$3"
+if [[ "$MESH_TYPE" != "Istio" && "$MESH_TYPE" != "Core" ]]; then
+    echo "Error: Mesh type must be 'Istio' or 'Core', got: $MESH_TYPE"
+    echo ""
+    show_usage
+    exit 1
+fi
+
 SPRING_TAG="latest"
 QUARKUS_TAG="latest"
 GO_TAG="latest"
 
-# Parse remaining arguments (skip operation and namespace)
-shift 2
+# Parse remaining arguments (skip operation, namespace and mesh type)
+shift 3
 
 # Parse named flags
 while [[ $# -gt 0 ]]; do
@@ -115,12 +132,32 @@ echo "Starting mesh test applications $OPERATION..."
 echo "--------------------------------"
 echo "Operation: $OPERATION"
 echo "Target namespace: $NAMESPACE"
+echo "Mesh type: $MESH_TYPE"
 if [[ "$OPERATION" == "install" ]]; then
     echo "Docker image tags:"
     echo "  Spring:  $SPRING_TAG"
     echo "  Quarkus: $QUARKUS_TAG"
     echo "  Go:      $GO_TAG"
 fi
+
+# ================================================
+# Define project root, service root and chart paths
+# ================================================
+# Get the script directory to determine the project root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+echo "Project root: $PROJECT_ROOT"
+
+# Define service root paths
+SPRING_ROOT="$PROJECT_ROOT/mesh-test-service-spring/"
+QUARKUS_ROOT="$PROJECT_ROOT/mesh-test-service-quarkus/"
+
+# Define chart paths
+SPRING_CHART="$SPRING_ROOT/helm-templates/mesh-test-service-spring"
+QUARKUS_CHART="$QUARKUS_ROOT/helm-templates/mesh-test-service-quarkus"
+GO_CHART="$PROJECT_ROOT/mesh-test-service-go/helm-templates/mesh-test-service-go"
+# ================================================
 
 # Function to check if helm is installed
 check_helm() {
@@ -133,10 +170,11 @@ check_helm() {
 
 # Function to install a helm package
 install_helm_package() {
-    local service_name=$1
-    local chart_path=$2
-    local namespace=$3
-    local tag=$4
+    local service_name chart_path namespace tag
+    service_name=$1
+    chart_path=$2
+    namespace=$3
+    tag=$4
     
     echo ""
     echo "===================================="
@@ -157,6 +195,7 @@ install_helm_package() {
     echo "Installing/upgrading $service_name with tag: $tag..."
     helm upgrade --install "$service_name" "$chart_path" \
         --namespace "$namespace" \
+        --set SERVICE_MESH_TYPE="$MESH_TYPE" \
         --set TAG="$tag" \
         --set CONSUL_ENABLED="true" \
         --set CONSUL_URL="http://consul-consul-server.consul.svc.cluster.local:8500" \
@@ -170,6 +209,15 @@ install_helm_package() {
         exit 1
     fi
 }
+
+transform_routing_to_istio() {
+    echo "Transforming annotations routing to Istio for java services..."
+    for project in "$SPRING_ROOT" "$QUARKUS_ROOT"; do
+        # process-classes will trigger httproutes-generator-maven-plugin:generate-routes
+        mvn clean process-classes -f $project/pom.xml
+    done
+}
+
 
 # Function to uninstall a helm package
 uninstall_helm_package() {
@@ -201,17 +249,6 @@ uninstall_helm_package() {
 install_services() {
     echo "Checking prerequisites..."
     check_helm
-    
-    # Get the script directory to determine the project root
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-    
-    echo "Project root: $PROJECT_ROOT"
-    
-    # Define chart paths relative to project root
-    SPRING_CHART="$PROJECT_ROOT/mesh-test-service-spring/helm-templates/mesh-test-service-spring"
-    QUARKUS_CHART="$PROJECT_ROOT/mesh-test-service-quarkus/helm-templates/mesh-test-service-quarkus"
-    GO_CHART="$PROJECT_ROOT/mesh-test-service-go/helm-templates/mesh-test-service-go"
     
     echo ""
     echo "Chart paths:"
@@ -276,6 +313,12 @@ uninstall_services() {
 # Main function
 main() {
     if [[ "$OPERATION" == "install" ]]; then
+        if [[ "$MESH_TYPE" == "Istio" ]]; then
+            echo "Using Istio mesh type for installation"
+            transform_routing_to_istio
+        else 
+            echo "Using Core mesh type for installation"
+        fi
         install_services
     elif [[ "$OPERATION" == "uninstall" ]]; then
         uninstall_services

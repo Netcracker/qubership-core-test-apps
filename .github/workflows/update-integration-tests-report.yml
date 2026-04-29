@@ -13,10 +13,38 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  run-tests:
+  run-tests-core-mesh:
     uses: ./.github/workflows/integration-tests.yml
+    with:
+      install-istio: false
+      install-maas: true
+      run-mesh: true
+      mesh-type: 'Core'
+      mesh-test-usecase: 'core-mesh'
+      run-paas: true
+
+  run-tests-istio-mesh-fallback-mode:
+    uses: ./.github/workflows/integration-tests.yml
+    with:
+      install-istio: true
+      run-mesh: true
+      mesh-type: 'Core'
+      mesh-test-usecase: 'istio-fallback'
+      run-paas: false
+      do-resources-workaround: true
+
+  run-tests-istio-mesh-migrated-mode:
+    uses: ./.github/workflows/integration-tests.yml
+    with:
+      install-istio: true
+      run-mesh: true
+      mesh-type: 'Istio'
+      mesh-test-usecase: 'istio-migrated'
+      run-paas: false            
+      do-resources-workaround: true
+      
   update-report:
-    needs: run-tests
+    needs: [run-tests-core-mesh, run-tests-istio-mesh-fallback-mode, run-tests-istio-mesh-migrated-mode]
     runs-on: ubuntu-latest
     environment:
       name: pages
@@ -28,8 +56,9 @@ jobs:
       - name: Download Surefire reports artifact
         uses: actions/download-artifact@v4
         with:
-          name: surefire-reports
           path: artifacts
+          pattern: surefire-reports*
+          merge-multiple: true
 
       - name: Update report
         run: |

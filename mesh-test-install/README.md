@@ -19,24 +19,37 @@ Installs / uninstalls helm packages for
 * Mesh-test-service-quarkus
 * Mesh-test-service-spring
 
-Run the script with required operation, namespace, and optional tag arguments:
+Run the script with required operation, namespace, mesh type, and optional per-service tag arguments:
+
+#### Mesh type
+
+The **mesh type** selects which service mesh implementation the test services use:
+
+- **Istio** — Use Istio service mesh
+- **Core** — Use Cloud-Core mesh
+
+This value is passed to Helm as `SERVICE_MESH_TYPE` and affects how routes and sidecars are configured.
 
 #### Install Services
 
 ```bash
-# Install in mesh-test namespace with default 'latest' tag
-./mesh-test-apps.sh install mesh-test
+# Install in mesh-test namespace with Istio mesh and default 'latest' tag for all services
+./mesh-test-apps.sh install mesh-test Istio
 
-# Install in mesh-test namespace with specific tag
-./mesh-test-apps.sh install mesh-test v1.2.3
+# Install with Core mesh type
+./mesh-test-apps.sh install mesh-test Core
 
+# Install with specific image tags (use named flags per service)
+./mesh-test-apps.sh install mesh-test Istio --spring-tag v1.2.3
+./mesh-test-apps.sh install mesh-test Core --spring-tag v1.2.3 --quarkus-tag v2.0.0 --go-tag v3.1.0
 ```
 
 #### Uninstall Services
 
 ```bash
-# Uninstall from mesh-test namespace
-./mesh-test-apps.sh uninstall mesh-test
+# Uninstall from mesh-test namespace (mesh type is still required)
+./mesh-test-apps.sh uninstall mesh-test Istio
+./mesh-test-apps.sh uninstall mesh-test Core
 ```
 
 #### Show Help
@@ -46,9 +59,10 @@ Run the script with required operation, namespace, and optional tag arguments:
 ```
 
 #### Configuration
-- **Operation**: Required first argument - must be 'install' or 'uninstall'
-- **Namespace**: Required second argument - must be specified
-- **TAG**: Optional third argument for Docker image tag (only used for install, defaults to 'latest')
+- **Operation**: Required first argument — `install` or `uninstall`
+- **Namespace**: Required second argument — Kubernetes namespace to operate on
+- **Mesh type**: Required third argument — `Istio` or `Core` (see [Mesh type](#mesh-type) above)
+- **Tags**: Optional named flags for install: `--spring-tag`, `--quarkus-tag`, `--go-tag` (each defaults to `latest`)
 - **Timeout**: Each operation has a 300-second timeout
 
 ## Troubleshooting

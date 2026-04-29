@@ -1,0 +1,178 @@
+{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: mesh-test-app-gateway-quarkus-routes
+  labels:
+    app.kubernetes.io/instance: "{{ .Values.SERVICE }}"
+    app.kubernetes.io/managed-by: istiod
+spec:
+  parentRefs:
+  - kind: Service
+    group: ''
+    name: '{{ .Values.SERVICE }}'
+  hostnames:
+  - '{{ .Values.SERVICE }}'
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/mesh-test-service-quarkus/hello
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /api/v1/hello
+    backendRefs:
+    - kind: Service
+      name: '{{ .Values.DEPLOYMENT_RESOURCE_NAME }}'
+      port: 8080
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/mesh-test-service-quarkus/sleep
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /api/v1/sleep
+    backendRefs:
+    - kind: Service
+      name: '{{ .Values.DEPLOYMENT_RESOURCE_NAME }}'
+      port: 8080
+{{- end }}
+{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: egress-routes-quarkus
+  labels:
+    app.kubernetes.io/instance: "{{ .Values.SERVICE }}"
+    app.kubernetes.io/managed-by: istiod
+spec:
+  parentRefs:
+  - name: egress-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/mesh-test-service-quarkus/sleep
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        remove:
+        - Origin
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /api/v1/sleep
+    backendRefs:
+    - kind: Service
+      name: '{{ .Values.DEPLOYMENT_RESOURCE_NAME }}'
+      port: 8080
+{{- end }}
+{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: test-ingress-gateway-quarkus-routes
+  labels:
+    app.kubernetes.io/instance: "{{ .Values.SERVICE }}"
+    app.kubernetes.io/managed-by: istiod
+spec:
+  parentRefs:
+  - name: test-ingress-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/mesh-test-service-quarkus/hello
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        remove:
+        - Origin
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /api/v1/hello
+    backendRefs:
+    - kind: Service
+      name: public-gateway-service
+      port: 8080
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/mesh-test-service-quarkus/sleep
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        remove:
+        - Origin
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /api/v1/sleep
+    backendRefs:
+    - kind: Service
+      name: public-gateway-service
+      port: 8080
+{{- end }}
+{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: test-ingress-gateway-2-quarkus-routes
+  labels:
+    app.kubernetes.io/instance: "{{ .Values.SERVICE }}"
+    app.kubernetes.io/managed-by: istiod
+spec:
+  parentRefs:
+  - name: test-ingress-gateway-2
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/mesh-test-service-quarkus/hello
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        remove:
+        - Origin
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /api/v1/hello
+    backendRefs:
+    - kind: Service
+      name: public-gateway-service
+      port: 8080
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/mesh-test-service-quarkus/sleep
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        remove:
+        - Origin
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /api/v1/sleep
+    backendRefs:
+    - kind: Service
+      name: public-gateway-service
+      port: 8080
+{{- end }}

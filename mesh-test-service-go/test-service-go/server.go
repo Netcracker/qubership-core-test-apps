@@ -45,7 +45,7 @@ func main() {
 		WithHealth("/health", healthService).
 		Process()
 	if err != nil {
-		logger.Error("Error while create app because: " + err.Error())
+		logger.Error("Error while create app because: %s", err.Error())
 		return
 	}
 
@@ -74,7 +74,7 @@ func startSecondServer(fiberConfig fiber.Config, consulPS *configloader.Property
 	logger.Info("Start second server")
 	app2, err := fiberserver.New(fiberConfig).Process()
 	if err != nil {
-		logger.Error("Error while create app2 because: " + err.Error())
+		logger.Error("Error while create app2 because: %s", err.Error())
 		return
 	}
 

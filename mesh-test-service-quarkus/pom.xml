@@ -28,7 +28,7 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <quarkus.platform.artifact-id>quarkus-universe-bom</quarkus.platform.artifact-id>
         <quarkus.platform.group-id>io.quarkus</quarkus.platform.group-id>
-        <quarkus.core.version>8.4.1</quarkus.core.version>
+        <quarkus.core.version>9.1.0</quarkus.core.version>
         <surefire-plugin.version>3.5.2</surefire-plugin.version>
         <lombok.version>1.18.36</lombok.version>
         <jacoco.plugin.version>0.8.12</jacoco.plugin.version>
@@ -159,6 +159,26 @@
                     <outputDirectory>target/jacoco-ut</outputDirectory>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>org.qubership.cloud.core</groupId>
+                <artifactId>httproutes-generator-maven-plugin</artifactId>
+                <version>0.0.1-SNAPSHOT</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>generate-routes</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <packages>
+                        <package>com.netcracker</package>
+                    </packages>
+                    <servicePort>8080</servicePort>
+                    <outputFile>helm-templates/mesh-test-service-quarkus/templates/annotations-httproutes.yaml</outputFile>
+                    <backendRefVal>{{ .Values.DEPLOYMENT_RESOURCE_NAME }}</backendRefVal>
+                </configuration>
+            </plugin>   
         </plugins>
     </build>
 
@@ -183,6 +203,13 @@
             <snapshots />
         </repository>
     </repositories>
+
+    <pluginRepositories>
+      <pluginRepository>
+        <id>github</id>
+        <url>https://maven.pkg.github.com/netcracker/*</url>
+      </pluginRepository>
+    </pluginRepositories>
 
     <scm>
         <connection>scm:git:https://github.com/Netcracker/qubership-core-test-apps.git</connection>

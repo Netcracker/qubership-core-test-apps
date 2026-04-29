@@ -50,18 +50,18 @@ func DoRetryRequest(logContext context.Context, method string, url string) (*htt
 		req, err := createRequest(logContext, method, url, headers, logger)
 		if err != nil {
 			errMsg = fmt.Sprintf("Secure %s request handler to %s failed with error: %s, retrying", method, url, err)
-			logger.WarnC(logContext, errMsg)
+			logger.WarnC(logContext, "%s", errMsg)
 			continue
 		}
 		response, err = client.Do(req)
 		if err != nil {
 			errMsg = fmt.Sprintf("Secure %s request to %s failed with error: %s, retrying", method, url, err)
-			logger.WarnC(logContext, errMsg)
+			logger.WarnC(logContext, "%s", errMsg)
 			continue
 		}
 
 		if response.StatusCode >= http.StatusInternalServerError {
-			logger.WarnC(logContext, "Secure %s request to %s failed with 5xx http status code: %s, retrying", method, url, response.StatusCode)
+			logger.WarnC(logContext, "Secure %s request to %s failed with 5xx http status code: %d, retrying", method, url, response.StatusCode)
 			response.Body.Close()
 			continue
 		} else {

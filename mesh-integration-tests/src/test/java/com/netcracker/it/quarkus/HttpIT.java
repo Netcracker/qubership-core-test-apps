@@ -39,7 +39,7 @@ public class HttpIT {
     @Test
     public void testRouteRegisteredByLib() throws IOException {
         Request request = new Request.Builder()
-                .url(publicGWServerUrl + "/api/v1/" + SERVICE_NAME + "/hello")
+                .url(publicGWServerUrl + "api/v1/" + SERVICE_NAME + "/hello")
                 .get()
                 .build();
         try (Response response = okHttpClient.newCall(request).execute()) {
@@ -53,7 +53,7 @@ public class HttpIT {
     @Test//Send not existed deployment version
     public void testContextPropagation() throws IOException {
         Request request = new Request.Builder()
-                .url(publicGWServerUrl + "/api/v1/" + SERVICE_NAME + "/hello/go")
+                .url(publicGWServerUrl + "api/v1/" + SERVICE_NAME + "/hello/go")
                 .addHeader("X-Version","v999")
                 .get()
                 .build();
@@ -69,7 +69,7 @@ public class HttpIT {
     @Test
     public void testRouteToGoService() throws IOException {
         Request request = new Request.Builder()
-                .url(publicGWServerUrl + "/api/v1/" + SERVICE_NAME + "/hello/go")
+                .url(publicGWServerUrl + "api/v1/" + SERVICE_NAME + "/hello/go")
                 .get()
                 .build();
         try (Response response = okHttpClient.newCall(request).execute()) {
