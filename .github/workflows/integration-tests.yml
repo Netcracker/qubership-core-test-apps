@@ -251,7 +251,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Kind cluster and deploy Cloud Core
         uses: ./.github/actions/setup-kind-with-cloud-core
@@ -295,7 +295,7 @@ jobs:
 
       - name: Checkout paas-mediation
         if: inputs.run-paas
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: Netcracker/qubership-core-paas-mediation
           path: repos/paas-mediation 
@@ -329,14 +329,14 @@ jobs:
           done
 
       - name: Upload Surefire reports
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: surefire-reports${{ inputs.mesh-test-usecase != '' && format('-{0}', inputs.mesh-test-usecase) || '' }}
           path: artifacts/*
 
       - name: Upload Istio logs
         if: ${{ (failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure') }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: istio-logs
           path: |
@@ -430,7 +430,7 @@ jobs:
       
       - name: Upload Kubernetes diagnostics
         if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: kind-k8s-debug${{ inputs.mesh-test-usecase != '' && format('-{0}', inputs.mesh-test-usecase) || '' }}
           path: |
