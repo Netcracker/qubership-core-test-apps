@@ -7,7 +7,7 @@ COPY test-service-go/ .
 RUN go mod download
 RUN go build -o test-service-go .
 
-FROM ghcr.io/netcracker/qubership-core-base:2.2.11 AS run
+FROM ghcr.io/netcracker/qubership-core-base:2.2.13 AS run
 
 COPY --chown=10001:0 --chmod=555 --from=build app/test-service-go /app/mesh-test-service-go
 COPY --chown=10001:0 --chmod=444 --from=build app/application.yaml /app/
