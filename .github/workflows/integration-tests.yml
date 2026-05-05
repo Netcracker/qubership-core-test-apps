@@ -280,6 +280,7 @@ jobs:
           config-server-tag: ${{ inputs.config-server-tag || 'latest' }}
           site-management-tag: ${{ inputs.site-management-tag || 'latest' }}
           test-branch: ${{ inputs.test-branch || 'main' }}
+          mesh-type: ${{ inputs.mesh-type || 'Core' }}
 
       - name: preserve-cpu-resources-workaround
         if: ${{ inputs.do-resources-workaround }}
