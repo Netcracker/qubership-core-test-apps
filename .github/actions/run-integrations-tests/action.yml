@@ -1,0 +1,67 @@
+name: Run integration tests from repository
+description: >
+  Checks out a repository, falls back to main when the requested branch is not
+  available, runs integration tests, and optionally renames the checkout folder.
+
+inputs:
+  repository:
+    description: Repository to check out
+    required: true
+  branch:
+    description: Branch to check out before falling back to main
+    required: false
+    default: main
+  path:
+    description: Local checkout path
+    required: true
+  test-folder:
+    description: Integration tests folder to pass to run-integration-tests.sh
+    required: true
+  test-service-name:
+    description: Service name to use in the integration test runner
+    required: true
+  test-usecase:
+    description: Optional name for reporting the test use case
+    required: false
+    default: ''
+  github-token:
+    description: GitHub token for Maven/GitHub Packages access
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout requested branch
+      id: checkout-requested-branch
+      uses: actions/checkout@v4
+      continue-on-error: true
+      with:
+        repository: ${{ inputs.repository }}
+        ref: ${{ inputs.branch }}
+        path: ${{ inputs.path }}
+
+    - name: Checkout main branch
+      if: ${{ steps.checkout-requested-branch.outcome == 'failure' && inputs.branch != 'main' }}
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ inputs.repository }}
+        ref: main
+        path: ${{ inputs.path }}
+
+    - name: Run integration tests
+      shell: bash
+      env:
+        GITHUB_ACTOR: ${{ github.actor }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        ./run-it/run-integration-tests.sh \
+          kind-kind \
+          core \
+          kind-control-plane:10.244.0.1 \
+          "${{ inputs.test-service-name }}:${{ inputs.test-folder }}"
+
+    - name: Rename test usecase folder
+      if: ${{ inputs.test-usecase != '' }}
+      shell: bash
+      run: |
+        mv "${{ inputs.path }}" "${{ inputs.path }}-${{ inputs.test-usecase }}"
