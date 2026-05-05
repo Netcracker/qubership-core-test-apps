@@ -10,7 +10,7 @@ inputs:
   mesh-type:
     description: Mesh type to deploy — Core or Istio
     required: false
-    default: Istio
+    default: Core
   spring-tag:
     description: Docker image tag for mesh-test-service-spring
     required: false
@@ -50,5 +50,5 @@ runs:
           INSTALL_CMD="$INSTALL_CMD --go-tag $GO_TAG"
         fi
         $INSTALL_CMD
-        ./run-it/run-integration-tests.sh kind-kind ${{ inputs.namespace }} kind-control-plane:10.244.0.1 mesh-integration-tests:mesh-integration-tests
+        ./run-it/run-integration-tests.sh kind-kind ${{ inputs.namespace }} kind-control-plane:10.244.0.1 ${{ inputs.mesh-type }} mesh-integration-tests:mesh-integration-tests
         ./mesh-test-install/mesh-test-apps.sh uninstall ${{ inputs.namespace }} ${{ inputs.mesh-type }}

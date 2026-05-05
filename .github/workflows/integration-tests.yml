@@ -312,11 +312,12 @@ jobs:
         uses: ./.github/actions/run-integrations-tests
         with:
           repository: Netcracker/qubership-core-paas-mediation
-          branch: ${{ inputs.paas-mediation-branch || 'main' }}
+          branch: ${{ inputs.test-branch || 'main' }}
           path: repos/paas-mediation
           test-folder: repos/paas-mediation/integration-tests
           test-service-name: paas-mediation-tests
           test-usecase: ${{ inputs.test-usecase }}
+          mesh-type: ${{ inputs.mesh-type || 'Core' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Aggregate Surefire reports

@@ -24,6 +24,10 @@ inputs:
     description: Optional name for reporting the test use case
     required: false
     default: ''
+  mesh-type:
+    description: 'Mesh type for test services — Core or Istio'
+    required: false
+    default: 'Core'
   github-token:
     description: GitHub token for Maven/GitHub Packages access
     required: true
@@ -58,6 +62,7 @@ runs:
           kind-kind \
           core \
           kind-control-plane:10.244.0.1 \
+          ${{ inputs.mesh-type }} \
           "${{ inputs.test-service-name }}:${{ inputs.test-folder }}"
 
     - name: Rename test usecase folder
