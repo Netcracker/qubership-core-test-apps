@@ -56,6 +56,10 @@ inputs:
     description: Branch of the Core Mesh Config repo
     required: false
     default: 'main'
+  test-branch:
+    description: 'Branch to use in Core services repositories. If branch not found in specific repo, checkout will fallback to main'
+    required: false
+    default: 'main'
 
 runs:
   using: composite
@@ -95,7 +99,7 @@ runs:
     - name: Deploy cloud core
       shell: bash
       run: |
-        MAKE_ARGS="INSTALL_MAAS=${{ inputs.install-maas }} CORE_CONFIG_MAAS_ENABLED=${{ inputs.install-maas }} INSTALL_ISTIO=${{ inputs.install-istio }}"
+        MAKE_ARGS="INSTALL_MAAS=${{ inputs.install-maas }} CORE_CONFIG_MAAS_ENABLED=${{ inputs.install-maas }} INSTALL_ISTIO=${{ inputs.install-istio }} TEST_BRANCH=${{ inputs.test-branch }}"
         FACADE_OPERATOR_TAG="${{ inputs.facade-operator-tag }}"
         INGRESS_GATEWAY_TAG="${{ inputs.ingress-gateway-tag }}"
         CONTROL_PLANE_TAG="${{ inputs.control-plane-tag }}"
