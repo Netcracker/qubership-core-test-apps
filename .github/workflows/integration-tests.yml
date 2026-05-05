@@ -8,6 +8,11 @@ on:
         required: false
         default: 'main'
         type: string
+      test-branch:
+        description: 'Branch to look for in core services & test repositories. If branch not found in specific repo, checkout will fallback to main'
+        required: false
+        default: 'main'
+        type: string
       install-maas:
         description: 'Install MaaS'
         required: false
@@ -113,10 +118,10 @@ on:
         required: false
         default: true
         type: boolean
-      mesh-test-usecase:
+      test-usecase:
         type: string
         required: false
-        description: Rename `mesh-integration-tests` folder to alias name - to distiguish mesh test modes in report        
+        description: Append to `integration-tests` name - to distiguish results in different mesh modes
       run-paas:
         description: 'Run paas-mediation integration tests'
         required: false
@@ -130,6 +135,11 @@ on:
         required: false
         default: 'main'
         type: string
+      test-branch:
+        description: 'Branch to use in core services & test repositories. If branch not found in specific repo, checkout will fallback to main'
+        required: false
+        default: 'main'
+        type: string        
       install-maas:
         description: 'Install MaaS'
         required: false
@@ -235,10 +245,10 @@ on:
         required: false
         default: true
         type: boolean
-      mesh-test-usecase:
+      test-usecase:
         type: string
         required: false
-        description: Rename `mesh-integration-tests` folder to alias name - to distiguish mesh test modes in report        
+        description: Append to `integration-tests` name - to distiguish results in different mesh modes
       run-paas:
         description: 'Run paas-mediation integration tests'
         required: false
@@ -269,6 +279,7 @@ jobs:
           core-operator-tag: ${{ inputs.core-operator-tag || 'latest' }}
           config-server-tag: ${{ inputs.config-server-tag || 'latest' }}
           site-management-tag: ${{ inputs.site-management-tag || 'latest' }}
+          test-branch: ${{ inputs.test-branch || 'main' }}
 
       - name: preserve-cpu-resources-workaround
         if: ${{ inputs.do-resources-workaround }}
@@ -288,27 +299,24 @@ jobs:
           go-tag: ${{ inputs.mesh-test-go-tag || 'latest' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Name mesh tests result with inputs.mesh-test-usecase
-        if: inputs.mesh-test-usecase
+      - name: Name mesh tests result with inputs.test-usecase
+        if: inputs.test-usecase
         run: |
-          mv mesh-integration-tests ${{ inputs.mesh-test-usecase }}
+          mv mesh-integration-tests ${{ inputs.test-usecase }}
 
-      - name: Checkout paas-mediation
-        if: inputs.run-paas
-        uses: actions/checkout@v4
-        with:
-          repository: Netcracker/qubership-core-paas-mediation
-          path: repos/paas-mediation 
-        
       - name: Run paas-mediation integration tests
         id: paas_tests
         if: inputs.run-paas
         continue-on-error: true
-        run: |
-          ./run-it/run-integration-tests.sh kind-kind core kind-control-plane:10.244.0.1 paas-mediation-tests:repos/paas-mediation/integration-tests
-        env:
-          GITHUB_ACTOR: ${{ github.actor }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: ./.github/actions/run-integrations-tests
+        with:
+          repository: Netcracker/qubership-core-paas-mediation
+          branch: ${{ inputs.paas-mediation-branch || 'main' }}
+          path: repos/paas-mediation
+          test-folder: repos/paas-mediation/integration-tests
+          test-service-name: paas-mediation-tests
+          test-usecase: ${{ inputs.test-usecase }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Aggregate Surefire reports
         run: |
@@ -331,7 +339,7 @@ jobs:
       - name: Upload Surefire reports
         uses: actions/upload-artifact@v4
         with:
-          name: surefire-reports${{ inputs.mesh-test-usecase != '' && format('-{0}', inputs.mesh-test-usecase) || '' }}
+          name: surefire-reports${{ inputs.test-usecase != '' && format('-{0}', inputs.test-usecase) || '' }}
           path: artifacts/*
 
       - name: Upload Istio logs
@@ -432,7 +440,7 @@ jobs:
         if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' }}
         uses: actions/upload-artifact@v4
         with:
-          name: kind-k8s-debug${{ inputs.mesh-test-usecase != '' && format('-{0}', inputs.mesh-test-usecase) || '' }}
+          name: kind-k8s-debug${{ inputs.test-usecase != '' && format('-{0}', inputs.test-usecase) || '' }}
           path: |
             cluster-state.txt
             unhealthy-pods-logs.txt
