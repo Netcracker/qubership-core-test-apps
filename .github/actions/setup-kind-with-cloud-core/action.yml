@@ -103,7 +103,7 @@ runs:
     - name: Deploy cloud core
       shell: bash
       run: |
-        MAKE_ARGS="INSTALL_MAAS=${{ inputs.install-maas }} CORE_CONFIG_MAAS_ENABLED=${{ inputs.install-maas }} 
+        MAKE_ARGS="INSTALL_MAAS=${{ inputs.install-maas }} CORE_CONFIG_MAAS_ENABLED=${{ inputs.install-maas }}" 
         MAKE_ARGS="$MAKE_ARGS INSTALL_ISTIO=${{ inputs.install-istio }} SERVICE_MESH_TYPE=${{ inputs.mesh-type }}"
         MAKE_ARGS="$MAKE_ARGS TEST_BRANCH=${{ inputs.test-branch }}"
         FACADE_OPERATOR_TAG="${{ inputs.facade-operator-tag }}"
