@@ -52,7 +52,7 @@ require (
 	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.6.0
 	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.5.5
 	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.5.0
-	github.com/netcracker/qubership-core-lib-go/v3 v3.8.0
+	github.com/netcracker/qubership-core-lib-go/v3 v3.9.1
 	github.com/openzipkin/zipkin-go v0.4.3 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
