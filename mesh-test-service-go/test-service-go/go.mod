@@ -3,7 +3,7 @@ module github.com/netcracker/qubership-mesh-test-service-go
 go 1.26.2
 
 require (
-	github.com/gofiber/fiber/v2 v2.52.12
+	github.com/gofiber/fiber/v2 v2.52.13
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.11.1
 )
@@ -13,7 +13,7 @@ require (
 	github.com/avast/retry-go/v4 v4.7.0 // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
-	github.com/hashicorp/consul/api v1.34.0 // indirect
+	github.com/hashicorp/consul/api v1.34.2 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-hclog v1.6.3 // indirect
@@ -25,7 +25,7 @@ require (
 	github.com/hashicorp/serf v0.10.2 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.5.0 // indirect
+	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.5.3 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	golang.org/x/exp v0.0.0-20260218203240-3dfff04db8fa // indirect
@@ -49,10 +49,10 @@ require (
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
-	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.6.0
-	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.5.5
-	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.5.0
-	github.com/netcracker/qubership-core-lib-go/v3 v3.8.0
+	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.6.3
+	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.5.8
+	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.5.3
+	github.com/netcracker/qubership-core-lib-go/v3 v3.9.1
 	github.com/openzipkin/zipkin-go v0.4.3 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
