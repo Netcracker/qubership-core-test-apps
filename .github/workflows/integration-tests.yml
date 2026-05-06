@@ -320,6 +320,51 @@ jobs:
           mesh-type: ${{ inputs.mesh-type || 'Core' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Run control-plane integration tests
+        id: control_plane_tests
+        if: inputs.run-paas
+        continue-on-error: true
+        uses: ./.github/actions/run-integrations-tests
+        with:
+          repository: Netcracker/qubership-core-control-plane
+          branch: ${{ inputs.test-branch || 'main' }}
+          path: repos/control-plane
+          test-folder: repos/control-plane/integration-tests
+          test-service-name: control-plane-tests
+          test-usecase: ${{ inputs.test-usecase }}
+          mesh-type: ${{ inputs.mesh-type || 'Core' }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run site-management integration tests
+        id: site_management_tests
+        if: inputs.run-paas
+        continue-on-error: true
+        uses: ./.github/actions/run-integrations-tests
+        with:
+          repository: Netcracker/qubership-core-site-management
+          branch: ${{ inputs.test-branch || 'main' }}
+          path: repos/site-management
+          test-folder: repos/site-management/integration-tests
+          test-service-name: site-management-tests
+          test-usecase: ${{ inputs.test-usecase }}
+          mesh-type: ${{ inputs.mesh-type || 'Core' }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}  
+
+      - name: Run maas-agent integration tests
+        id: maas_agent_tests
+        if: inputs.run-paas
+        continue-on-error: true
+        uses: ./.github/actions/run-integrations-tests
+        with:
+          repository: Netcracker/qubership-core-maas-agent
+          branch: ${{ inputs.test-branch || 'main' }}
+          path: repos/maas-agent
+          test-folder: repos/maas-agent/integration-tests
+          test-service-name: maas-agent-tests
+          test-usecase: ${{ inputs.test-usecase }}
+          mesh-type: ${{ inputs.mesh-type || 'Core' }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}  
+
       - name: Aggregate Surefire reports
         run: |
           for module in $(find . -type d -path "*/target/surefire-reports" | sed -E 's#/target/surefire-reports##' | sort -u); do
