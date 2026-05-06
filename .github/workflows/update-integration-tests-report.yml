@@ -18,29 +18,26 @@ jobs:
     with:
       install-istio: false
       install-maas: true
-      run-mesh: true
       mesh-type: 'Core'
-      mesh-test-usecase: 'core-mesh'
-      run-paas: true
+      test-usecase: 'core-mesh'
+      run-tests-for: 'all'
 
   run-tests-istio-mesh-fallback-mode:
     uses: ./.github/workflows/integration-tests.yml
     with:
       install-istio: true
-      run-mesh: true
       mesh-type: 'Core'
-      mesh-test-usecase: 'istio-fallback'
-      run-paas: false
+      test-usecase: 'istio-fallback'
+      run-tests-for: 'mesh-tests'
       do-resources-workaround: true
 
   run-tests-istio-mesh-migrated-mode:
     uses: ./.github/workflows/integration-tests.yml
     with:
       install-istio: true
-      run-mesh: true
       mesh-type: 'Istio'
-      mesh-test-usecase: 'istio-migrated'
-      run-paas: false            
+      test-usecase: 'istio-migrated'
+      run-tests-for: 'mesh-tests'            
       do-resources-workaround: true
       
   update-report:
