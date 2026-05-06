@@ -159,7 +159,7 @@ check_maven() {
     local group_id="com.netcracker.cloud.junit.cloudcore"
     local artifact_id="cloud-core-extension"
     local version="8.0.0"
-    if ! mvn dependency:get \
+    if ! mvn --no-transfer-progress dependency:get \
         -DremoteRepositories=github::default::https://maven.pkg.github.com/netcracker/qubership-core-junit-k8s-extension \
         -Dartifact=$group_id:$artifact_id:$version:pom
     then
