@@ -214,7 +214,7 @@ transform_routing_to_istio() {
     echo "Transforming annotations routing to Istio for java services..."
     for project in "$SPRING_ROOT" "$QUARKUS_ROOT"; do
         # process-classes will trigger httproutes-generator-maven-plugin:generate-routes
-        mvn clean process-classes -f $project/pom.xml
+        mvn --no-transfer-progress clean process-classes -f $project/pom.xml
     done
 }
 
