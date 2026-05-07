@@ -353,7 +353,7 @@ jobs:
       - name: Name mesh tests result with inputs.test-usecase
         if: ${{ steps.integrations_tests_selection.outputs.mesh_tests == 'true' && inputs.test-usecase }}
         run: |
-          mv mesh-integration-tests ${{ inputs.test-usecase }}
+          mv mesh-integration-tests "mesh-tests-${{ inputs.test-usecase }}"
 
       - name: Run paas-mediation integration tests
         id: paas_tests
@@ -363,10 +363,9 @@ jobs:
         with:
           repository: Netcracker/qubership-core-paas-mediation
           branch: ${{ inputs.test-branch || 'main' }}
-          path: repos/paas-mediation
-          test-folder: repos/paas-mediation/integration-tests
+          path: ${{ inputs.test-usecase != '' && format('repos/paas-mediation-{0}', inputs.test-usecase) || 'repos/paas-mediation' }}
+          test-folder: integration-tests
           test-service-name: paas-mediation-tests
-          test-usecase: ${{ inputs.test-usecase }}
           mesh-type: ${{ inputs.mesh-type || 'Core' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -378,10 +377,9 @@ jobs:
         with:
           repository: Netcracker/qubership-core-control-plane
           branch: ${{ inputs.test-branch || 'main' }}
-          path: repos/control-plane
-          test-folder: repos/control-plane/integration-tests
+          path: ${{ inputs.test-usecase != '' && format('repos/control-plane-{0}', inputs.test-usecase) || 'repos/control-plane' }}
+          test-folder: integration-tests
           test-service-name: control-plane-tests
-          test-usecase: ${{ inputs.test-usecase }}
           mesh-type: ${{ inputs.mesh-type || 'Core' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -393,10 +391,9 @@ jobs:
         with:
           repository: Netcracker/qubership-core-site-management
           branch: ${{ inputs.test-branch || 'main' }}
-          path: repos/site-management
-          test-folder: repos/site-management/integration-tests
+          path: ${{ inputs.test-usecase != '' && format('repos/site-management-{0}', inputs.test-usecase) || 'repos/site-management' }}
+          test-folder: integration-tests
           test-service-name: site-management-tests
-          test-usecase: ${{ inputs.test-usecase }}
           mesh-type: ${{ inputs.mesh-type || 'Core' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}  
 
@@ -408,10 +405,9 @@ jobs:
         with:
           repository: Netcracker/qubership-core-maas-agent
           branch: ${{ inputs.test-branch || 'main' }}
-          path: repos/maas-agent
-          test-folder: repos/maas-agent/integration-tests
+          path: ${{ inputs.test-usecase != '' && format('repos/maas-agent-{0}', inputs.test-usecase) || 'repos/maas-agent' }}
+          test-folder: integration-tests
           test-service-name: maas-agent-tests
-          test-usecase: ${{ inputs.test-usecase }}
           mesh-type: ${{ inputs.mesh-type || 'Core' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}  
 

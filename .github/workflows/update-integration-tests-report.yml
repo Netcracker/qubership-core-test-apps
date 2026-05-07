@@ -26,19 +26,19 @@ jobs:
     uses: ./.github/workflows/integration-tests.yml
     with:
       install-istio: true
+      install-maas: true
       mesh-type: 'Core'
       test-usecase: 'istio-fallback'
-      run-tests-for: 'mesh-tests'
-      do-resources-workaround: true
+      run-tests-for: 'all'
 
   run-tests-istio-mesh-migrated-mode:
     uses: ./.github/workflows/integration-tests.yml
     with:
       install-istio: true
+      install-maas: true
       mesh-type: 'Istio'
       test-usecase: 'istio-migrated'
-      run-tests-for: 'mesh-tests'            
-      do-resources-workaround: true
+      run-tests-for: 'all'            
       
   update-report:
     needs: [run-tests-core-mesh, run-tests-istio-mesh-fallback-mode, run-tests-istio-mesh-migrated-mode]

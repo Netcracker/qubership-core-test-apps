@@ -1,7 +1,7 @@
 name: Run integration tests from repository
 description: >
   Checks out a repository, falls back to main when the requested branch is not
-  available, runs integration tests, and optionally renames the checkout folder.
+  available, and runs integration tests.
 
 inputs:
   repository:
@@ -15,15 +15,11 @@ inputs:
     description: Local checkout path
     required: true
   test-folder:
-    description: Integration tests folder to pass to run-integration-tests.sh
+    description: Integration tests folder relative to the checkout path
     required: true
   test-service-name:
     description: Service name to use in the integration test runner
     required: true
-  test-usecase:
-    description: Optional name for reporting the test use case
-    required: false
-    default: ''
   mesh-type:
     description: 'Mesh type for test services — Core or Istio'
     required: false
@@ -57,16 +53,12 @@ runs:
       env:
         GITHUB_ACTOR: ${{ github.actor }}
         GITHUB_TOKEN: ${{ inputs.github-token }}
+        CHECKOUT_PATH: ${{ inputs.path }}
+        TEST_FOLDER: ${{ inputs.test-folder }}
       run: |
         ./run-it/run-integration-tests.sh \
           kind-kind \
           core \
           kind-control-plane:10.244.0.1 \
           ${{ inputs.mesh-type }} \
-          "${{ inputs.test-service-name }}:${{ inputs.test-folder }}"
-
-    - name: Rename test usecase folder
-      if: ${{ inputs.test-usecase != '' }}
-      shell: bash
-      run: |
-        mv "${{ inputs.path }}" "${{ inputs.path }}-${{ inputs.test-usecase }}"
+          "${{ inputs.test-service-name }}:${CHECKOUT_PATH}/${TEST_FOLDER}"
