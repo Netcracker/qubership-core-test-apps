@@ -17,6 +17,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -40,7 +41,7 @@ public class HelloControllerTest {
         String urlTemplate = "/api/v1/hello";
         mockMvc.perform(get(urlTemplate).contentType(MediaType.APPLICATION_JSON).header("X-Version", ""))
                 .andExpect(status().isOk());
-        Mockito.verify(helloService, Mockito.times(1)).hello(any(HttpServletRequest.class));
+        Mockito.verify(helloService, Mockito.times(1)).hello(any(HttpServletRequest.class), anyMap());
     }
 
     @Test
