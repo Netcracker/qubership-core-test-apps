@@ -1,8 +1,12 @@
 package com.netcracker.cloud.meshtestservicespring.service;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.server.ResponseStatusException;
+import reactor.core.publisher.Mono;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -15,9 +19,25 @@ public class ProxyHeadersService {
         return WebClient.create()
                 .get()
                 .uri(fullUrl)
-                .exchangeToMono(response -> response.toBodilessEntity()
-                        .map(entity -> (Map<String, List<String>>) entity.getHeaders()))
+                .exchangeToMono(response -> {
+                    log.info("Upstream status: {}", response.statusCode());
+                    if (response.statusCode().isError()) {
+                        return response.bodyToMono(String.class)
+                                .doOnNext(body -> log.error(
+                                        "Upstream error status={} body={}",
+                                        response.statusCode(), body))
+                                .<Map<String, List<String>>>flatMap(body -> Mono.error(
+                                        new ResponseStatusException(
+                                                HttpStatus.valueOf(response.statusCode().value()),
+                                                "Upstream error: " + body)));
+                    }
+                    return response.toBodilessEntity()
+                            .map(entity -> {
+                                Map<String, List<String>> result = new HashMap<>();
+                                entity.getHeaders().forEach(result::put);
+                                return result;
+                            });
+                })
                 .block();
     }
 }
-
