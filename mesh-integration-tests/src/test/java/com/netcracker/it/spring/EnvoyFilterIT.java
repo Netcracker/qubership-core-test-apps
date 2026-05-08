@@ -26,7 +26,7 @@ public class EnvoyFilterIT {
     private static final String HELLO_PATH         = "api/v1/mesh-test-service-spring/hello";
     private static final String SLEEP_PATH         = "api/v1/mesh-test-service-spring/sleep";
     private static final String PROXY_HEADERS_PATH = "api/v1/mesh-test-service-spring/proxy-headers";
-    private static final String INTERNAL_TARGET    = "internal-gateway-service:8080/trace-service/trace-test";
+    private static final String INTERNAL_TARGET    = "internal-gateway-service:8080/api/v1/mesh-test-service-spring/request-headers";
     private static final String REQUEST_HEADERS_PATH = "api/v1/mesh-test-service-spring/request-headers";
 
     @PortForward(serviceName = @Value(PUBLIC_GW_SERVICE_NAME))
