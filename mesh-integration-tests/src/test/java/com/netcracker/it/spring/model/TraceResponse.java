@@ -1,5 +1,7 @@
 package com.netcracker.it.spring.model;
 
+import java.util.Map;
+
 import lombok.Data;
 
 @Data
@@ -17,6 +19,7 @@ public class TraceResponse {
     String method;
     String xversion;
     String xVersionName;
+    Map<String, String> headers;
 
     String requestMessage;
 }

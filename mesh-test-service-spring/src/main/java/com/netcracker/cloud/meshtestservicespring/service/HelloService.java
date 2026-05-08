@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import java.util.Map;
 import java.util.UUID;
 
 import static com.netcracker.cloud.meshtestservicespring.utils.WebUtils.retryPolicy;
@@ -38,6 +39,16 @@ public class HelloService {
         log.info("hello");
         TraceResponse response = hello(request.getRemoteHost(), request.getHeader("X-Version"), request.getHeader("x-version-name"));
         log.info("Responding with service name:{} version:{}", response.getServiceName(), response.getVersion());
+        return new Gson().toJson(response);
+    }
+
+    public String hello(HttpServletRequest request, Map<String, String> headers) {
+        TraceResponse response = hello(
+                request.getRemoteHost(),
+                request.getHeader("X-Version"),
+                request.getHeader("x-version-name")
+        );
+        response.setHeaders(headers);
         return new Gson().toJson(response);
     }
 

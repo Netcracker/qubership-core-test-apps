@@ -13,7 +13,8 @@ import java.util.concurrent.TimeUnit;
 public class HttpClient {
     public static OkHttpClient okHttpClient = new OkHttpClient.Builder()
             .addInterceptor(withRetryOnServiceUnavailableOrTimeout())
-            .readTimeout(60, TimeUnit.SECONDS)
+            .readTimeout(130, TimeUnit.SECONDS)
+            .writeTimeout(10, TimeUnit.SECONDS)
             .connectTimeout(60, TimeUnit.SECONDS)
             .sslSocketFactory(TlsUtils.getSslContext().getSocketFactory(), TlsUtils.getTrustManager())
             .build();
