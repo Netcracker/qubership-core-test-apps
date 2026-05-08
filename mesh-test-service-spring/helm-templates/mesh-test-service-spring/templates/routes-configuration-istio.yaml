@@ -30,20 +30,6 @@ spec:
   - matches:
     - path:
         type: PathPrefix
-        value: /api/v1/mesh-test-service-spring/spring/proxy
-    filters:
-    - type: URLRewrite
-      urlRewrite:
-        path:
-          type: ReplacePrefixMatch
-          replacePrefixMatch: /api/v1/spring/proxy
-    backendRefs:
-    - kind: Service
-      name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
-      port: 8080
-  - matches:
-    - path:
-        type: PathPrefix
         value: /api/v1/mesh-test-service-spring/proxy-headers
     filters:
     - type: URLRewrite
