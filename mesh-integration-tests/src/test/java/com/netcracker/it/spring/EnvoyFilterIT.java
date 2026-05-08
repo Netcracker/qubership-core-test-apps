@@ -47,6 +47,7 @@ public class EnvoyFilterIT {
                 .addHeader("X-Request-ID", originalId)
                 .get().build();
         try (Response response = okHttpClient.newCall(request).execute()) {
+            log.info("Response headers: {}, body: {}", response.headers(), response.body().string());
             assertEquals(200, response.code());
             // endpoint returns flat Map<String,String> of request headers
             Map<String, String> headers = new Gson().fromJson(
@@ -63,6 +64,7 @@ public class EnvoyFilterIT {
                 .url(publicGWServerUrl + REQUEST_HEADERS_PATH)
                 .get().build();
         try (Response response = okHttpClient.newCall(request).execute()) {
+            log.info("Response headers: {}, body: {}", response.headers(), response.body().string());
             assertEquals(200, response.code());
             Map<String, String> headers = new Gson().fromJson(
                     response.body().string(),
@@ -81,6 +83,7 @@ public class EnvoyFilterIT {
                     .addHeader("X-Request-ID", id)
                     .get().build();
             try (Response response = okHttpClient.newCall(request).execute()) {
+                log.info("Response headers: {}, body: {}", response.headers(), response.body().string());
                 assertEquals(200, response.code());
                 Map<String, String> headers = new Gson().fromJson(
                         response.body().string(),
