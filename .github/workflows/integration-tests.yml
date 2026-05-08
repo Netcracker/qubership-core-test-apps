@@ -472,6 +472,10 @@ jobs:
             kubectl get httproute -A -o yaml|| true
 
             echo
+            echo "==== ENVOY FILTERS ===="
+            kubectl get envoyfilter -A -o yaml|| true
+
+            echo
             echo "==== EVENTS (CHRONOLOGICAL) ===="
             kubectl get events -A --sort-by=.metadata.creationTimestamp || true
 

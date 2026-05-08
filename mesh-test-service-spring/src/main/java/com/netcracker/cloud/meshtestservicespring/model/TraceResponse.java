@@ -1,7 +1,5 @@
 package com.netcracker.cloud.meshtestservicespring.model;
 
-import java.util.Map;
-
 import lombok.Data;
 
 @Data

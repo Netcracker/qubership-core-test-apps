@@ -1,7 +1,5 @@
 package com.netcracker.it.spring.model;
 
-import java.util.Map;
-
 import lombok.Data;
 
 @Data
