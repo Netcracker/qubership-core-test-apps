@@ -11,10 +11,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.Map;
-
 import javax.annotation.Nullable;
 
 @RestController
@@ -29,10 +25,7 @@ public class HelloController {
 
     @RequestMapping(method = RequestMethod.GET)
     public ResponseEntity<String> hello(HttpServletRequest request) {
-        Map<String, String> headers = new LinkedHashMap<>();
-        Collections.list(request.getHeaderNames())
-                .forEach(name -> headers.put(name, request.getHeader(name)));
-        return ResponseEntity.ok(helloService.hello(request, headers));
+        return ResponseEntity.ok(helloService.hello(request));
     }
 
     @RequestMapping(method = RequestMethod.GET, path = "/quarkus")

@@ -42,16 +42,6 @@ public class HelloService {
         return new Gson().toJson(response);
     }
 
-    public String hello(HttpServletRequest request, Map<String, String> headers) {
-        TraceResponse response = hello(
-                request.getRemoteHost(),
-                request.getHeader("X-Version"),
-                request.getHeader("x-version-name")
-        );
-        response.setHeaders(headers);
-        return new Gson().toJson(response);
-    }
-
     public TraceResponse hello() {
         TraceResponse response = new TraceResponse();
         response.setServiceName(familyName + "-" + deploymentVersion);
