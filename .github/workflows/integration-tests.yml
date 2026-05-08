@@ -494,44 +494,61 @@ jobs:
 
           } > cluster-state.txt 2>&1
 
-
-          echo "==== Collecting unhealthy pod logs ===="
-
           {
+            collect_pod_logs() {
+              local pod_file="$1"
+              local empty_message="$2"
+              
+              if [ ! -s "$pod_file" ]; then
+                echo "$empty_message"
+                return
+              fi
+              
+              while read -r ns pod phase; do
+                echo
+                echo "################################################"
+                echo "# Pod: $pod"
+                echo "# Namespace: $ns"
+                echo "# Phase: $phase"
+                echo "################################################"
+                
+                echo
+                echo "---- kubectl describe ----"
+                kubectl describe pod "$pod" -n "$ns" || true
+                
+                echo
+                echo "---- container logs ----"
+                for c in $(kubectl get pod "$pod" -n "$ns" -o jsonpath='{.spec.containers[*].name}' 2>/dev/null); do
+                  echo
+                  echo "-- logs for container: $c"
+                  kubectl logs -n "$ns" "$pod" -c "$c" --tail=200 || true
+                  
+                  echo
+                  echo "-- previous logs for container: $c"
+                  kubectl logs -n "$ns" "$pod" -c "$c" --previous --tail=200 || true
+                done
+              done < "$pod_file"
+            }
+            
+            echo "==== Collecting unhealthy pod logs ===="
             kubectl get pods -A \
               -o jsonpath='{range .items[?(@.status.phase!="Running" && @.status.phase!="Succeeded")]}{.metadata.namespace} {.metadata.name} {.status.phase}{"\n"}{end}' \
               > /tmp/unhealthy-pods.txt || true
-
-            if [ ! -s /tmp/unhealthy-pods.txt ]; then
-              echo "No unhealthy pods found"
-            fi
-
-            while read -r ns pod phase; do
-              echo
-              echo "################################################"
-              echo "# Pod: $pod"
-              echo "# Namespace: $ns"
-              echo "# Phase: $phase"
-              echo "################################################"
-
-              echo
-              echo "---- kubectl describe ----"
-              kubectl describe pod "$pod" -n "$ns" || true
-
-              echo
-              echo "---- container logs ----"
-              for c in $(kubectl get pod "$pod" -n "$ns" -o jsonpath='{.spec.containers[*].name}' 2>/dev/null); do
-                echo
-                echo "-- logs for container: $c"
-                kubectl logs -n "$ns" "$pod" -c "$c" --tail=200 || true
-
-                echo
-                echo "-- previous logs for container: $c"
-                kubectl logs -n "$ns" "$pod" -c "$c" --previous --tail=200 || true
-              done
-            done < /tmp/unhealthy-pods.txt
-
-          } > unhealthy-pods-logs.txt 2>&1
+            
+            collect_pod_logs /tmp/unhealthy-pods.txt "No unhealthy pods found"
+            
+            echo "==== Collecting logs for labeled pods ===="
+            kubectl get pods -A \
+              -l 'load-logs=true' \
+              -o jsonpath='{range .items[*]}{.metadata.namespace} {.metadata.name} {.status.phase}{"\n"}{end}' \
+              > /tmp/load-logs-pods.txt || true
+            
+            collect_pod_logs /tmp/load-logs-pods.txt "No pods found with label load-logs=true"
+            
+            # cleanup
+            rm -f /tmp/unhealthy-pods.txt /tmp/load-logs-pods.txt
+            
+          } > pods-logs.txt 2>&1
       
       - name: Upload Kubernetes diagnostics
         if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure' }}
@@ -540,4 +557,4 @@ jobs:
           name: kind-k8s-debug${{ inputs.test-usecase != '' && format('-{0}', inputs.test-usecase) || '' }}
           path: |
             cluster-state.txt
-            unhealthy-pods-logs.txt
+            pods-logs.txt
