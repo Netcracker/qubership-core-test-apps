@@ -1,6 +1,9 @@
 package com.netcracker.cloud.meshtestservicespring.service;
 
 import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ResponseStatusException;
@@ -13,10 +16,14 @@ import java.util.Map;
 @Slf4j
 public class ProxyHeadersService {
 
+    @Autowired()
+    @Qualifier("m2mWebClient")
+    private WebClient m2mWebClient;
+
     public Map<String, List<String>> getHeaders(String url) {
         String fullUrl = "http://" + url;
         log.info("Fetching headers from '{}'", fullUrl);
-        return WebClient.create()
+        return m2mWebClient
                 .get()
                 .uri(fullUrl)
                 .exchangeToMono(response -> {
