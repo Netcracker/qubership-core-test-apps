@@ -53,7 +53,7 @@ spec:
           replacePrefixMatch: /api/v1/request-headers
     backendRefs:
     - kind: Service
-      name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
+      name: "{{ .Values.SERVICE_NAME }}"
       port: 8080
 ---
 apiVersion: gateway.networking.k8s.io/v1
@@ -65,21 +65,22 @@ spec:
     - name: internal-gateway-service
       group: ""
       kind: Service
+      port: 8080
   rules:
     - matches:
-        - path:
-            type: PathPrefix
-            value: /trace-service 
+      - path:
+          type: PathPrefix
+          value: /api/v1/mesh-test-service-spring/request-headers
       filters:
-        - type: URLRewrite
-          urlRewrite:
-            path:
-              type: ReplacePrefixMatch
-              replacePrefixMatch: /  
+      - type: URLRewrite
+        urlRewrite:
+          path:
+            type: ReplacePrefixMatch
+            replacePrefixMatch: /api/v1/request-headers
       backendRefs:
       - kind: Service
-        name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
-        port: 8080      
+        name: "{{ .Values.SERVICE_NAME }}"
+        port: 8080 
 {{- end }}
 {{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
 ---

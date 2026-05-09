@@ -253,6 +253,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }} 
 
       - name: Setup Kind cluster and deploy Cloud Core
         uses: ./.github/actions/setup-kind-with-cloud-core
@@ -551,6 +553,21 @@ jobs:
               -l 'name=mesh-test-service-spring-v1' \
               -o jsonpath='{range .items[*]}{.metadata.namespace} {.metadata.name} {.status.phase}{"\n"}{end}' \
               >> /tmp/load-logs-pods.txt || true
+
+            kubectl get pods -n core \
+              -l 'app.kubernetes.io/name=waypoint' \
+              -o jsonpath='{range .items[*]}{.metadata.namespace} {.metadata.name} {.status.phase}{"\n"}{end}' \
+              >> /tmp/load-logs-pods.txt || true
+
+            kubectl get pods -n core \
+              -l 'app.kubernetes.io/name=internal-gateway' \
+              -o jsonpath='{range .items[*]}{.metadata.namespace} {.metadata.name} {.status.phase}{"\n"}{end}' \
+              >> /tmp/load-logs-pods.txt || true
+
+            kubectl get pods -n core \
+              -l 'app.kubernetes.io/name=public-gateway' \
+              -o jsonpath='{range .items[*]}{.metadata.namespace} {.metadata.name} {.status.phase}{"\n"}{end}' \
+              >> /tmp/load-logs-pods.txt || true  
 
             collect_pod_logs /tmp/load-logs-pods.txt "No pods found with label load-logs=true"
             
