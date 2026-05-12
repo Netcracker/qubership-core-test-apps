@@ -113,6 +113,7 @@ public class EnvoyFilterIT {
     // ── 2. suppress headers — gateway ────────────────────────────────────────
 
     @Test
+    @EnabledIfEnvironmentVariable(named = "SERVICE_MESH_TYPE", matches = "Istio")
     void testNoXEnvoyHeadersInResponse() throws IOException {
         Request request = new Request.Builder()
                 .url(publicGWServerUrl + HELLO_PATH)
