@@ -5,7 +5,6 @@
     <link rel="icon" type="image/svg+xml" sizes="any"
           href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📊</text></svg>"/>
     <title>Daily Integration Tests Report</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -76,23 +75,10 @@
             display: inline-block;
             width: 100%;
         }
-
-        canvas {
-            display: block;
-            margin: 40px auto;
-            max-width: 95%;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
-            padding: 20px;
-            cursor: pointer;
-        }
     </style>
 </head>
 <body>
 <h1>Daily Integration Tests Report</h1>
-
-<canvas id="weeklyChart" width="1000" height="400"></canvas>
 
 <table id="reportTable"></table>
 
@@ -103,9 +89,6 @@
             .then(data => {
                 const table = document.getElementById('reportTable');
                 const dates = [];
-                const passedData = {};
-                const failedData = {};
-                const barLinks = {};
 
                 // Gather all unique project names
                 const projects = new Set();
@@ -125,12 +108,6 @@
                 dates.reverse();
 
                 const today = new Date().toISOString().slice(0, 10);
-
-                projectList.forEach(p => {
-                    passedData[p] = [];
-                    failedData[p] = [];
-                    barLinks[p] = { passed: [], failed: [] };
-                });
 
                 // ---- Header ----
                 const header = document.createElement('tr');
@@ -239,56 +216,6 @@
                     });
 
                     table.appendChild(row);
-                });
-
-                // ---- Chart ----
-                const datasets = [];
-                projectList.forEach(project => {
-                    datasets.push({
-                        label: project + ' Passed',
-                        data: passedData[project],
-                        backgroundColor: '#16a34a',
-                        stack: project,
-                        custom: { links: barLinks[project].passed }
-                    });
-                    datasets.push({
-                        label: project + ' Failed',
-                        data: failedData[project],
-                        backgroundColor: '#dc2626',
-                        stack: project,
-                        custom: { links: barLinks[project].failed }
-                    });
-                });
-
-                const ctx = document.getElementById('weeklyChart').getContext('2d');
-                const weeklyChart = new Chart(ctx, {
-                    type: 'bar',
-                    data: { labels: dates, datasets },
-                    options: {
-                        responsive: true,
-                        animation: false,
-                        plugins: {
-                            legend: { display: false },
-                            title: {
-                                display: true,
-                                text: 'Tests Passed vs Failed (Last 7 Days, per project)',
-                                font: { size: 18, weight: '600' }
-                            }
-                        },
-                        scales: { y: { beginAtZero: true, precision: 0 } },
-                        onClick: (evt, elements) => {
-                            if (!elements.length) return;
-                            const element = elements[0];
-                            const ds = weeklyChart.data.datasets[element.datasetIndex];
-                            const link = ds.custom.links[element.index];
-                            if (link) window.open(link, '_blank');
-                        },
-                        hover: {
-                            onHover: (evt, elements) => {
-                                evt.native.target.style.cursor = elements[0] ? 'pointer' : 'default';
-                            }
-                        }
-                    }
                 });
             })
             .catch(err => console.error('Failed to load history.json', err));
