@@ -258,14 +258,20 @@ public class EnvoyFilterIT {
     }
 
     private ProxyResponse fetchProxyResponse(String targetUrl) throws IOException {
+        okhttp3.HttpUrl url = okhttp3.HttpUrl.parse(publicGWServerUrl + PROXY_HEADERS_PATH)
+                .newBuilder()
+                .addQueryParameter("url", targetUrl)
+                .build();
+    
         Request request = new Request.Builder()
-                .url(publicGWServerUrl + PROXY_HEADERS_PATH + "?url=" + targetUrl)
+                .url(url)
                 .get().build();
+    
         try (Response response = okHttpClient.newCall(request).execute()) {
-                String body = response.body().string();
-                log.info("proxy-headers response code={} body={}", response.code(), body);
-                assertEquals(200, response.code());
-                return new Gson().fromJson(body, ProxyResponse.class);
+            String body = response.body().string();
+            log.info("proxy-headers response code={} body={}", response.code(), body);
+            assertEquals(200, response.code());
+            return new Gson().fromJson(body, ProxyResponse.class);
         }
     }
 }
