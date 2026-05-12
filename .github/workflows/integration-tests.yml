@@ -446,9 +446,11 @@ jobs:
             ./core-bootstrap-repo/cloud-core-local-dev/istio/test/istio-logs
 
       - name: Setup istioctl
+        if: ${{ (failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure') }}
         uses: istio/get-istioctl@main
 
       - name: Check gateway proxy config
+        if: ${{ (failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure') }}
         run: |
           GW=$(kubectl get pods -n core -l gateway.networking.k8s.io/gateway-name=public-gateway \
             -o jsonpath='{.items[0].metadata.name}')
@@ -460,7 +462,8 @@ jobs:
           echo "=== Route config (responseHeadersToRemove) ==="
           istioctl proxy-config route $GW -n core -o json | grep -A3 "responseHeaders" || true
 
-      - name: Check waypoint proxy config  
+      - name: Check waypoint proxy config
+        if: ${{ (failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure') }}
         run: |
           WP=$(kubectl get pods -n core -l gateway.networking.k8s.io/gateway-name=waypoint -o jsonpath='{.items[0].metadata.name}')
           echo "Waypoint pod: $WP"
@@ -574,11 +577,6 @@ jobs:
               -l 'load-logs=true' \
               -o jsonpath='{range .items[*]}{.metadata.namespace} {.metadata.name} {.status.phase}{"\n"}{end}' \
               > /tmp/load-logs-pods.txt || true
-            
-            kubectl get pods -n core \
-              -l 'name=mesh-test-service-spring-v1' \
-              -o jsonpath='{range .items[*]}{.metadata.namespace} {.metadata.name} {.status.phase}{"\n"}{end}' \
-              >> /tmp/load-logs-pods.txt || true
 
             kubectl get pods -n core \
               -l 'app.kubernetes.io/name=waypoint' \

@@ -72,7 +72,7 @@ public class BeforeWarmupIT {
 
     @BeforeAll
     public static void init() throws Exception {
-        assertNotNull(internalGWServerUrl);
+        assertNotNull(publicGWServerUrl);
         assertNotNull(platformClient);
         namespace = platformClient.getNamespace();
         ingressName = INGRESS_GW_INGRESS_NAME + "-from-paas-mediation";
@@ -81,7 +81,7 @@ public class BeforeWarmupIT {
 
     @Test
     void testNodePorts() throws Exception {
-        validateNodePorts(platformClient, ORIGIN_NAMESPACE, internalGWServerUrl);
+        validateNodePorts(platformClient, ORIGIN_NAMESPACE, publicGWServerUrl);
     }
 
     @Test
