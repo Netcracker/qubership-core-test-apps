@@ -455,25 +455,26 @@ jobs:
 
       - name: Check gateway proxy config
         run: |
-          GW=$(kubectl get pods -n core -l gateway.istio.io/managed=istio.io-gateway-controller -o jsonpath='{.items[0].metadata.name}')
+          GW=$(kubectl get pods -n core -l gateway.networking.k8s.io/gateway-name=public-gateway \
+            -o jsonpath='{.items[0].metadata.name}')
           echo "Gateway pod: $GW"
           
           echo "=== Listener config (suppress/debug headers) ==="
-          istioctl proxy-config listener $GW -n core -o json | grep -i "suppress\|envoyDebug\|server_name\|serverName"
+          istioctl proxy-config listener $GW -n core -o json | grep -i "suppress\|envoyDebug\|server_name\|serverName" || true
           
           echo "=== Route config (responseHeadersToRemove) ==="
-          istioctl proxy-config route $GW -n core -o json | grep -A3 "responseHeaders"
+          istioctl proxy-config route $GW -n core -o json | grep -A3 "responseHeaders" || true
 
       - name: Check waypoint proxy config  
         run: |
-          WP=$(kubectl get pods -n core -l gateway.istio.io/managed=istio.io-mesh-controller -o jsonpath='{.items[0].metadata.name}')
+          WP=$(kubectl get pods -n core -l gateway.networking.k8s.io/gateway-name=waypoint -o jsonpath='{.items[0].metadata.name}')
           echo "Waypoint pod: $WP"
           
           echo "=== Route config (responseHeadersToRemove) ==="
-          istioctl proxy-config route $WP -n core -o json | grep -A3 "responseHeaders"
+          istioctl proxy-config route $WP -n core -o json | grep -A3 "responseHeaders" || true
           
           echo "=== Decorator propagate ==="
-          istioctl proxy-config route $WP -n core -o json | grep -A2 "decorator"
+          istioctl proxy-config route $WP -n core -o json | grep -A2 "decorator" || true
 
       - name: Collect Kubernetes diagnostics
         if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure' }}
