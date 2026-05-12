@@ -445,6 +445,36 @@ jobs:
           path: |
             ./core-bootstrap-repo/cloud-core-local-dev/istio/test/istio-logs
 
+      - name: Setup istioctl
+        uses: istio/get-istioctl@main
+
+      - name: Check MeshConfig proxyHeaders applied
+        run: |
+          echo "=== MeshConfig proxyHeaders ==="
+          kubectl get configmap istio -n istio-system -o jsonpath='{.data.mesh}' | grep -A20 proxyHeaders
+
+      - name: Check gateway proxy config
+        run: |
+          GW=$(kubectl get pods -n core -l gateway.istio.io/managed=istio.io-gateway-controller -o jsonpath='{.items[0].metadata.name}')
+          echo "Gateway pod: $GW"
+          
+          echo "=== Listener config (suppress/debug headers) ==="
+          istioctl proxy-config listener $GW -n core -o json | grep -i "suppress\|envoyDebug\|server_name\|serverName"
+          
+          echo "=== Route config (responseHeadersToRemove) ==="
+          istioctl proxy-config route $GW -n core -o json | grep -A3 "responseHeaders"
+
+      - name: Check waypoint proxy config  
+        run: |
+          WP=$(kubectl get pods -n core -l gateway.istio.io/managed=istio.io-mesh-controller -o jsonpath='{.items[0].metadata.name}')
+          echo "Waypoint pod: $WP"
+          
+          echo "=== Route config (responseHeadersToRemove) ==="
+          istioctl proxy-config route $WP -n core -o json | grep -A3 "responseHeaders"
+          
+          echo "=== Decorator propagate ==="
+          istioctl proxy-config route $WP -n core -o json | grep -A2 "decorator"
+
       - name: Collect Kubernetes diagnostics
         if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure' }}
         run: |
