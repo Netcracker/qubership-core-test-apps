@@ -154,6 +154,8 @@ spec:
         path:
           type: ReplacePrefixMatch
           replacePrefixMatch: /api/v1/sleep
+    timeouts:
+        request: 10s
     backendRefs:
     - kind: Service
       name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"

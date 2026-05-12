@@ -1,6 +1,7 @@
 package com.netcracker.cloud.meshtestservicespring.controller;
 
 import com.netcracker.cloud.meshtestservicespring.configuration.ApiVersions;
+import com.netcracker.cloud.meshtestservicespring.model.ProxyResponse;
 import com.netcracker.cloud.meshtestservicespring.service.ProxyHeadersService;
 import com.netcracker.cloud.routesregistration.common.annotation.Route;
 import com.netcracker.cloud.routesregistration.common.gateway.route.RouteType;
@@ -27,8 +28,8 @@ public class ProxyHeadersController {
     private ProxyHeadersService proxyHeadersService;
 
     @RequestMapping(method = RequestMethod.GET)
-    public ResponseEntity<Map<String, List<String>>> proxyHeaders(HttpServletRequest request) {
+    public ResponseEntity<ProxyResponse> proxyHeaders(HttpServletRequest request) {
         String url = request.getParameter("url");
-        return ResponseEntity.ok(proxyHeadersService.getHeaders(url));
+        return ResponseEntity.ok(proxyHeadersService.getResponse(url));
     }
 }

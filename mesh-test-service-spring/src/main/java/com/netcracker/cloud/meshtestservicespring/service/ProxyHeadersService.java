@@ -7,6 +7,9 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ResponseStatusException;
+
+import com.netcracker.cloud.meshtestservicespring.model.ProxyResponse;
+
 import reactor.core.publisher.Mono;
 
 import java.util.HashMap;
@@ -20,29 +23,23 @@ public class ProxyHeadersService {
     @Qualifier("m2mWebClient")
     private WebClient m2mWebClient;
 
-    public Map<String, List<String>> getHeaders(String url) {
+    public ProxyResponse getResponse(String url) {
         String fullUrl = "http://" + url;
         log.info("Fetching headers from '{}'", fullUrl);
-        return m2mWebClient
+        return WebClient.create()
                 .get()
                 .uri(fullUrl)
                 .exchangeToMono(response -> {
                     log.info("Upstream status: {}", response.statusCode());
-                    if (response.statusCode().isError()) {
-                        return response.bodyToMono(String.class)
-                                .doOnNext(body -> log.error(
-                                        "Upstream error status={} body={}",
-                                        response.statusCode(), body))
-                                .<Map<String, List<String>>>flatMap(body -> Mono.error(
-                                        new ResponseStatusException(
-                                                HttpStatus.valueOf(response.statusCode().value()),
-                                                "Upstream error: " + body)));
-                    }
+                    int status = response.statusCode().value();
                     return response.toBodilessEntity()
                             .map(entity -> {
-                                Map<String, List<String>> result = new HashMap<>();
-                                entity.getHeaders().forEach(result::put);
-                                return result;
+                                Map<String, List<String>> headers = new HashMap<>();
+                                entity.getHeaders().forEach(headers::put);
+                                ProxyResponse proxyResponse = new ProxyResponse();
+                                proxyResponse.setStatus(status);
+                                proxyResponse.setHeaders(headers);
+                                return proxyResponse;
                             });
                 })
                 .block();
