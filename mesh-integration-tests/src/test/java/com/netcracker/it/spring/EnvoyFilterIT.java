@@ -29,6 +29,7 @@ public class EnvoyFilterIT {
     private static final String SLEEP_PATH           = "api/v1/mesh-test-service-spring/sleep";
     private static final String PROXY_HEADERS_PATH   = "api/v1/mesh-test-service-spring/proxy-headers";
     private static final String INTERNAL_SLEEP       = "internal-gateway-service:8080/api/v1/mesh-test-service-spring/sleep?seconds=30";
+    private static final String INTERNAL_HELLO       = "internal-gateway-service:8080/api/v1/mesh-test-service-spring/hello";
     private static final String REQUEST_HEADERS_PATH = "api/v1/mesh-test-service-spring/request-headers";
 
     @PortForward(serviceName = @Value(PUBLIC_GW_SERVICE_NAME))
@@ -155,8 +156,7 @@ public class EnvoyFilterIT {
     @Test
     void testRequestThroughWaypointSucceeds() throws IOException {
     long start = System.currentTimeMillis();
-    ProxyResponse proxy = fetchProxyResponse(
-            "internal-gateway-service:8080/api/v1/mesh-test-service-spring/hello");
+    ProxyResponse proxy = fetchProxyResponse(INTERNAL_HELLO);
     double elapsed = (System.currentTimeMillis() - start) / 1000.0;
     assertEquals(200, proxy.getStatus(),
             "Request through waypoint should succeed");
