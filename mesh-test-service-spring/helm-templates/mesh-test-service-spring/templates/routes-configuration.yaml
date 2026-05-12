@@ -204,3 +204,40 @@ spec:
                   prefix: /api/v1/mesh-test-service-spring/sleep
                 allowed: true
 {{- end }}
+{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}
+---
+apiVersion: core.netcracker.com/v1
+kind: Mesh
+subKind: RouteConfiguration
+metadata:
+  name: mesh-test-service-spring-internal-routes
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
+    app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
+spec:
+  gateways: ["internal-gateway-service"]
+  virtualServices:
+    - name: internal-gateway-service
+      hosts: ["*"]
+      routeConfiguration:
+        version: "{{ .Values.DEPLOYMENT_VERSION }}"
+        routes:
+          - destination:
+              cluster: "{{ .Values.SERVICE }}"
+              endpoint: http://{{ .Values.DEPLOYMENT_RESOURCE_NAME }}:8080
+            rules:
+              - match:
+                  prefix: /api/v1/mesh-test-service-spring/hello
+                allowed: true
+                prefixRewrite: /api/v1/hello
+              - match:
+                  prefix: api/v1/mesh-test-service-spring/proxy-headers
+                allowed: true
+                prefixRewrite: /api/v1/proxy-headers
+              - match:
+                  prefix: /api/v1/mesh-test-service-spring/sleep
+                allowed: true
+                prefixRewrite: /api/v1/sleep
+{{- end }}

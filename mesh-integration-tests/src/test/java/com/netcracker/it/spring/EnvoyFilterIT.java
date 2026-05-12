@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import okhttp3.Request;
 import okhttp3.Response;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 import java.io.IOException;
 import java.net.URL;
@@ -132,21 +133,25 @@ public class EnvoyFilterIT {
     }
 
     @Test
+    @EnabledIfEnvironmentVariable(named = "SERVICE_MESH_TYPE", matches = "Istio")
     void testXEnvoyUpstreamServiceTimeAbsent() throws IOException {
         assertResponseHeaderAbsent("x-envoy-upstream-service-time");
     }
 
     @Test
+    @EnabledIfEnvironmentVariable(named = "SERVICE_MESH_TYPE", matches = "Istio")
     void testXEnvoyDecoratorOperationAbsent() throws IOException {
         assertResponseHeaderAbsent("x-envoy-decorator-operation");
     }
 
     @Test
+    @EnabledIfEnvironmentVariable(named = "SERVICE_MESH_TYPE", matches = "Istio")
     void testXEnvoyPeerMetadataAbsent() throws IOException {
         assertResponseHeaderAbsent("x-envoy-peer-metadata");
     }
 
     @Test
+    @EnabledIfEnvironmentVariable(named = "SERVICE_MESH_TYPE", matches = "Istio")
     void testXEnvoyPeerMetadataIdAbsent() throws IOException {
         assertResponseHeaderAbsent("x-envoy-peer-metadata-id");
     }
