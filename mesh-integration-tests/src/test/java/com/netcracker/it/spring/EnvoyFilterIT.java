@@ -160,6 +160,7 @@ public class EnvoyFilterIT {
     // ── 3. override timeouts — waypoint ───────────────────────────────────────
 
     @Test
+    @EnabledIfEnvironmentVariable(named = "SERVICE_MESH_TYPE", matches = "Istio")
     void testRequestThroughWaypointSucceeds() throws IOException {
     long start = System.currentTimeMillis();
     ProxyResponse proxy = fetchProxyResponse(INTERNAL_HELLO);
@@ -172,6 +173,7 @@ public class EnvoyFilterIT {
 
     @Test
     @Tag("slow")
+    @EnabledIfEnvironmentVariable(named = "SERVICE_MESH_TYPE", matches = "Istio")
     void testTimeoutOverriddenViaHttpRoute() throws IOException {
         long start = System.currentTimeMillis();
         ProxyResponse proxy = fetchProxyResponse(INTERNAL_SLEEP);
