@@ -448,11 +448,6 @@ jobs:
       - name: Setup istioctl
         uses: istio/get-istioctl@main
 
-      - name: Check MeshConfig proxyHeaders applied
-        run: |
-          echo "=== MeshConfig proxyHeaders ==="
-          kubectl get configmap istio -n istio-system -o jsonpath='{.data.mesh}' | grep -A20 proxyHeaders
-
       - name: Check gateway proxy config
         run: |
           GW=$(kubectl get pods -n core -l gateway.networking.k8s.io/gateway-name=public-gateway \
