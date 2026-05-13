@@ -427,6 +427,7 @@ jobs:
           test-folder: integration-tests
           test-service-name: paas-mediation-tests
           mesh-type: ${{ inputs.mesh-type || 'Core' }}
+          exec-mode: ${{ inputs.install-istio && 'EXEC_IN_POD' || 'PORT_FORWARD' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run control-plane integration tests

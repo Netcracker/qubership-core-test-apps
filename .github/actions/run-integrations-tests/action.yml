@@ -24,6 +24,10 @@ inputs:
     description: 'Mesh type for test services — Core or Istio'
     required: false
     default: 'Core'
+  exec-mode:
+    description: 'Executor mode for tests — EXEC_IN_POD or PORT_FORWARD'
+    required: false
+    default: 'PORT_FORWARD'
   github-token:
     description: GitHub token for Maven/GitHub Packages access
     required: true
@@ -57,8 +61,8 @@ runs:
         TEST_FOLDER: ${{ inputs.test-folder }}
       run: |
         ./run-it/run-integration-tests.sh \
+          --exec-mode "${{ inputs.exec-mode }}" \
           kind-kind \
           core \
           kind-control-plane:10.244.0.1 \
-          ${{ inputs.mesh-type }} \
           "${{ inputs.test-service-name }}:${CHECKOUT_PATH}/${TEST_FOLDER}"
