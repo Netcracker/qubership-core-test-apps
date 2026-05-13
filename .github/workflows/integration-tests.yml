@@ -438,7 +438,7 @@ jobs:
           path: artifacts/*
 
       - name: Upload Istio logs
-        if: ${{ (failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure') }}
+        if: ${{ inputs.install-istio && (failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure') }}
         uses: actions/upload-artifact@v4
         with:
           name: istio-logs
@@ -446,33 +446,57 @@ jobs:
             ./core-bootstrap-repo/cloud-core-local-dev/istio/test/istio-logs
 
       - name: Setup istioctl
-        if: ${{ (failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure') }}
+        if: ${{ inputs.install-istio && (failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure') }}
         uses: istio/get-istioctl@main
 
       - name: Check gateway proxy config
-        if: ${{ (failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure') }}
+        if: ${{ inputs.install-istio && (failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure') }}
         run: |
+          mkdir -p ./istio-gateways-proxy-config
+          
+          # Gateway
           GW=$(kubectl get pods -n core -l gateway.networking.k8s.io/gateway-name=public-gateway \
-            -o jsonpath='{.items[0].metadata.name}')
-          echo "Gateway pod: $GW"
+            -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
           
-          echo "=== Listener config (suppress/debug headers) ==="
-          istioctl proxy-config listener $GW -n core -o json | grep -i "suppress\|envoyDebug\|server_name\|serverName" || true
-          
-          echo "=== Route config (responseHeadersToRemove) ==="
-          istioctl proxy-config route $GW -n core -o json | grep -A3 "responseHeaders" || true
+          if [ -n "$GW" ]; then
+            echo "Getting gateway config from: $GW"
+            if istioctl proxy-config all "$GW" -n core -o json > "./istio-gateways-proxy-config/gateway_${GW}.json" 2>"./istio-gateways-proxy-config/gateway_${GW}.stderr"; then
+              echo "Gateway config saved successfully" >> "./istio-gateways-proxy-config/gateway_${GW}.json"
+            else
+              echo "Failed to get gateway config for $GW" > "./istio-gateways-proxy-config/gateway_${GW}.error"
+            fi
+          else
+            echo "No gateway pod found with label gateway.networking.k8s.io/gateway-name=public-gateway"
+            echo "No gateway pod found" > ./istio-gateways-proxy-config/gateway_missing.log
+          fi
 
       - name: Check waypoint proxy config
-        if: ${{ (failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure') }}
+        if: ${{ inputs.install-istio && (failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure') }}
         run: |
-          WP=$(kubectl get pods -n core -l gateway.networking.k8s.io/gateway-name=waypoint -o jsonpath='{.items[0].metadata.name}')
-          echo "Waypoint pod: $WP"
+          WP=$(kubectl get pods -n core -l gateway.networking.k8s.io/gateway-name=waypoint \
+            -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
           
-          echo "=== Route config (responseHeadersToRemove) ==="
-          istioctl proxy-config route $WP -n core -o json | grep -A3 "responseHeaders" || true
-          
-          echo "=== Decorator propagate ==="
-          istioctl proxy-config route $WP -n core -o json | grep -A2 "decorator" || true
+          if [ -n "$WP" ]; then
+            echo "Getting waypoint config from: $WP"
+            if istioctl proxy-config all "$WP" -n core -o json > "./istio-gateways-proxy-config/waypoint_${WP}.json" 2>"./istio-gateways-proxy-config/waypoint_${WP}.stderr"; then
+              echo "Waypoint config saved successfully"
+            else
+              echo "Failed to get waypoint config for $WP" > "./istio-gateways-proxy-config/waypoint_${WP}.error"
+            fi
+          else
+            echo "No waypoint pod found with label gateway.networking.k8s.io/gateway-name=waypoint"
+            echo "No waypoint pod found" > ./istio-gateways-proxy-config/waypoint_missing.log
+          fi
+
+      - name: Upload Istio Gateways proxy config
+        if: ${{ inputs.install-istio && (failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: istio-gateways-proxy-config
+          path: |
+            ./istio-gateways-proxy-config/*
+          if-no-files-found: warn
+          retention-days: 7    
 
       - name: Collect Kubernetes diagnostics
         if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure' }}

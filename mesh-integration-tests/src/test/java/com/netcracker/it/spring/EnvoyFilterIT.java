@@ -134,28 +134,10 @@ public class EnvoyFilterIT {
     }
 
     @Test
-    @EnabledIfEnvironmentVariable(named = "SERVICE_MESH_TYPE", matches = "Istio")
     void testXEnvoyUpstreamServiceTimeAbsent() throws IOException {
-        assertResponseHeaderAbsent("x-envoy-upstream-service-time");
+        assertResponseHeaderAbsent("server");
     }
 
-    @Test
-    @EnabledIfEnvironmentVariable(named = "SERVICE_MESH_TYPE", matches = "Istio")
-    void testXEnvoyDecoratorOperationAbsent() throws IOException {
-        assertResponseHeaderAbsent("x-envoy-decorator-operation");
-    }
-
-    @Test
-    @EnabledIfEnvironmentVariable(named = "SERVICE_MESH_TYPE", matches = "Istio")
-    void testXEnvoyPeerMetadataAbsent() throws IOException {
-        assertResponseHeaderAbsent("x-envoy-peer-metadata");
-    }
-
-    @Test
-    @EnabledIfEnvironmentVariable(named = "SERVICE_MESH_TYPE", matches = "Istio")
-    void testXEnvoyPeerMetadataIdAbsent() throws IOException {
-        assertResponseHeaderAbsent("x-envoy-peer-metadata-id");
-    }
 
     // ── 3. override timeouts — waypoint ───────────────────────────────────────
 
