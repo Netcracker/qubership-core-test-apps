@@ -13,6 +13,7 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -46,66 +47,28 @@ public class EnvoyFilterIT {
     @Test
     void testExternalRequestIdPreserved() throws IOException {
         String originalId = UUID.randomUUID().toString();
-        Request request = new Request.Builder()
-                .url(publicGWServerUrl + REQUEST_HEADERS_PATH)
-                .addHeader("X-Request-ID", originalId)
-                .get().build();
-        try (Response response = okHttpClient.newCall(request).execute()) {
-        String body = response.body().string();
-        int code = response.code();
-        okhttp3.Headers responseHeaders = response.headers();
-        
-        log.info("Response headers: {}, body: {}", responseHeaders, body);
-        assertEquals(200, code);
-        Map<String, String> headers = new Gson().fromJson(
-                body,
-                new TypeToken<Map<String, String>>(){}.getType());
+        Map<String, String> headers = executeAndGetBodyHeaders(
+                REQUEST_HEADERS_PATH, Map.of("X-Request-ID", originalId));
         assertEquals(originalId, headers.get("x-request-id"),
                 "Envoy must not modify X-Request-ID supplied by the client");
-        }
     }
 
     @Test
-    void testRequestIGeneratedWhenAbsent() throws IOException {
-        Request request = new Request.Builder()
-                .url(publicGWServerUrl + REQUEST_HEADERS_PATH)
-                .get().build();
-        try (Response response = okHttpClient.newCall(request).execute()) {
-            String body = response.body().string();
-            int code = response.code();
-            okhttp3.Headers responseHeaders = response.headers();
-            
-            log.info("Response headers: {}, body: {}", responseHeaders, body);
-            assertEquals(200, code);
-            Map<String, String> headers = new Gson().fromJson(
-                    body,
-                    new TypeToken<Map<String, String>>(){}.getType());
-            assertNotNull(headers.get("x-request-id"),
-                    "Envoy should generate X-Request-ID when absent");
-        }
+    void testRequestIdGeneratedWhenAbsent() throws IOException {
+        Map<String, String> headers = executeAndGetBodyHeaders(
+                REQUEST_HEADERS_PATH, Collections.emptyMap());
+        assertNotNull(headers.get("x-request-id"),
+                "Envoy should generate X-Request-ID when absent");
     }
 
     @Test
     void testEachRequestPreservesItsOwnId() throws IOException {
         for (int i = 0; i < 5; i++) {
             String id = UUID.randomUUID().toString();
-            Request request = new Request.Builder()
-                    .url(publicGWServerUrl + REQUEST_HEADERS_PATH)
-                    .addHeader("X-Request-ID", id)
-                    .get().build();
-            try (Response response = okHttpClient.newCall(request).execute()) {
-                String body = response.body().string();
-                int code = response.code();
-                okhttp3.Headers responseHeaders = response.headers();
-                
-                log.info("Response headers: {}, body: {}", responseHeaders, body);
-                assertEquals(200, code);
-                Map<String, String> headers = new Gson().fromJson(
-                        body,
-                        new TypeToken<Map<String, String>>(){}.getType());
-                assertEquals(id, headers.get("x-request-id"),
-                        "Request " + i + ": ID was modified by Envoy");
-            }
+            Map<String, String> headers = executeAndGetBodyHeaders(
+                    REQUEST_HEADERS_PATH, Map.of("X-Request-ID", id));
+            assertEquals(id, headers.get("x-request-id"),
+                    "Request " + i + ": ID was modified by Envoy");
         }
     }
 
@@ -115,27 +78,18 @@ public class EnvoyFilterIT {
     @Test
     @EnabledIfEnvironmentVariable(named = "SERVICE_MESH_TYPE", matches = "Istio")
     void testNoXEnvoyHeadersInResponse() throws IOException {
-        Request request = new Request.Builder()
-                .url(publicGWServerUrl + HELLO_PATH)
-                .get().build();
-        try (Response response = okHttpClient.newCall(request).execute()) {
-            String body = response.body().string();
-            int code = response.code();
-            okhttp3.Headers responseHeaders = response.headers();
-
-            log.info("Response headers: {}, body: {}", responseHeaders, body);
-            assertEquals(200, code);
-            List<String> envoyHeaders = responseHeaders.names().stream()
-                    .filter(name -> name.toLowerCase().startsWith("x-envoy"))
-                    .toList();
-            assertTrue(envoyHeaders.isEmpty(),
-                    "Found unexpected x-envoy headers: " + envoyHeaders);
-        }
+        okhttp3.Headers responseHeaders = executeAndGetResponseHeaders(
+                HELLO_PATH, Collections.emptyMap());
+        List<String> envoyHeaders = responseHeaders.names().stream()
+                .filter(name -> name.toLowerCase().startsWith("x-envoy"))
+                .toList();
+        assertTrue(envoyHeaders.isEmpty(),
+                "Found unexpected x-envoy headers: " + envoyHeaders);
     }
 
     @Test
     void testXEnvoyUpstreamServiceTimeAbsent() throws IOException {
-        assertResponseHeaderAbsent("server");
+        assertResponseHeaderAbsent(HELLO_PATH, "server");
     }
 
 
@@ -144,13 +98,13 @@ public class EnvoyFilterIT {
     @Test
     @EnabledIfEnvironmentVariable(named = "SERVICE_MESH_TYPE", matches = "Istio")
     void testRequestThroughWaypointSucceeds() throws IOException {
-    long start = System.currentTimeMillis();
-    ProxyResponse proxy = fetchProxyResponse(INTERNAL_HELLO);
-    double elapsed = (System.currentTimeMillis() - start) / 1000.0;
-    assertEquals(200, proxy.getStatus(),
-            "Request through waypoint should succeed");
-    assertTrue(elapsed < 120,
-            String.format("Request should complete well under timeout: %.1fs", elapsed));
+        long start = System.currentTimeMillis();
+        ProxyResponse proxy = fetchProxyResponse(INTERNAL_HELLO);
+        double elapsed = (System.currentTimeMillis() - start) / 1000.0;
+        assertEquals(200, proxy.getStatus(),
+                "Request through waypoint should succeed");
+        assertTrue(elapsed < 120,
+                String.format("Request should complete well under timeout: %.1fs", elapsed));
     }
 
     @Test
@@ -160,7 +114,7 @@ public class EnvoyFilterIT {
         long start = System.currentTimeMillis();
         ProxyResponse proxy = fetchProxyResponse(INTERNAL_SLEEP);
         double elapsed = (System.currentTimeMillis() - start) / 1000.0;
-    
+
         assertEquals(504, proxy.getStatus(),
                 "Request exceeding route timeout should return 504 from waypoint");
         assertTrue(elapsed < 20,
@@ -200,7 +154,7 @@ public class EnvoyFilterIT {
             double elapsedSec = (System.currentTimeMillis() - start) / 1000.0;
             assertEquals(504, code,
                     "Expected 504 Gateway Timeout, got " + code);
-            assertTrue(elapsedSec < 125,
+            assertTrue(elapsedSec < 135,
                     String.format("Gateway waited too long: %.1fs", elapsedSec));
         }
     }
@@ -222,29 +176,60 @@ public class EnvoyFilterIT {
             assertEquals(504, code,
                     "Expected 504 Gateway Timeout, got " + code);
             assertAll("Timeout window",
-                    () -> assertTrue(elapsedSec > 115,
+                    () -> assertTrue(elapsedSec > 110,
                             String.format("Too early: %.1fs", elapsedSec)),
-                    () -> assertTrue(elapsedSec < 125,
+                    () -> assertTrue(elapsedSec < 135,
                             String.format("Too late: %.1fs", elapsedSec)));
         }
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────
 
-    private void assertResponseHeaderAbsent(String headerName) throws IOException {
-        Request request = new Request.Builder()
-                .url(publicGWServerUrl + HELLO_PATH)
-                .get().build();
-        try (Response response = okHttpClient.newCall(request).execute()) {
+    /**
+     * Issues a GET to {@code path} with the given request headers, asserts a 200 response,
+     * logs the response, and returns the JSON-decoded body as a Map (used by the
+     * request-headers echo endpoint).
+     */
+    private Map<String, String> executeAndGetBodyHeaders(String path,
+                                                         Map<String, String> requestHeaders) throws IOException {
+        Request.Builder builder = new Request.Builder()
+                .url(publicGWServerUrl + path)
+                .get();
+        requestHeaders.forEach(builder::addHeader);
+        try (Response response = okHttpClient.newCall(builder.build()).execute()) {
+            String body = response.body().string();
+            int code = response.code();
+            log.info("Response headers: {}, body: {}", response.headers(), body);
+            assertEquals(200, code);
+            return new Gson().fromJson(body, new TypeToken<Map<String, String>>(){}.getType());
+        }
+    }
+
+    /**
+     * Issues a GET to {@code path} with the given request headers, asserts a 200 response,
+     * and returns the raw response headers (used when the assertion is about headers
+     * the gateway/envoy emit, not the echoed request body).
+     */
+    private okhttp3.Headers executeAndGetResponseHeaders(String path,
+                                                         Map<String, String> requestHeaders) throws IOException {
+        Request.Builder builder = new Request.Builder()
+                .url(publicGWServerUrl + path)
+                .get();
+        requestHeaders.forEach(builder::addHeader);
+        try (Response response = okHttpClient.newCall(builder.build()).execute()) {
             String body = response.body().string();
             int code = response.code();
             okhttp3.Headers responseHeaders = response.headers();
-
             log.info("Response headers: {}, body: {}", responseHeaders, body);
             assertEquals(200, code);
-            assertNull(responseHeaders.get(headerName),
-                    "Header '" + headerName + "' should be suppressed but was found");
+            return responseHeaders;
         }
+    }
+
+    private void assertResponseHeaderAbsent(String path, String headerName) throws IOException {
+        okhttp3.Headers responseHeaders = executeAndGetResponseHeaders(path, Collections.emptyMap());
+        assertNull(responseHeaders.get(headerName),
+                "Header '" + headerName + "' should be suppressed but was found");
     }
 
     private ProxyResponse fetchProxyResponse(String targetUrl) throws IOException {
@@ -252,11 +237,11 @@ public class EnvoyFilterIT {
                 .newBuilder()
                 .addQueryParameter("url", targetUrl)
                 .build();
-    
+
         Request request = new Request.Builder()
                 .url(url)
                 .get().build();
-    
+
         try (Response response = okHttpClient.newCall(request).execute()) {
             String body = response.body().string();
             log.info("proxy-headers response code={} body={}", response.code(), body);

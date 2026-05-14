@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.netcracker.cloud.meshtestservicespring.model.ProxyResponse;
@@ -24,9 +25,13 @@ public class ProxyHeadersService {
     private WebClient m2mWebClient;
 
     public ProxyResponse getResponse(String url) {
+        if (url == null || url.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Query parameter 'url' is required");
+        }
         String fullUrl = "http://" + url;
         log.info("Fetching headers from '{}'", fullUrl);
-        return WebClient.create()
+        return m2mWebClient
                 .get()
                 .uri(fullUrl)
                 .exchangeToMono(response -> {
@@ -41,6 +46,22 @@ public class ProxyHeadersService {
                                 proxyResponse.setHeaders(headers);
                                 return proxyResponse;
                             });
+                })
+                .onErrorResume(WebClientResponseException.class, ex -> {
+                    log.warn("Upstream returned error status {} for '{}': {}",
+                            ex.getStatusCode(), fullUrl, ex.getMessage());
+                    ProxyResponse proxyResponse = new ProxyResponse();
+                    proxyResponse.setStatus(ex.getStatusCode().value());
+                    Map<String, List<String>> headers = new HashMap<>();
+                    ex.getHeaders().forEach(headers::put);
+                    proxyResponse.setHeaders(headers);
+                    return Mono.just(proxyResponse);
+                })
+                .onErrorResume(ex -> {
+                    log.error("Failed to fetch headers from '{}': {}", fullUrl, ex.toString());
+                    return Mono.error(new ResponseStatusException(
+                            HttpStatus.BAD_GATEWAY,
+                            "Upstream call failed: " + ex.getMessage(), ex));
                 })
                 .block();
     }
