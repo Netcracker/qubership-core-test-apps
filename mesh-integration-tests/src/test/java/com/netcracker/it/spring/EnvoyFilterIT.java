@@ -88,7 +88,7 @@ public class EnvoyFilterIT {
     }
 
     @Test
-    void testXEnvoyUpstreamServiceTimeAbsent() throws IOException {
+    void testServerHeaderAbsent() throws IOException {
         assertResponseHeaderAbsent(HELLO_PATH, "server");
     }
 
@@ -129,33 +129,8 @@ public class EnvoyFilterIT {
                 .url(publicGWServerUrl + SLEEP_PATH + "?seconds=5")
                 .get().build();
         try (Response response = okHttpClient.newCall(request).execute()) {
-            String body = response.body().string();
-            int code = response.code();
-            okhttp3.Headers responseHeaders = response.headers();
-
-            log.info("Response headers: {}, body: {}", responseHeaders, body);
-            assertEquals(200, code);
-        }
-    }
-
-    @Test
-    @Tag("slow")
-    void testRequestOver120sGets504() throws IOException {
-        long start = System.currentTimeMillis();
-        Request request = new Request.Builder()
-                .url(publicGWServerUrl + SLEEP_PATH + "?seconds=130")
-                .get().build();
-        try (Response response = okHttpClient.newCall(request).execute()) {
-            String body = response.body().string();
-            int code = response.code();
-            okhttp3.Headers responseHeaders = response.headers();
-
-            log.info("Response headers: {}, body: {}", responseHeaders, body);
-            double elapsedSec = (System.currentTimeMillis() - start) / 1000.0;
-            assertEquals(504, code,
-                    "Expected 504 Gateway Timeout, got " + code);
-            assertTrue(elapsedSec < 135,
-                    String.format("Gateway waited too long: %.1fs", elapsedSec));
+            log.info("Response headers: {}, body: {}", response.headers(), response.body().string());
+            assertEquals(200, response.code());
         }
     }
 

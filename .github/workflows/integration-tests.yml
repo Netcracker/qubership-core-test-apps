@@ -461,7 +461,7 @@ jobs:
           if [ -n "$GW" ]; then
             echo "Getting gateway config from: $GW"
             if istioctl proxy-config all "$GW" -n core -o json > "./istio-gateways-proxy-config/gateway_${GW}.json" 2>"./istio-gateways-proxy-config/gateway_${GW}.stderr"; then
-              echo "Gateway config saved successfully" >> "./istio-gateways-proxy-config/gateway_${GW}.json"
+              echo "Gateway config saved successfully"
             else
               echo "Failed to get gateway config for $GW" > "./istio-gateways-proxy-config/gateway_${GW}.error"
             fi
