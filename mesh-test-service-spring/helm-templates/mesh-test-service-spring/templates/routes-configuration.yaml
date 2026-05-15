@@ -25,7 +25,7 @@ spec:
               - match:
                   prefix: /api/v1/mesh-test-service-spring/declarative_hello
                 allowed: true
-                prefixRewrite: /api/v1/declarative_hello 
+                prefixRewrite: /api/v1/declarative_hello
 {{- end }}
 {{- if eq .Values.SERVICE_MESH_TYPE "Core" }}
 ---

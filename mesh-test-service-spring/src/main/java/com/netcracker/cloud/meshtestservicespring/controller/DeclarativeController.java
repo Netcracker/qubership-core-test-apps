@@ -13,8 +13,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping(ApiVersions.API + ApiVersions.V1 + "/declarative_hello")
-@GatewayRequestMapping(path = ApiVersions.API + ApiVersions.V1 + ApiVersions.SERVICE_NAME + "/declarative_hello")
-@Route(value = RouteType.PUBLIC)
 @Slf4j
 public class DeclarativeController {
 
