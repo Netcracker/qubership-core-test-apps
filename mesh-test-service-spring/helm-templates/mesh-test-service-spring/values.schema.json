@@ -148,13 +148,10 @@
       "$id": "#/properties/SERVICE_MESH_TYPE",
       "type": "string",
       "title": "The SERVICE_MESH_TYPE schema",
-      "description": "Service mesh type. Use Core for Qubership Cloud Core Mesh or Istio for Istio Ambient Mesh.",
-      "enum": ["Core", "Istio"],
+      "description": "Service mesh type. Use `Core` for Cloud Core Mesh or `Istio` for Istio Ambient Mesh.",
+      "enum": ["Istio", "Core"],
       "default": "Core",
-      "examples": [
-        "Core",
-        "Istio"
-      ]
+      "internal": true
     }
   },
   "additionalProperties": true

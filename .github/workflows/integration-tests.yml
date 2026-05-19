@@ -1,10 +1,20 @@
 name: Run integration tests
+run-name: >-
+  [Istio=${{ (inputs.install-istio && 'yes') || 'no' }}]
+  [MaaS=${{ (inputs.install-maas && 'yes') || 'no' }}]
+  [SERVICE_MESH_TYPE=${{ inputs.mesh-type || 'Core' }}]
+  [tests=${{ inputs.run-tests-for || 'all' }}]
 
 on:
   workflow_call:
     inputs:
       core-bootstrap-branch:
         description: 'Branch of core-bootstrap repo'
+        required: false
+        default: 'main'
+        type: string
+      test-branch:
+        description: 'Branch to look for in core services & test repositories. If branch not found in specific repo, checkout will fallback to main'
         required: false
         default: 'main'
         type: string
@@ -108,20 +118,15 @@ on:
         required: false
         default: 'Core'
         type: string
-      run-mesh:
-        description: 'Run mesh integration tests'
-        required: false
-        default: true
-        type: boolean
-      mesh-test-usecase:
+      test-usecase:
         type: string
         required: false
-        description: Rename `mesh-integration-tests` folder to alias name - to distiguish mesh test modes in report        
-      run-paas:
-        description: 'Run paas-mediation integration tests'
+        description: Append to `integration-tests` name - to distiguish results in different mesh modes
+      run-tests-for:
+        description: 'Integration tests to run: all, none, or comma-separated test names (mesh-tests,paas-mediation,control-plane,site-management,maas-agent)'
         required: false
-        default: true
-        type: boolean
+        default: 'all'
+        type: string
 
   workflow_dispatch:
     inputs:
@@ -130,6 +135,11 @@ on:
         required: false
         default: 'main'
         type: string
+      test-branch:
+        description: 'Branch to use in core services & test repositories. If branch not found in specific repo, checkout will fallback to main'
+        required: false
+        default: 'main'
+        type: string        
       install-maas:
         description: 'Install MaaS'
         required: false
@@ -230,20 +240,16 @@ on:
         required: false
         default: 'Core'
         type: string
-      run-mesh:
-        description: 'Run mesh integration tests'
-        required: false
-        default: true
-        type: boolean
-      mesh-test-usecase:
+      test-usecase:
         type: string
         required: false
-        description: Rename `mesh-integration-tests` folder to alias name - to distiguish mesh test modes in report        
-      run-paas:
-        description: 'Run paas-mediation integration tests'
+        description: Append to `integration-tests` name - to distiguish results in different mesh modes
+      run-tests-for:
+        description: 'Integration tests to run: all, none, or comma-separated test names (mesh-tests,paas-mediation,control-plane,site-management,maas-agent)'
         required: false
-        default: true
-        type: boolean
+        default: 'all'
+        type: string
+  
 
 jobs:
   integration-tests:
@@ -252,6 +258,61 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Document workflow input values
+        shell: bash
+        run: |
+          {
+            echo "## Workflow input values"
+            echo ""
+            echo "| Input | Value |"
+            echo "| --- | --- |"
+            echo "| core-bootstrap-branch | \`${{ inputs.core-bootstrap-branch || 'main' }}\` |"
+            echo "| test-branch | \`${{ inputs.test-branch || 'main' }}\` |"
+            echo "| install-maas | \`${{ (inputs.install-maas && 'true') || 'false' }}\` |"
+            echo "| install-istio | \`${{ (inputs.install-istio && 'true') || 'false' }}\` |"
+            echo "| istio-repo-branch | \`${{ inputs.istio-repo-branch || 'main' }}\` |"
+            echo "| core-mesh-config-repo-branch | \`${{ inputs.core-mesh-config-repo-branch || 'main' }}\` |"
+            echo "| do-resources-workaround | \`${{ (inputs.do-resources-workaround && 'true') || 'false' }}\` |"
+            echo "| facade-operator-tag | \`${{ inputs.facade-operator-tag || 'latest' }}\` |"
+            echo "| ingress-gateway-tag | \`${{ inputs.ingress-gateway-tag || 'latest' }}\` |"
+            echo "| control-plane-tag | \`${{ inputs.control-plane-tag || 'latest' }}\` |"
+            echo "| paas-mediation-tag | \`${{ inputs.paas-mediation-tag || 'latest' }}\` |"
+            echo "| dbaas-agent-tag | \`${{ inputs.dbaas-agent-tag || 'latest' }}\` |"
+            echo "| core-operator-tag | \`${{ inputs.core-operator-tag || 'latest' }}\` |"
+            echo "| config-server-tag | \`${{ inputs.config-server-tag || 'latest' }}\` |"
+            echo "| site-management-tag | \`${{ inputs.site-management-tag || 'latest' }}\` |"
+            echo "| mesh-test-spring-tag | \`${{ inputs.mesh-test-spring-tag || 'latest' }}\` |"
+            echo "| mesh-test-quarkus-tag | \`${{ inputs.mesh-test-quarkus-tag || 'latest' }}\` |"
+            echo "| mesh-test-go-tag | \`${{ inputs.mesh-test-go-tag || 'latest' }}\` |"
+            echo "| mesh-type | \`${{ inputs.mesh-type || 'Core' }}\` |"
+            echo "| test-usecase | \`${{ inputs.test-usecase || '' }}\` |"
+            echo "| run-tests-for | \`${{ inputs.run-tests-for || 'all' }}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "::group::Workflow input values"
+          echo "core-bootstrap-branch=${{ inputs.core-bootstrap-branch || 'main' }}"
+          echo "test-branch=${{ inputs.test-branch || 'main' }}"
+          echo "install-maas=${{ (inputs.install-maas && 'true') || 'false' }}"
+          echo "install-istio=${{ (inputs.install-istio && 'true') || 'false' }}"
+          echo "istio-repo-branch=${{ inputs.istio-repo-branch || 'main' }}"
+          echo "core-mesh-config-repo-branch=${{ inputs.core-mesh-config-repo-branch || 'main' }}"
+          echo "do-resources-workaround=${{ (inputs.do-resources-workaround && 'true') || 'false' }}"
+          echo "facade-operator-tag=${{ inputs.facade-operator-tag || 'latest' }}"
+          echo "ingress-gateway-tag=${{ inputs.ingress-gateway-tag || 'latest' }}"
+          echo "control-plane-tag=${{ inputs.control-plane-tag || 'latest' }}"
+          echo "paas-mediation-tag=${{ inputs.paas-mediation-tag || 'latest' }}"
+          echo "dbaas-agent-tag=${{ inputs.dbaas-agent-tag || 'latest' }}"
+          echo "core-operator-tag=${{ inputs.core-operator-tag || 'latest' }}"
+          echo "config-server-tag=${{ inputs.config-server-tag || 'latest' }}"
+          echo "site-management-tag=${{ inputs.site-management-tag || 'latest' }}"
+          echo "mesh-test-spring-tag=${{ inputs.mesh-test-spring-tag || 'latest' }}"
+          echo "mesh-test-quarkus-tag=${{ inputs.mesh-test-quarkus-tag || 'latest' }}"
+          echo "mesh-test-go-tag=${{ inputs.mesh-test-go-tag || 'latest' }}"
+          echo "mesh-type=${{ inputs.mesh-type || 'Core' }}"
+          echo "test-usecase=${{ inputs.test-usecase || '' }}"
+          echo "run-tests-for=${{ inputs.run-tests-for || 'all' }}"
+          echo "::endgroup::"
 
       - name: Setup Kind cluster and deploy Cloud Core
         uses: ./.github/actions/setup-kind-with-cloud-core
@@ -269,6 +330,8 @@ jobs:
           core-operator-tag: ${{ inputs.core-operator-tag || 'latest' }}
           config-server-tag: ${{ inputs.config-server-tag || 'latest' }}
           site-management-tag: ${{ inputs.site-management-tag || 'latest' }}
+          test-branch: ${{ inputs.test-branch || 'main' }}
+          mesh-type: ${{ inputs.mesh-type || 'Core' }}
 
       - name: preserve-cpu-resources-workaround
         if: ${{ inputs.do-resources-workaround }}
@@ -276,9 +339,68 @@ jobs:
           # to preserve some resources for tests
           kubectl scale deployment site-management -n core --replicas=0
 
+      - name: Resolve integration tests to run
+        id: integrations_tests_selection
+        shell: bash
+        env:
+          RUN_TESTS_FOR: ${{ inputs.run-tests-for || 'all' }}
+        run: |
+          selected="$RUN_TESTS_FOR"
+          normalized="$(echo "$selected" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
+
+          mesh_tests=false
+          paas_mediation=false
+          control_plane=false
+          site_management=false
+          maas_agent=false
+
+          if [[ -z "$normalized" || "$normalized" == "false" || "$normalized" == "none" ]]; then
+            :
+          elif [[ "$normalized" == "true" || "$normalized" == "all" ]]; then
+            mesh_tests=true
+            paas_mediation=true
+            control_plane=true
+            site_management=true
+            maas_agent=true
+          else
+            IFS=',' read -ra services <<< "$normalized"
+            for service in "${services[@]}"; do
+              case "$service" in
+                mesh-tests|mesh_tests)
+                  mesh_tests=true
+                  ;;
+                paas-mediation|paas_mediation)
+                  paas_mediation=true
+                  ;;
+                control-plane|control_plane)
+                  control_plane=true
+                  ;;
+                site-management|site_management)
+                  site_management=true
+                  ;;
+                maas-agent|maas_agent)
+                  maas_agent=true
+                  ;;
+                "")
+                  ;;
+                *)
+                  echo "::error::Unknown integration test service: $service"
+                  echo "::error::Allowed values: all, none, mesh-tests, paas-mediation, control-plane, site-management, maas-agent"
+                  exit 1
+                  ;;
+              esac
+            done
+          fi
+
+          echo "mesh_tests=$mesh_tests" >> "$GITHUB_OUTPUT"
+          echo "paas_mediation=$paas_mediation" >> "$GITHUB_OUTPUT"
+          echo "control_plane=$control_plane" >> "$GITHUB_OUTPUT"
+          echo "site_management=$site_management" >> "$GITHUB_OUTPUT"
+          echo "maas_agent=$maas_agent" >> "$GITHUB_OUTPUT"
+
       - name: Run mesh integration tests (test apps in ${{ inputs.mesh-type || 'Core' }} mesh mode)
         id: mesh_tests
-        if: inputs.run-mesh
+        if: ${{ steps.integrations_tests_selection.outputs.mesh_tests == 'true' }}
         continue-on-error: true
         uses: ./.github/actions/run-mesh-tests
         with:
@@ -288,27 +410,67 @@ jobs:
           go-tag: ${{ inputs.mesh-test-go-tag || 'latest' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Name mesh tests result with inputs.mesh-test-usecase
-        if: inputs.mesh-test-usecase
+      - name: Name mesh tests result with inputs.test-usecase
+        if: ${{ steps.integrations_tests_selection.outputs.mesh_tests == 'true' && inputs.test-usecase }}
         run: |
-          mv mesh-integration-tests ${{ inputs.mesh-test-usecase }}
+          mv mesh-integration-tests "mesh-tests-${{ inputs.test-usecase }}"
 
-      - name: Checkout paas-mediation
-        if: inputs.run-paas
-        uses: actions/checkout@v4
-        with:
-          repository: Netcracker/qubership-core-paas-mediation
-          path: repos/paas-mediation 
-        
       - name: Run paas-mediation integration tests
         id: paas_tests
-        if: inputs.run-paas
+        if: ${{ steps.integrations_tests_selection.outputs.paas_mediation == 'true' }}
         continue-on-error: true
-        run: |
-          ./run-it/run-integration-tests.sh kind-kind core kind-control-plane:10.244.0.1 paas-mediation-tests:repos/paas-mediation/integration-tests
-        env:
-          GITHUB_ACTOR: ${{ github.actor }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: ./.github/actions/run-integrations-tests
+        with:
+          repository: Netcracker/qubership-core-paas-mediation
+          branch: ${{ inputs.test-branch || 'main' }}
+          path: ${{ inputs.test-usecase != '' && format('repos/paas-mediation-{0}', inputs.test-usecase) || 'repos/paas-mediation' }}
+          test-folder: integration-tests
+          test-service-name: paas-mediation-tests
+          mesh-type: ${{ inputs.mesh-type || 'Core' }}
+          exec-mode: ${{ inputs.install-istio && 'EXEC_IN_POD' || 'PORT_FORWARD' }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run control-plane integration tests
+        id: control_plane_tests
+        if: ${{ steps.integrations_tests_selection.outputs.control_plane == 'true' }}
+        continue-on-error: true
+        uses: ./.github/actions/run-integrations-tests
+        with:
+          repository: Netcracker/qubership-core-control-plane
+          branch: ${{ inputs.test-branch || 'main' }}
+          path: ${{ inputs.test-usecase != '' && format('repos/control-plane-{0}', inputs.test-usecase) || 'repos/control-plane' }}
+          test-folder: integration-tests
+          test-service-name: control-plane-tests
+          mesh-type: ${{ inputs.mesh-type || 'Core' }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run site-management integration tests
+        id: site_management_tests
+        if: ${{ steps.integrations_tests_selection.outputs.site_management == 'true' }}
+        continue-on-error: true
+        uses: ./.github/actions/run-integrations-tests
+        with:
+          repository: Netcracker/qubership-core-site-management
+          branch: ${{ inputs.test-branch || 'main' }}
+          path: ${{ inputs.test-usecase != '' && format('repos/site-management-{0}', inputs.test-usecase) || 'repos/site-management' }}
+          test-folder: integration-tests
+          test-service-name: site-management-tests
+          mesh-type: ${{ inputs.mesh-type || 'Core' }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}  
+
+      - name: Run maas-agent integration tests
+        id: maas_agent_tests
+        if: ${{ steps.integrations_tests_selection.outputs.maas_agent == 'true' }}
+        continue-on-error: true
+        uses: ./.github/actions/run-integrations-tests
+        with:
+          repository: Netcracker/qubership-core-maas-agent
+          branch: ${{ inputs.test-branch || 'main' }}
+          path: ${{ inputs.test-usecase != '' && format('repos/maas-agent-{0}', inputs.test-usecase) || 'repos/maas-agent' }}
+          test-folder: integration-tests
+          test-service-name: maas-agent-tests
+          mesh-type: ${{ inputs.mesh-type || 'Core' }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}  
 
       - name: Aggregate Surefire reports
         run: |
@@ -331,11 +493,11 @@ jobs:
       - name: Upload Surefire reports
         uses: actions/upload-artifact@v4
         with:
-          name: surefire-reports${{ inputs.mesh-test-usecase != '' && format('-{0}', inputs.mesh-test-usecase) || '' }}
+          name: surefire-reports${{ inputs.test-usecase != '' && format('-{0}', inputs.test-usecase) || '' }}
           path: artifacts/*
 
       - name: Upload Istio logs
-        if: ${{ (failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure') }}
+        if: ${{ (failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure') }}
         uses: actions/upload-artifact@v4
         with:
           name: istio-logs
@@ -343,7 +505,7 @@ jobs:
             ./core-bootstrap-repo/cloud-core-local-dev/istio/test/istio-logs
 
       - name: Collect Kubernetes diagnostics
-        if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' }}
+        if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure' }}
         run: |
           set +e
 
@@ -429,10 +591,10 @@ jobs:
           } > unhealthy-pods-logs.txt 2>&1
       
       - name: Upload Kubernetes diagnostics
-        if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' }}
+        if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure' }}
         uses: actions/upload-artifact@v4
         with:
-          name: kind-k8s-debug${{ inputs.mesh-test-usecase != '' && format('-{0}', inputs.mesh-test-usecase) || '' }}
+          name: kind-k8s-debug${{ inputs.test-usecase != '' && format('-{0}', inputs.test-usecase) || '' }}
           path: |
             cluster-state.txt
             unhealthy-pods-logs.txt
