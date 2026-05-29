@@ -1,4 +1,9 @@
 name: Run integration tests
+run-name: >-
+  [Istio=${{ (inputs.install-istio && 'yes') || 'no' }}]
+  [MaaS=${{ (inputs.install-maas && 'yes') || 'no' }}]
+  [SERVICE_MESH_TYPE=${{ inputs.mesh-type || 'Core' }}]
+  [tests=${{ inputs.run-tests-for || 'all' }}]
 
 on:
   workflow_call:
@@ -265,6 +270,61 @@ jobs:
         with:
           ref: ${{ github.ref }} 
 
+      - name: Document workflow input values
+        shell: bash
+        run: |
+          {
+            echo "## Workflow input values"
+            echo ""
+            echo "| Input | Value |"
+            echo "| --- | --- |"
+            echo "| core-bootstrap-branch | \`${{ inputs.core-bootstrap-branch || 'main' }}\` |"
+            echo "| test-branch | \`${{ inputs.test-branch || 'main' }}\` |"
+            echo "| install-maas | \`${{ (inputs.install-maas && 'true') || 'false' }}\` |"
+            echo "| install-istio | \`${{ (inputs.install-istio && 'true') || 'false' }}\` |"
+            echo "| istio-repo-branch | \`${{ inputs.istio-repo-branch || 'main' }}\` |"
+            echo "| core-mesh-config-repo-branch | \`${{ inputs.core-mesh-config-repo-branch || 'main' }}\` |"
+            echo "| do-resources-workaround | \`${{ (inputs.do-resources-workaround && 'true') || 'false' }}\` |"
+            echo "| facade-operator-tag | \`${{ inputs.facade-operator-tag || 'latest' }}\` |"
+            echo "| ingress-gateway-tag | \`${{ inputs.ingress-gateway-tag || 'latest' }}\` |"
+            echo "| control-plane-tag | \`${{ inputs.control-plane-tag || 'latest' }}\` |"
+            echo "| paas-mediation-tag | \`${{ inputs.paas-mediation-tag || 'latest' }}\` |"
+            echo "| dbaas-agent-tag | \`${{ inputs.dbaas-agent-tag || 'latest' }}\` |"
+            echo "| core-operator-tag | \`${{ inputs.core-operator-tag || 'latest' }}\` |"
+            echo "| config-server-tag | \`${{ inputs.config-server-tag || 'latest' }}\` |"
+            echo "| site-management-tag | \`${{ inputs.site-management-tag || 'latest' }}\` |"
+            echo "| mesh-test-spring-tag | \`${{ inputs.mesh-test-spring-tag || 'latest' }}\` |"
+            echo "| mesh-test-quarkus-tag | \`${{ inputs.mesh-test-quarkus-tag || 'latest' }}\` |"
+            echo "| mesh-test-go-tag | \`${{ inputs.mesh-test-go-tag || 'latest' }}\` |"
+            echo "| mesh-type | \`${{ inputs.mesh-type || 'Core' }}\` |"
+            echo "| test-usecase | \`${{ inputs.test-usecase || '' }}\` |"
+            echo "| run-tests-for | \`${{ inputs.run-tests-for || 'all' }}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "::group::Workflow input values"
+          echo "core-bootstrap-branch=${{ inputs.core-bootstrap-branch || 'main' }}"
+          echo "test-branch=${{ inputs.test-branch || 'main' }}"
+          echo "install-maas=${{ (inputs.install-maas && 'true') || 'false' }}"
+          echo "install-istio=${{ (inputs.install-istio && 'true') || 'false' }}"
+          echo "istio-repo-branch=${{ inputs.istio-repo-branch || 'main' }}"
+          echo "core-mesh-config-repo-branch=${{ inputs.core-mesh-config-repo-branch || 'main' }}"
+          echo "do-resources-workaround=${{ (inputs.do-resources-workaround && 'true') || 'false' }}"
+          echo "facade-operator-tag=${{ inputs.facade-operator-tag || 'latest' }}"
+          echo "ingress-gateway-tag=${{ inputs.ingress-gateway-tag || 'latest' }}"
+          echo "control-plane-tag=${{ inputs.control-plane-tag || 'latest' }}"
+          echo "paas-mediation-tag=${{ inputs.paas-mediation-tag || 'latest' }}"
+          echo "dbaas-agent-tag=${{ inputs.dbaas-agent-tag || 'latest' }}"
+          echo "core-operator-tag=${{ inputs.core-operator-tag || 'latest' }}"
+          echo "config-server-tag=${{ inputs.config-server-tag || 'latest' }}"
+          echo "site-management-tag=${{ inputs.site-management-tag || 'latest' }}"
+          echo "mesh-test-spring-tag=${{ inputs.mesh-test-spring-tag || 'latest' }}"
+          echo "mesh-test-quarkus-tag=${{ inputs.mesh-test-quarkus-tag || 'latest' }}"
+          echo "mesh-test-go-tag=${{ inputs.mesh-test-go-tag || 'latest' }}"
+          echo "mesh-type=${{ inputs.mesh-type || 'Core' }}"
+          echo "test-usecase=${{ inputs.test-usecase || '' }}"
+          echo "run-tests-for=${{ inputs.run-tests-for || 'all' }}"
+          echo "::endgroup::"
+
       - name: Setup Kind cluster and deploy Cloud Core
         uses: ./.github/actions/setup-kind-with-cloud-core
         with:
@@ -378,6 +438,7 @@ jobs:
           test-folder: integration-tests
           test-service-name: paas-mediation-tests
           mesh-type: ${{ inputs.mesh-type || 'Core' }}
+          exec-mode: ${{ inputs.install-istio && 'EXEC_IN_POD' || 'PORT_FORWARD' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run control-plane integration tests

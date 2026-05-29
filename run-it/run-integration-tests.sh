@@ -2,7 +2,7 @@
 
 # Integration tests runner script
 # Runs integration tests sequentially for all mesh test services
-# Usage: ./run-integration-tests.sh [--profile PROFILE] <kube-context> <namespace> <node-ip-mapping> [service-name:test-folder ...]
+# Usage: ./run-integration-tests.sh [--profile PROFILE] [--exec-mode MODE] <kube-context> <namespace> <node-ip-mapping> [service-name:test-folder ...]
 
 set -e  # Exit on any error
 
@@ -11,10 +11,11 @@ MAVEN_PROFILE="integration-test"
 
 # Function to show usage
 show_usage() {
-    echo "Usage: $0 [--profile PROFILE] <kube-context> <namespace> <node-ip-mapping> <service-mesh-type> [service-name:test-folder ...]"
+    echo "Usage: $0 [--profile PROFILE] [--exec-mode MODE] <kube-context> <namespace> <node-ip-mapping> [service-name:test-folder ...]"
     echo ""
     echo "Options:"
     echo "  --profile PROFILE, -p PROFILE  Maven profile to use (optional)"
+    echo "  --exec-mode MODE, -e MODE      Executor mode (optional): EXEC_IN_POD or PORT_FORWARD"
     echo ""
     echo "Required arguments:"
     echo "  kube-context      Kubernetes context for tests"
@@ -29,10 +30,11 @@ show_usage() {
     echo ""
     echo "Examples:"
     echo "  $0 minikube core minikube:10.244.0.1"
-    echo "  $0 --profile integration-test minikube core minikube:10.244.0.1 Core"
-    echo "  $0 -p custom-profile docker-desktop test-ns docker-desktop:10.0.0.1 Core"
-    echo "  $0 minikube core minikube:10.244.0.1 Core service1:test-folder1 service2:test-folder2"
-    echo "  $0 --profile test minikube core minikube:10.244.0.1 Core mesh-integration-tests:mesh-integration-tests"
+    echo "  $0 --profile integration-test minikube core minikube:10.244.0.1"
+    echo "  $0 --exec-mode EXEC_IN_POD minikube core minikube:10.244.0.1"
+    echo "  $0 -p custom-profile -e PORT_FORWARD docker-desktop test-ns docker-desktop:10.0.0.1"
+    echo "  $0 minikube core minikube:10.244.0.1 service1:test-folder1 service2:test-folder2"
+    echo "  $0 --profile test --exec-mode EXEC_IN_POD minikube core minikube:10.244.0.1 mesh-integration-tests:mesh-integration-tests"
     echo ""
 }
 
@@ -42,7 +44,9 @@ if [[ "$1" == "-h" || "$1" == "--help" ]]; then
     exit 0
 fi
 
-# Parse optional profile flag
+# Parse optional flags
+EXECUTOR_MODE="PORT_FORWARD"
+
 while [[ $# -gt 0 ]]; do
     case $1 in
         --profile|-p)
@@ -53,6 +57,22 @@ while [[ $# -gt 0 ]]; do
                 exit 1
             fi
             MAVEN_PROFILE="$2"
+            shift 2
+            ;;
+        --exec-mode|-e)
+            if [[ -z "$2" ]]; then
+                echo "Error: --exec-mode requires a value"
+                echo ""
+                show_usage
+                exit 1
+            fi
+            if [[ "$2" != "EXEC_IN_POD" && "$2" != "PORT_FORWARD" ]]; then
+                echo "Error: Invalid --exec-mode value '$2'. Allowed values: EXEC_IN_POD, PORT_FORWARD"
+                echo ""
+                show_usage
+                exit 1
+            fi
+            EXECUTOR_MODE="$2"
             shift 2
             ;;
         *)
@@ -121,6 +141,7 @@ echo "--------------------------------"
 echo "Kube context: $KUBE_CONTEXT"
 echo "Namespace: $NAMESPACE"
 echo "Node IP mapping: $NODE_IP_MAPPING"
+echo "Executor mode: $EXECUTOR_MODE"
 if [[ -n "$MAVEN_PROFILE" ]]; then
     echo "Maven profile: $MAVEN_PROFILE"
 fi

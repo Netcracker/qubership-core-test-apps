@@ -34,6 +34,12 @@ Run integration tests sequentially for all mesh test services:
 
 # Run with custom Maven profile (short form)
 ./run-integration-tests.sh -p test-profile docker-desktop test-ns docker-desktop:10.0.0.1
+
+# Run with explicit executor mode
+./run-integration-tests.sh --exec-mode EXEC_IN_POD minikube core minikube:10.244.0.1
+
+# Run with short executor mode option
+./run-integration-tests.sh -e PORT_FORWARD minikube core minikube:10.244.0.1
 ```
 
 **Note**: use node ip that belongs to pods network
@@ -57,6 +63,9 @@ You can specify multiple test folders and service names as additional arguments:
 
 # With custom profile and test folders
 ./run-integration-tests.sh --profile integration-test minikube core minikube:10.244.0.1 service1:test-folder1 service2:test-folder2
+
+# With custom profile, executor mode and test folders
+./run-integration-tests.sh --profile integration-test --exec-mode EXEC_IN_POD minikube core minikube:10.244.0.1 service1:test-folder1 service2:test-folder2
 ```
 
 #### Show Help
@@ -75,6 +84,9 @@ You can specify multiple test folders and service names as additional arguments:
 **Options:**
 - **--profile PROFILE, -p PROFILE**: Maven profile to use (default: `integration-test`)
   - If not specified, uses `integration-test` profile
+  - Must be specified before the required arguments
+- **--exec-mode MODE, -e MODE**: Executor mode (default: `PORT_FORWARD`)
+  - Allowed values: `EXEC_IN_POD`, `PORT_FORWARD`
   - Must be specified before the required arguments
 
 **Optional Arguments:**
