@@ -53,7 +53,7 @@ public class EnvoyFilterIT {
     static Stream<Arguments> gatewayUrls() {
         return Stream.of(
                 Arguments.of("public-gateway",   publicGWServerUrl),
-                Arguments.of("private-gateway",  privateGWServerUrl),
+                Arguments.of("private-gateway",  privateGWServerUrl)
         );
     }
 
