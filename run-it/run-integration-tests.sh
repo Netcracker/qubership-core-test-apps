@@ -314,6 +314,7 @@ run_integration_tests() {
             -DORIGIN_NAMESPACE="$NAMESPACE" \
             -Denv.cloud-namespace="$NAMESPACE" \
             -Dexecutor.mode="$EXECUTOR_MODE" \
+            -Dmesh.type="$SERVICE_MESH_TYPE" \
             -Dkubernetes.master="https://${CLUSTER_DOMAIN}:${API_SERVER_PORT}" || maven_exit_code=$?
     else
         mvn --no-transfer-progress clean surefire-report:report \
@@ -323,6 +324,7 @@ run_integration_tests() {
             -DORIGIN_NAMESPACE="$NAMESPACE" \
             -Denv.cloud-namespace="$NAMESPACE" \
             -Dexecutor.mode="$EXECUTOR_MODE" \
+            -Dmesh.type="$SERVICE_MESH_TYPE" \  
             -Dkubernetes.master="https://${CLUSTER_DOMAIN}:${API_SERVER_PORT}" || maven_exit_code=$?
     fi
     

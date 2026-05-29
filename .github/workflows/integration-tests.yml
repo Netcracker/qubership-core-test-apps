@@ -127,6 +127,11 @@ on:
         required: false
         default: 'all'
         type: string
+      collect-logs-for:
+        description: 'Labels of services which logs are required to collect for debugging. Comma-separated label_name=value pairs (name=mesh-test-service-spring-v1,app=control-plane, app.kubernetes.io/name=public-gateway)'
+        required: false
+        default: ''
+        type: string
 
   workflow_dispatch:
     inputs:
@@ -249,7 +254,11 @@ on:
         required: false
         default: 'all'
         type: string
-  
+      collect-logs-for:
+        description: 'Labels of services which logs are required to collect for debugging. Comma-separated label_name=value pairs (name=mesh-test-service-spring-v1,app=control-plane, app.kubernetes.io/name=public-gateway)'
+        required: false
+        default: ''
+        type: string
 
 jobs:
   integration-tests:
@@ -258,6 +267,63 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }} 
+
+      - name: Document workflow input values
+        shell: bash
+        run: |
+          {
+            echo "## Workflow input values"
+            echo ""
+            echo "| Input | Value |"
+            echo "| --- | --- |"
+            echo "| core-bootstrap-branch | \`${{ inputs.core-bootstrap-branch || 'main' }}\` |"
+            echo "| test-branch | \`${{ inputs.test-branch || 'main' }}\` |"
+            echo "| install-maas | \`${{ (inputs.install-maas && 'true') || 'false' }}\` |"
+            echo "| install-istio | \`${{ (inputs.install-istio && 'true') || 'false' }}\` |"
+            echo "| istio-repo-branch | \`${{ inputs.istio-repo-branch || 'main' }}\` |"
+            echo "| core-mesh-config-repo-branch | \`${{ inputs.core-mesh-config-repo-branch || 'main' }}\` |"
+            echo "| do-resources-workaround | \`${{ (inputs.do-resources-workaround && 'true') || 'false' }}\` |"
+            echo "| facade-operator-tag | \`${{ inputs.facade-operator-tag || 'latest' }}\` |"
+            echo "| ingress-gateway-tag | \`${{ inputs.ingress-gateway-tag || 'latest' }}\` |"
+            echo "| control-plane-tag | \`${{ inputs.control-plane-tag || 'latest' }}\` |"
+            echo "| paas-mediation-tag | \`${{ inputs.paas-mediation-tag || 'latest' }}\` |"
+            echo "| dbaas-agent-tag | \`${{ inputs.dbaas-agent-tag || 'latest' }}\` |"
+            echo "| core-operator-tag | \`${{ inputs.core-operator-tag || 'latest' }}\` |"
+            echo "| config-server-tag | \`${{ inputs.config-server-tag || 'latest' }}\` |"
+            echo "| site-management-tag | \`${{ inputs.site-management-tag || 'latest' }}\` |"
+            echo "| mesh-test-spring-tag | \`${{ inputs.mesh-test-spring-tag || 'latest' }}\` |"
+            echo "| mesh-test-quarkus-tag | \`${{ inputs.mesh-test-quarkus-tag || 'latest' }}\` |"
+            echo "| mesh-test-go-tag | \`${{ inputs.mesh-test-go-tag || 'latest' }}\` |"
+            echo "| mesh-type | \`${{ inputs.mesh-type || 'Core' }}\` |"
+            echo "| test-usecase | \`${{ inputs.test-usecase || '' }}\` |"
+            echo "| run-tests-for | \`${{ inputs.run-tests-for || 'all' }}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "::group::Workflow input values"
+          echo "core-bootstrap-branch=${{ inputs.core-bootstrap-branch || 'main' }}"
+          echo "test-branch=${{ inputs.test-branch || 'main' }}"
+          echo "install-maas=${{ (inputs.install-maas && 'true') || 'false' }}"
+          echo "install-istio=${{ (inputs.install-istio && 'true') || 'false' }}"
+          echo "istio-repo-branch=${{ inputs.istio-repo-branch || 'main' }}"
+          echo "core-mesh-config-repo-branch=${{ inputs.core-mesh-config-repo-branch || 'main' }}"
+          echo "do-resources-workaround=${{ (inputs.do-resources-workaround && 'true') || 'false' }}"
+          echo "facade-operator-tag=${{ inputs.facade-operator-tag || 'latest' }}"
+          echo "ingress-gateway-tag=${{ inputs.ingress-gateway-tag || 'latest' }}"
+          echo "control-plane-tag=${{ inputs.control-plane-tag || 'latest' }}"
+          echo "paas-mediation-tag=${{ inputs.paas-mediation-tag || 'latest' }}"
+          echo "dbaas-agent-tag=${{ inputs.dbaas-agent-tag || 'latest' }}"
+          echo "core-operator-tag=${{ inputs.core-operator-tag || 'latest' }}"
+          echo "config-server-tag=${{ inputs.config-server-tag || 'latest' }}"
+          echo "site-management-tag=${{ inputs.site-management-tag || 'latest' }}"
+          echo "mesh-test-spring-tag=${{ inputs.mesh-test-spring-tag || 'latest' }}"
+          echo "mesh-test-quarkus-tag=${{ inputs.mesh-test-quarkus-tag || 'latest' }}"
+          echo "mesh-test-go-tag=${{ inputs.mesh-test-go-tag || 'latest' }}"
+          echo "mesh-type=${{ inputs.mesh-type || 'Core' }}"
+          echo "test-usecase=${{ inputs.test-usecase || '' }}"
+          echo "run-tests-for=${{ inputs.run-tests-for || 'all' }}"
+          echo "::endgroup::"
 
       - name: Document workflow input values
         shell: bash
@@ -497,15 +563,70 @@ jobs:
           path: artifacts/*
 
       - name: Upload Istio logs
-        if: ${{ (failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure') }}
+        if: ${{ inputs.install-istio && (failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure') }}
         uses: actions/upload-artifact@v4
         with:
           name: istio-logs
           path: |
             ./core-bootstrap-repo/cloud-core-local-dev/istio/test/istio-logs
 
+      - name: Setup istioctl
+        if: ${{ inputs.install-istio && (failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure') }}
+        uses: istio/get-istioctl@main
+
+      - name: Check gateway proxy config
+        if: ${{ inputs.install-istio && (failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure') }}
+        run: |
+          mkdir -p ./istio-gateways-proxy-config
+          
+          # Gateway
+          GW=$(kubectl get pods -n core -l gateway.networking.k8s.io/gateway-name=public-gateway \
+            -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+          
+          if [ -n "$GW" ]; then
+            echo "Getting gateway config from: $GW"
+            if istioctl proxy-config all "$GW" -n core -o json > "./istio-gateways-proxy-config/gateway_${GW}.json" 2>"./istio-gateways-proxy-config/gateway_${GW}.stderr"; then
+              echo "Gateway config saved successfully"
+            else
+              echo "Failed to get gateway config for $GW" > "./istio-gateways-proxy-config/gateway_${GW}.error"
+            fi
+          else
+            echo "No gateway pod found with label gateway.networking.k8s.io/gateway-name=public-gateway"
+            echo "No gateway pod found" > ./istio-gateways-proxy-config/gateway_missing.log
+          fi
+
+      - name: Check waypoint proxy config
+        if: ${{ inputs.install-istio && (failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure') }}
+        run: |
+          WP=$(kubectl get pods -n core -l gateway.networking.k8s.io/gateway-name=waypoint \
+            -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+          
+          if [ -n "$WP" ]; then
+            echo "Getting waypoint config from: $WP"
+            if istioctl proxy-config all "$WP" -n core -o json > "./istio-gateways-proxy-config/waypoint_${WP}.json" 2>"./istio-gateways-proxy-config/waypoint_${WP}.stderr"; then
+              echo "Waypoint config saved successfully"
+            else
+              echo "Failed to get waypoint config for $WP" > "./istio-gateways-proxy-config/waypoint_${WP}.error"
+            fi
+          else
+            echo "No waypoint pod found with label gateway.networking.k8s.io/gateway-name=waypoint"
+            echo "No waypoint pod found" > ./istio-gateways-proxy-config/waypoint_missing.log
+          fi
+
+      - name: Upload Istio Gateways proxy config
+        if: ${{ inputs.install-istio && (failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: istio-gateways-proxy-config
+          path: |
+            ./istio-gateways-proxy-config/*
+          if-no-files-found: warn
+          retention-days: 7    
+
       - name: Collect Kubernetes diagnostics
         if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure' }}
+        env:
+          COLLECT_LOGS_FOR: ${{ inputs.collect-logs-for || '' }}
         run: |
           set +e
 
@@ -529,8 +650,16 @@ jobs:
             kubectl get deployments -A || true
 
             echo
+            echo "==== SERVICES ===="
+            kubectl get services -A || true
+
+            echo
             echo "==== HTTPROUTES ===="
             kubectl get httproute -A -o yaml|| true
+
+            echo
+            echo "==== ENVOY FILTERS ===="
+            kubectl get envoyfilter -A -o yaml|| true
 
             echo
             echo "==== EVENTS (CHRONOLOGICAL) ===="
@@ -551,44 +680,73 @@ jobs:
 
           } > cluster-state.txt 2>&1
 
-
-          echo "==== Collecting unhealthy pod logs ===="
-
           {
+            collect_pod_logs() {
+              local pod_file="$1"
+              local empty_message="$2"
+              
+              if [ ! -s "$pod_file" ]; then
+                echo "$empty_message"
+                return
+              fi
+              
+              while read -r ns pod phase; do
+                echo
+                echo "################################################"
+                echo "# Pod: $pod"
+                echo "# Namespace: $ns"
+                echo "# Phase: $phase"
+                echo "################################################"
+                
+                echo
+                echo "---- kubectl describe ----"
+                kubectl describe pod "$pod" -n "$ns" || true
+                
+                echo
+                echo "---- container logs ----"
+                for c in $(kubectl get pod "$pod" -n "$ns" -o jsonpath='{.spec.containers[*].name}' 2>/dev/null); do
+                  echo
+                  echo "-- logs for container: $c"
+                  kubectl logs -n "$ns" "$pod" -c "$c" --tail=200 || true
+                  
+                  echo
+                  echo "-- previous logs for container: $c"
+                  kubectl logs -n "$ns" "$pod" -c "$c" --previous --tail=200 || true
+                done
+              done < "$pod_file"
+            }
+            
+            echo "==== Collecting unhealthy pod logs ===="
             kubectl get pods -A \
               -o jsonpath='{range .items[?(@.status.phase!="Running" && @.status.phase!="Succeeded")]}{.metadata.namespace} {.metadata.name} {.status.phase}{"\n"}{end}' \
               > /tmp/unhealthy-pods.txt || true
+            
+            collect_pod_logs /tmp/unhealthy-pods.txt "No unhealthy pods found"
+            
+            echo "==== Collecting logs for labeled pods ===="
 
-            if [ ! -s /tmp/unhealthy-pods.txt ]; then
-              echo "No unhealthy pods found"
+            : > /tmp/load-logs-pods.txt || true
+
+            if [ -n "$COLLECT_LOGS_FOR" ]; then
+              IFS=',' read -ra LABELS <<< "$COLLECT_LOGS_FOR"
+              for lbl in "${LABELS[@]}"; do
+                lbl_trimmed=$(echo "$lbl" | xargs)
+                if [ -z "$lbl_trimmed" ]; then
+                  continue
+                fi
+                echo "Collecting pods for label selector: $lbl_trimmed"
+                kubectl get pods -A -l "$lbl_trimmed" \
+                  -o jsonpath='{range .items[*]}{.metadata.namespace} {.metadata.name} {.status.phase}{"\n"}{end}' \
+                  >> /tmp/load-logs-pods.txt || true
+              done
             fi
 
-            while read -r ns pod phase; do
-              echo
-              echo "################################################"
-              echo "# Pod: $pod"
-              echo "# Namespace: $ns"
-              echo "# Phase: $phase"
-              echo "################################################"
-
-              echo
-              echo "---- kubectl describe ----"
-              kubectl describe pod "$pod" -n "$ns" || true
-
-              echo
-              echo "---- container logs ----"
-              for c in $(kubectl get pod "$pod" -n "$ns" -o jsonpath='{.spec.containers[*].name}' 2>/dev/null); do
-                echo
-                echo "-- logs for container: $c"
-                kubectl logs -n "$ns" "$pod" -c "$c" --tail=200 || true
-
-                echo
-                echo "-- previous logs for container: $c"
-                kubectl logs -n "$ns" "$pod" -c "$c" --previous --tail=200 || true
-              done
-            done < /tmp/unhealthy-pods.txt
-
-          } > unhealthy-pods-logs.txt 2>&1
+            collect_pod_logs /tmp/load-logs-pods.txt "No pods found for provided labels: $COLLECT_LOGS_FOR"
+            
+            # cleanup
+            rm -f /tmp/unhealthy-pods.txt /tmp/load-logs-pods.txt
+            
+          } > pods-logs.txt 2>&1
       
       - name: Upload Kubernetes diagnostics
         if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure' }}
@@ -597,4 +755,4 @@ jobs:
           name: kind-k8s-debug${{ inputs.test-usecase != '' && format('-{0}', inputs.test-usecase) || '' }}
           path: |
             cluster-state.txt
-            unhealthy-pods-logs.txt
+            pods-logs.txt

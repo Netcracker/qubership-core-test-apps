@@ -71,7 +71,7 @@ public class PromoteIT {
 	@Test
 	@Tag("bg-e2e-phase:after-promote-#3[baseline]")
 	public void testNodePorts2() throws Exception {
-		validateNodePorts(platformClientOrigin, ORIGIN_NAMESPACE, internalGWServerUrlOrigin);
+		validateNodePorts(platformClientOrigin, ORIGIN_NAMESPACE, privateGWServerUrlPeer);
 	}
 
 	@Test
