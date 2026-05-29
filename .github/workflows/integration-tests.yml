@@ -122,6 +122,11 @@ on:
         required: false
         default: 'all'
         type: string
+      collect-logs-for:
+        description: 'Labels of services which logs are required to collect for debugging. Comma-separated label_name=value pairs (name=mesh-test-service-spring-v1,app=control-plane, app.kubernetes.io/name=public-gateway)'
+        required: false
+        default: ''
+        type: string
 
   workflow_dispatch:
     inputs:
@@ -244,7 +249,11 @@ on:
         required: false
         default: 'all'
         type: string
-  
+      collect-logs-for:
+        description: 'Labels of services which logs are required to collect for debugging. Comma-separated label_name=value pairs (name=mesh-test-service-spring-v1,app=control-plane, app.kubernetes.io/name=public-gateway)'
+        required: false
+        default: ''
+        type: string
 
 jobs:
   integration-tests:
@@ -500,6 +509,8 @@ jobs:
 
       - name: Collect Kubernetes diagnostics
         if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure' }}
+        env:
+          COLLECT_LOGS_FOR: ${{ inputs.collect-logs-for || '' }}
         run: |
           set +e
 
@@ -597,25 +608,22 @@ jobs:
             collect_pod_logs /tmp/unhealthy-pods.txt "No unhealthy pods found"
             
             echo "==== Collecting logs for labeled pods ===="
-            kubectl get pods -A \
-              -l 'load-logs=true' \
-              -o jsonpath='{range .items[*]}{.metadata.namespace} {.metadata.name} {.status.phase}{"\n"}{end}' \
-              > /tmp/load-logs-pods.txt || true
 
-            kubectl get pods -n core \
-              -l 'app.kubernetes.io/name=waypoint' \
-              -o jsonpath='{range .items[*]}{.metadata.namespace} {.metadata.name} {.status.phase}{"\n"}{end}' \
-              >> /tmp/load-logs-pods.txt || true
+            : > /tmp/load-logs-pods.txt || true
 
-            kubectl get pods -n core \
-              -l 'app.kubernetes.io/name=internal-gateway' \
-              -o jsonpath='{range .items[*]}{.metadata.namespace} {.metadata.name} {.status.phase}{"\n"}{end}' \
-              >> /tmp/load-logs-pods.txt || true
-
-            kubectl get pods -n core \
-              -l 'app.kubernetes.io/name=public-gateway' \
-              -o jsonpath='{range .items[*]}{.metadata.namespace} {.metadata.name} {.status.phase}{"\n"}{end}' \
-              >> /tmp/load-logs-pods.txt || true  
+            if [ -n "$COLLECT_LOGS_FOR" ]; then
+              IFS=',' read -ra LABELS <<< "$COLLECT_LOGS_FOR"
+              for lbl in "${LABELS[@]}"; do
+                lbl_trimmed=$(echo "$lbl" | xargs)
+                if [ -z "$lbl_trimmed" ]; then
+                  continue
+                fi
+                echo "Collecting pods for label selector: $lbl_trimmed"
+                kubectl get pods -A -l "$lbl_trimmed" \
+                  -o jsonpath='{range .items[*]}{.metadata.namespace} {.metadata.name} {.status.phase}{"\n"}{end}' \
+                  >> /tmp/load-logs-pods.txt || true
+              done
+            fi
 
             collect_pod_logs /tmp/load-logs-pods.txt "No pods found with label load-logs=true"
             

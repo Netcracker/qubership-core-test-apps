@@ -33,4 +33,21 @@ public class RequestHeadersController {
                 ));
         return ResponseEntity.ok(headers);
     }
+
+    // Route-only specs: picked up by httproutes-generator, invisible to Spring (no @RestController).
+    // Each generates an HTTPRoute for its gateway type pointing at the same internal path.
+
+    @RequestMapping(ApiVersions.API + ApiVersions.V1 + "/request-headers")
+    @Route(RouteType.PRIVATE)
+    @GatewayRequestMapping(path = ApiVersions.API + ApiVersions.V1 + ApiVersions.SERVICE_NAME + "/request-headers")
+    static class PrivateGatewayRoute {
+        @RequestMapping(method = RequestMethod.GET) void route() {}
+    }
+
+    @RequestMapping(ApiVersions.API + ApiVersions.V1 + "/request-headers")
+    @Route(RouteType.INTERNAL)
+    @GatewayRequestMapping(path = ApiVersions.API + ApiVersions.V1 + ApiVersions.SERVICE_NAME + "/request-headers")
+    static class InternalGatewayRoute {
+        @RequestMapping(method = RequestMethod.GET) void route() {}
+    }
 }
