@@ -14,8 +14,8 @@ show_usage() {
     echo "Usage: $0 [--profile PROFILE] [--exec-mode MODE] [--mesh-type SERVICE_MESH_TYPE] <kube-context> <namespace> <node-ip-mapping> [service-name:test-folder ...]"
     echo ""
     echo "Options:"
-    echo "  --profile PROFILE, -p PROFILE        Maven profile to use (optional)"
-    echo "  --exec-mode MODE, -e MODE            Executor mode (optional): EXEC_IN_POD or PORT_FORWARD"
+    echo "  --profile PROFILE, -p PROFILE                        Maven profile to use (optional)"
+    echo "  --exec-mode MODE, -e MODE                            Executor mode (optional): EXEC_IN_POD or PORT_FORWARD"
     echo "  --mesh-type SERVICE_MESH_TYPE, -m SERVICE_MESH_TYPE  Service mesh type (Core or Istio)"
     echo ""
     echo "Required arguments:"
@@ -100,7 +100,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Check if all required arguments are provided
-if [[ -z "$1" || -z "$2" || -z "$3" || -z "$4" ]]; then
+if [[ -z "$1" || -z "$2" || -z "$3" ]]; then
     echo "Error: All required arguments are missing!"
     echo ""
     show_usage
@@ -117,7 +117,7 @@ NODE_IP_MAPPING="$3"
 declare -a TEST_SERVICES=()
 declare -a TEST_FOLDERS=()
 
-shift 4  # Remove first 4 arguments
+shift 3  # Remove first 3 arguments
 
 if [[ $# -eq 0 ]]; then
     # Default behavior: use mesh-integration-tests
