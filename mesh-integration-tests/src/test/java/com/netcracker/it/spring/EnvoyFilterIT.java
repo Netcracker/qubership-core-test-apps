@@ -9,7 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import okhttp3.Request;
 import okhttp3.Response;
 import org.junit.jupiter.api.*;
-import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -70,7 +70,7 @@ public class EnvoyFilterIT {
     }
 
     @Test
-    @EnabledIfEnvironmentVariable(named = "SERVICE_MESH_TYPE", matches = "Istio")
+    @EnabledIfSystemProperty(named = "mesh.type", matches = "Istio")
     void testExternalRequestIdPreservedThroughWaypoint() throws IOException {
         ProxyResponse proxy = fetchProxyResponse(INTERNAL_HELLO);
         assertNotNull(proxy.getHeaders().get("x-request-id"),
@@ -90,7 +90,7 @@ public class EnvoyFilterIT {
 
     @ParameterizedTest(name = "[{index}] {0}")
     @MethodSource("gatewayUrls")
-    @EnabledIfEnvironmentVariable(named = "SERVICE_MESH_TYPE", matches = "Istio")
+    @EnabledIfSystemProperty(named = "mesh.type", matches = "Istio")
     void testNoXEnvoyHeadersInResponse(String gatewayName, URL baseUrl) throws IOException {
         okhttp3.Headers responseHeaders = executeAndGetResponseHeaders( 
                 baseUrl, HELLO_PATH, Collections.emptyMap());
@@ -111,7 +111,7 @@ public class EnvoyFilterIT {
     // ── 3. override timeouts — waypoint ───────────────────────────────────────
 
     @Test
-    @EnabledIfEnvironmentVariable(named = "SERVICE_MESH_TYPE", matches = "Istio")
+    @EnabledIfSystemProperty(named = "mesh.type", matches = "Istio")
     void testRequestThroughWaypointSucceeds() throws IOException {
         long start = System.currentTimeMillis();
         ProxyResponse proxy = fetchProxyResponse(INTERNAL_HELLO);
@@ -124,7 +124,7 @@ public class EnvoyFilterIT {
 
     @Test
     @Tag("slow")
-    @EnabledIfEnvironmentVariable(named = "SERVICE_MESH_TYPE", matches = "Istio")
+    @EnabledIfSystemProperty(named = "mesh.type", matches = "Istio")
     void testTimeoutOverriddenViaHttpRoute() throws IOException {
         long start = System.currentTimeMillis();
         ProxyResponse proxy = fetchProxyResponse(INTERNAL_SLEEP);

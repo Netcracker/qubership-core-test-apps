@@ -625,7 +625,7 @@ jobs:
               done
             fi
 
-            collect_pod_logs /tmp/load-logs-pods.txt "No pods found with label load-logs=true"
+            collect_pod_logs /tmp/load-logs-pods.txt "No pods found for provided labels: $COLLECT_LOGS_FOR"
             
             # cleanup
             rm -f /tmp/unhealthy-pods.txt /tmp/load-logs-pods.txt
