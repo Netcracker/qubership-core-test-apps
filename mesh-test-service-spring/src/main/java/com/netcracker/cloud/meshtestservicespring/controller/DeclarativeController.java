@@ -1,6 +1,10 @@
 package com.netcracker.cloud.meshtestservicespring.controller;
 
 import com.netcracker.cloud.meshtestservicespring.configuration.ApiVersions;
+import com.netcracker.cloud.routesregistration.common.annotation.Route;
+import com.netcracker.cloud.routesregistration.common.gateway.route.RouteType;
+import com.netcracker.cloud.routesregistration.common.spring.gateway.route.annotation.GatewayRequestMapping;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;

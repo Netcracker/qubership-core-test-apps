@@ -100,6 +100,8 @@ spec:
         path:
           type: ReplacePrefixMatch
           replacePrefixMatch: /api/v1/sleep
+    timeouts:
+        request: 10s
     backendRefs:
     - kind: Service
       name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
@@ -310,3 +312,38 @@ spec:
       port: 8080
 {{- end }}
 {{ end }}
+{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: mesh-test-service-spring-internal-routes
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "istiod"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  parentRefs:
+  - kind: Service
+    group: ''
+    name: "internal-gateway-service"
+    port: 8080
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/mesh-test-service-spring/sleep
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /api/v1/sleep
+    timeouts:
+        request: 10s
+    backendRefs:
+    - kind: Service
+      name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
+      port: 8080
+{{- end }}

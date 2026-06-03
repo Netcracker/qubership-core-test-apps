@@ -50,13 +50,13 @@ public class CommitIT {
 	@Tag("bg-e2e-phase:after-commit-#1[baseline]")
     @Disabled
 	public void testNodePorts1() throws Exception {
-		validateNodePorts(platformClientOrigin, PEER_NAMESPACE, internalGWServerUrl);
+		validateNodePorts(platformClientOrigin, PEER_NAMESPACE, publicGWServerUrlController);
 	}
 
 	@Test
 	@Tag("bg-e2e-phase:after-commit-#2[baseline]")
 	public void testNodePorts2() throws Exception {
-		validateNodePorts(platformClientOrigin, ORIGIN_NAMESPACE, internalGWServerUrl);
+		validateNodePorts(platformClientOrigin, ORIGIN_NAMESPACE, publicGWServerUrlController);
 	}
 
 	@Test
