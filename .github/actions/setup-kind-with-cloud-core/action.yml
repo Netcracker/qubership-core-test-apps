@@ -74,27 +74,27 @@ runs:
         echo "127.0.0.1 cluster.local" | sudo tee -a /etc/hosts
 
     - name: Set up Kind
-      uses: helm/kind-action@v1.12.0
+      uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
       with:
         cluster_name: kind
 
     # Install Helm 4 - required by core-mesh-config
     - name: Install Helm 4
-      uses: azure/setup-helm@v4
+      uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4
       with:
          version: v4.0.1  
 
     - name: Set up kubectl
-      uses: azure/setup-kubectl@v4
+      uses: azure/setup-kubectl@776406bce94f63e41d621b960d78ee25c8b76ede # v4
 
     - name: Set up JDK 21
-      uses: actions/setup-java@v3
+      uses: actions/setup-java@17f84c3641ba7b8f6deff6309fc4c864478f5d62 # v3
       with:
         java-version: '21'
         distribution: temurin
 
     - name: Checkout cloud core bootstrap repo
-      uses: actions/checkout@v4
+      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       with:
         repository: Netcracker/qubership-core-bootstrap
         ref: ${{ inputs.core-bootstrap-branch }}
