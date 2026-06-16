@@ -43,7 +43,7 @@ INGRESS_CLASS: ""
 K8S_SERVICE_TYPE: 'HEADLESS'
 CLOUD_PUBLIC_HOST: "svc.cluster.local"
 CLOUD_PRIVATE_HOST: "svc.cluster.local"
-CR_SYNCHRONIZER_IMAGE: "ghcr.io/netcracker/cr-synchronizer:latest@sha256:f62bab0ffb812de90e0a1df26837ba63fde35480dc30ba8b5e443b942f2d1ea7"
+CR_SYNCHRONIZER_IMAGE: "ghcr.io/netcracker/cr-synchronizer:latest@sha256:acfa890ff68a2b2d50f58e69a52ed976376c6d96f7dbfb608598d8dbe62180e1"
 EXTERNAL_IPS: '' # TO_BE_REPLACED
 DEPLOYMENT_SESSION_ID:
 RESOURCE_POLLING_TIMEOUT: 60
