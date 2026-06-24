@@ -1,5 +1,6 @@
 package com.netcracker.it.security;
 
+import io.fabric8.kubernetes.client.Config;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientBuilder;
 
@@ -14,7 +15,8 @@ import java.util.stream.Collectors;
  *
  * <p>The client auto-configures from the current kubeconfig context and honors the same
  * {@code kubernetes.master} system property the integration-test runner sets, so the tests reach the
- * same cluster as the rest of the suite.
+ * same cluster as the rest of the suite. TLS verification is disabled because the runner points the
+ * client at {@code https://cluster.local:<port>}, a name the API server certificate does not list.
  */
 public final class KubeSupport {
 
@@ -22,7 +24,14 @@ public final class KubeSupport {
     }
 
     public static KubernetesClient newClient() {
-        return new KubernetesClientBuilder().build();
+        Config config = Config.autoConfigure(null);
+        config.setTrustCerts(true);
+        config.setDisableHostnameVerification(true);
+        String master = System.getProperty("kubernetes.master");
+        if (master != null && !master.isBlank()) {
+            config.setMasterUrl(master);
+        }
+        return new KubernetesClientBuilder().withConfig(config).build();
     }
 
     /**
