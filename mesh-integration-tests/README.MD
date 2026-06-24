@@ -45,6 +45,33 @@ mvn -Dtest=HttpIT clean verify -P integration-test ...
 mvn -Dtest=*IT clean verify -P integration-test ...
 ```
 
+### Security tests
+
+The `com.netcracker.it.security` package checks that deployed workloads meet the container security
+baseline. `CoreMicroservicesSecurityIT` scans every Deployment, StatefulSet, and DaemonSet in the test
+namespace and asserts the full baseline: non-root, no privilege escalation, a read-only root filesystem,
+all capabilities dropped, the RuntimeDefault seccomp profile, a tagged image, and no host network, PID,
+IPC, or path. `IstioSecurityIT` holds istiod to the same baseline and verifies that the CNI agent and
+ztunnel stay within their documented exception — never fully privileged, still dropping all capabilities,
+and adding only the capabilities they require by design.
+
+Run only the security tests:
+
+```bash
+mvn -Dtest='*SecurityIT' clean test -P integration-test \
+  -Dsecurity.test.namespace=<test-namespace> \
+  -Dsecurity.test.istio.namespace=istio-system \
+  -Dkubernetes.master=https://cluster.local:${API_SERVER_PORT}
+```
+
+Options:
+- `-Dsecurity.test.namespace` — namespace holding the core microservices. Defaults to the runner's
+  `ORIGIN_NAMESPACE`, then `core`.
+- `-Dsecurity.test.istio.namespace` — namespace holding Istio. Defaults to `istio-system`.
+- `-Dsecurity.test.exclude=name1,name2` — workload names to skip in the core-microservices scan.
+
+A failure lists the offending workload, container, and the specific requirement it violates.
+
 ### Where to find reports
 After execution, JUnit/Surefire reports are written to:
 
