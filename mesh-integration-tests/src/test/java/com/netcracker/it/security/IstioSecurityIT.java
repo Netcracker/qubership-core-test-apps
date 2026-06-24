@@ -11,6 +11,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Asserts that the Istio control plane and data plane match their documented security posture.
@@ -41,6 +42,10 @@ class IstioSecurityIT {
     static void connect() {
         client = KubeSupport.newClient();
         namespace = KubeSupport.istioNamespace();
+        boolean istioInstalled = KubeSupport.workloads(client, namespace).stream()
+                .anyMatch(workload -> workload.name().equals("istiod"));
+        assumeTrue(istioInstalled,
+                "Istio is not installed in '" + namespace + "'; skipping Istio security tests.");
     }
 
     @AfterAll
