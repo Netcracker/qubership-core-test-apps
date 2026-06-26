@@ -5,18 +5,14 @@ import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientBuilder;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * Cluster access and configuration for the security tests.
  *
  * <p>The client auto-configures from the current kubeconfig context and honors the same
  * {@code kubernetes.master} system property the integration-test runner sets, so the tests reach the
- * same cluster as the rest of the suite. TLS verification is disabled because the runner points the
- * client at {@code https://cluster.local:<port>}, a name the API server certificate does not list.
+ * same cluster as the rest of the suite.
  */
 public final class KubeSupport {
 
@@ -55,24 +51,15 @@ public final class KubeSupport {
                 "istio-system");
     }
 
-    /** Workload names to skip, as a comma-separated {@code -Dsecurity.test.exclude=a,b} list. */
-    public static Set<String> excludedWorkloads() {
-        String raw = System.getProperty("security.test.exclude", "");
-        return Arrays.stream(raw.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .collect(Collectors.toSet());
-    }
-
     /** Every Deployment, StatefulSet, and DaemonSet in the namespace, as {@link Workload} records. */
     public static List<Workload> workloads(KubernetesClient client, String namespace) {
         List<Workload> out = new ArrayList<>();
         client.apps().deployments().inNamespace(namespace).list().getItems().forEach(d ->
-                out.add(new Workload("Deployment", d.getMetadata().getName(), namespace, d.getSpec().getTemplate())));
+                out.add(new Workload(Workload.Kind.DEPLOYMENT, d.getMetadata().getName(), namespace, d.getSpec().getTemplate())));
         client.apps().statefulSets().inNamespace(namespace).list().getItems().forEach(s ->
-                out.add(new Workload("StatefulSet", s.getMetadata().getName(), namespace, s.getSpec().getTemplate())));
+                out.add(new Workload(Workload.Kind.STATEFUL_SET, s.getMetadata().getName(), namespace, s.getSpec().getTemplate())));
         client.apps().daemonSets().inNamespace(namespace).list().getItems().forEach(ds ->
-                out.add(new Workload("DaemonSet", ds.getMetadata().getName(), namespace, ds.getSpec().getTemplate())));
+                out.add(new Workload(Workload.Kind.DAEMON_SET, ds.getMetadata().getName(), namespace, ds.getSpec().getTemplate())));
         return out;
     }
 

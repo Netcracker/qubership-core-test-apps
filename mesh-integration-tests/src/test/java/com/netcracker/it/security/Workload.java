@@ -9,7 +9,25 @@ import io.fabric8.kubernetes.api.model.PodTemplateSpec;
  * <p>Security requirements apply to the pod template rather than to live pods, because the template
  * is what the deployment owns and what a scanner can enforce before rollout.
  */
-public record Workload(String kind, String name, String namespace, PodTemplateSpec template) {
+public record Workload(Kind kind, String name, String namespace, PodTemplateSpec template) {
+
+    /** Workload kinds the security tests inspect. The display name matches the Kubernetes {@code kind}. */
+    public enum Kind {
+        DEPLOYMENT("Deployment"),
+        STATEFUL_SET("StatefulSet"),
+        DAEMON_SET("DaemonSet");
+
+        private final String displayName;
+
+        Kind(String displayName) {
+            this.displayName = displayName;
+        }
+
+        @Override
+        public String toString() {
+            return displayName;
+        }
+    }
 
     public PodSpec podSpec() {
         return template.getSpec();

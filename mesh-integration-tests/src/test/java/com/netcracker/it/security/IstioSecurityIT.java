@@ -57,15 +57,15 @@ class IstioSecurityIT {
 
     @Test
     void istiodMeetsFullBaseline() {
-        Workload istiod = require("Deployment", "istiod");
-        List<String> violations = SecurityRequirements.checkStrict(istiod, Set.of());
+        Workload istiod = require(Workload.Kind.DEPLOYMENT, "istiod");
+        List<String> violations = SecurityRequirements.checkStrict(istiod);
         assertTrue(violations.isEmpty(),
                 () -> "istiod must meet the full security baseline:\n  - " + String.join("\n  - ", violations));
     }
 
     @Test
     void cniAgentStaysWithinDocumentedException() {
-        Workload cni = require("DaemonSet", "istio-cni-node");
+        Workload cni = require(Workload.Kind.DAEMON_SET, "istio-cni-node");
         List<String> violations = SecurityRequirements.checkDocumentedException(cni, CNI_ALLOWED_CAPABILITIES, true);
         assertTrue(violations.isEmpty(),
                 () -> "istio-cni-node exceeds its documented security exception:\n  - "
@@ -74,7 +74,7 @@ class IstioSecurityIT {
 
     @Test
     void ztunnelStaysWithinDocumentedException() {
-        Workload ztunnel = require("DaemonSet", "ztunnel");
+        Workload ztunnel = require(Workload.Kind.DAEMON_SET, "ztunnel");
         List<String> violations =
                 SecurityRequirements.checkDocumentedException(ztunnel, ZTUNNEL_ALLOWED_CAPABILITIES, false);
         assertTrue(violations.isEmpty(),
@@ -82,9 +82,9 @@ class IstioSecurityIT {
                         + String.join("\n  - ", violations));
     }
 
-    private Workload require(String kind, String name) {
+    private Workload require(Workload.Kind kind, String name) {
         Workload workload = KubeSupport.workloads(client, namespace).stream()
-                .filter(candidate -> candidate.kind().equals(kind) && candidate.name().equals(name))
+                .filter(candidate -> candidate.kind() == kind && candidate.name().equals(name))
                 .findFirst()
                 .orElse(null);
         assertNotNull(workload, () -> kind + " '" + name + "' not found in namespace '" + namespace

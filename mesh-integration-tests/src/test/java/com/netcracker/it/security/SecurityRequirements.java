@@ -29,24 +29,17 @@ public final class SecurityRequirements {
     private SecurityRequirements() {
     }
 
-    /** Containers Istio injects into application pods; the application baseline does not own them. */
-    public static final Set<String> ISTIO_INJECTED_CONTAINERS =
-            Set.of("istio-proxy", "istio-init", "istio-validation", "enable-core-dump");
-
     /**
-     * Full baseline. Every container (minus {@code skipContainers}) must run unprivileged and non-root,
-     * drop all capabilities and add none, use a read-only root filesystem and the RuntimeDefault seccomp
-     * profile, and pull a tagged image. The pod must not touch the host network, PID, IPC, or filesystem.
+     * Full baseline. Every container must run unprivileged and non-root, drop all capabilities and add
+     * none, use a read-only root filesystem and the RuntimeDefault seccomp profile, and pull a tagged
+     * image. The pod must not touch the host network, PID, IPC, or filesystem.
      */
-    public static List<String> checkStrict(Workload workload, Set<String> skipContainers) {
+    public static List<String> checkStrict(Workload workload) {
         List<String> violations = new ArrayList<>();
         checkPodLevel(workload, violations, false);
 
         PodSpec pod = workload.podSpec();
         for (Container container : allContainers(pod)) {
-            if (skipContainers.contains(container.getName())) {
-                continue;
-            }
             String where = workload.id() + "/" + container.getName();
             SecurityContext sc = container.getSecurityContext();
 

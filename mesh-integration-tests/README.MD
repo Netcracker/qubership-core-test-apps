@@ -68,7 +68,6 @@ Options:
 - `-Dsecurity.test.namespace` — namespace holding the core microservices. Defaults to the runner's
   `ORIGIN_NAMESPACE`, then `core`.
 - `-Dsecurity.test.istio.namespace` — namespace holding Istio. Defaults to `istio-system`.
-- `-Dsecurity.test.exclude=name1,name2` — workload names to skip in the core-microservices scan.
 
 A failure lists the offending workload, container, and the specific requirement it violates.
 
