@@ -80,21 +80,21 @@ runs:
 
     # Install Helm 4 - required by core-mesh-config
     - name: Install Helm 4
-      uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4
+      uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
       with:
          version: v4.2.1  
 
     - name: Set up kubectl
-      uses: azure/setup-kubectl@776406bce94f63e41d621b960d78ee25c8b76ede # v4
+      uses: azure/setup-kubectl@829323503d1be3d00ca8346e5391ca0b07a9ab0d # v5
 
     - name: Set up JDK 21
-      uses: actions/setup-java@17f84c3641ba7b8f6deff6309fc4c864478f5d62 # v3
+      uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5
       with:
         java-version: '21'
         distribution: temurin
 
     - name: Checkout cloud core bootstrap repo
-      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       with:
         repository: Netcracker/qubership-core-bootstrap
         ref: ${{ inputs.core-bootstrap-branch }}
