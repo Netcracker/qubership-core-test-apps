@@ -80,7 +80,7 @@ public class CommonOperations {
 
     public static void validateNodePorts(KubernetesClient platformClient, String namespace, URL gateway) throws Exception {
         log.info("Test node ports on '{}' namespace", namespace);
-        String springNodeIp = getNodeIp(platformClient, namespace, "mesh-test-service-spring-v1");
+        String springNodeIp = getNodeIp(platformClient, namespace, Const.MESH_TEST_SERVICE_SPRING_V1);
 
         TraceResponse traceResponse = sendPostTextRequest(gateway + GO_TO_SPRING_TCP_URL, springNodeIp + ":" + MESH_TCP_NODE_PORT_VALUE, 200);
         log.info("Trace response '{}'", traceResponse);

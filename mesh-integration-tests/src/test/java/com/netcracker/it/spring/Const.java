@@ -87,6 +87,7 @@ public class Const {
     public static final String GO_TO_SPRING_TCP_URL = "api/v1/" + GO_SERVICE_NAME + "/proxy/tcp";
     public static final String QUARKUS_TO_GO_URL = "api/v1/" + QUARKUS_SERVICE_NAME + "/hello/go";
     public static final String BG_PLUGIN_EXAMPLE_HISTORY = "api/v1/history";
+    public static final String MESH_TEST_SERVICE_SPRING_V1 = "mesh-test-service-spring-v1";
     public static final String MESH_TEST_SERVICE_GO_V1 = "mesh-test-service-go-v1";
     public static final String MESH_TEST_SERVICE_GO_HPA = "mesh-test-service-go-hpa";
     public static final int HPA_TEST_COUNT_OF_REPLICAS = 4;

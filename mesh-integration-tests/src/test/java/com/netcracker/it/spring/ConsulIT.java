@@ -10,7 +10,7 @@ import java.net.URL;
 @EnableExtension
 public class ConsulIT extends ConsulITBase {
 
-    @PortForward(serviceName = @Value("mesh-test-service-spring-v1"))
+    @PortForward(serviceName = @Value(Const.MESH_TEST_SERVICE_SPRING_V1))
     private static URL springServiceUrl;
 
     @Override

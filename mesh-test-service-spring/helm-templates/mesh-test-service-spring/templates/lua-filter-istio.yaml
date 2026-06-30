@@ -1,0 +1,160 @@
+{{- define "mesh-test-service-spring.luaFilterInlineCode" -}}
+function envoy_on_request(request_handle)
+  local path = request_handle:headers():get(":path")
+  if not string.find(path, "/api/v1/{{ .Values.SERVICE }}/lua-filter/", 1, true) then
+    return
+  end
+  request_handle:logInfo("Path: " .. path)
+  local uuid = string.match(path, ".*/([a-z0-9-]+)$")
+  if uuid then
+    request_handle:logInfo("UUID: " .. uuid)
+    request_handle:headers():add("X-Uuid", uuid)
+  else
+    request_handle:logInfo("no uuid found")
+  end
+end
+{{- end }}
+{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: lua-filter-it-public
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "istiod"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: public-gateway
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/v1/{{ .Values.SERVICE }}/lua-filter/
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
+          port: 8080
+          weight: 1
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: lua-filter-it
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "istiod"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  parentRefs:
+    - group: ""
+      kind: Service
+      name: internal-gateway-service
+      port: 8080
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/v1/{{ .Values.SERVICE }}/lua-filter/
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
+          port: 8080
+          weight: 1
+{{- if semverCompare ">=1.30.0" .Values.ISTIO_VERSION }}
+---
+apiVersion: extensions.istio.io/v1alpha1
+kind: TrafficExtension
+metadata:
+  name: lua-filter-it
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  targetRefs:
+    - kind: Gateway
+      group: gateway.networking.k8s.io
+      name: public-gateway
+    - kind: Gateway
+      group: gateway.networking.k8s.io
+      name: waypoint
+  phase: STATS
+  lua:
+    inlineCode: |
+{{ include "mesh-test-service-spring.luaFilterInlineCode" . | indent 6 }}
+{{- else if semverCompare "<1.30.0" .Values.ISTIO_VERSION }}
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: lua-filter-it
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  targetRefs:
+    - kind: Gateway
+      group: gateway.networking.k8s.io
+      name: public-gateway
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+              subFilter:
+                name: envoy.filters.http.router
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.lua
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
+            stat_prefix: lua
+            inline_code: |
+{{ include "mesh-test-service-spring.luaFilterInlineCode" . | indent 14 }}
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: lua-filter-it-waypoint
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  targetRefs:
+    - kind: Gateway
+      group: gateway.networking.k8s.io
+      name: waypoint
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        listener:
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+              subFilter:
+                name: envoy.filters.http.router
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.lua
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
+            stat_prefix: lua
+            inline_code: |
+{{ include "mesh-test-service-spring.luaFilterInlineCode" . | indent 14 }}
+{{- end }}
+{{- end }}
