@@ -2,8 +2,8 @@ package com.netcracker.it.spring.utils;
 
 import com.netcracker.cloud.junit.cloudcore.extension.service.Endpoint;
 import com.netcracker.cloud.junit.cloudcore.extension.service.NetSocketAddress;
-import com.netcracker.cloud.junit.cloudcore.extension.service.PortForwardParams;
 import com.netcracker.cloud.junit.cloudcore.extension.service.PortForwardService;
+import com.netcracker.cloud.junit.cloudcore.extension.service.ServicePortForwardParams;
 import lombok.Getter;
 
 import java.net.URL;
@@ -20,7 +20,9 @@ public class ClosablePortForward implements CloseableUrl {
 
     public ClosablePortForward(PortForwardService portForwardService, String namespace, String serviceName, int containerPort) {
         this.portForwardService = portForwardService;
-        PortForwardParams params = new PortForwardParams(serviceName, containerPort).withNamespace(namespace);
+        ServicePortForwardParams<NetSocketAddress> params = ServicePortForwardParams.builder(serviceName, containerPort)
+                .namespace(namespace)
+                .build();
         address = portForwardService.portForward(params);
         url =  address.toHttpUrl();
     }
