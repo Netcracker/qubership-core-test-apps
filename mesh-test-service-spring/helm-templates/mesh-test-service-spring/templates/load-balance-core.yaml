@@ -69,6 +69,7 @@ metadata:
 spec:
   cluster: mesh-test-service-spring-lb
   version: "{{ .Values.DEPLOYMENT_VERSION }}"
+  endpoint: http://mesh-test-service-spring-lb:8080
   policies:
     - header:
         headerName: X-User-Id
