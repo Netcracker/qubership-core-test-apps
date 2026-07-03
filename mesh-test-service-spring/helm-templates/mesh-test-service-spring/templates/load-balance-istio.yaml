@@ -1,0 +1,79 @@
+{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
+# Istio header-hash LB: /lb-header routes on public + internal gateways, DestinationRule on the dedicated
+# -lb Service hashes by X-User-Id (separate host avoids collision with the cookie DestinationRule).
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: mesh-test-service-spring-lb-header-routes
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "istiod"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  parentRefs:
+    - name: public-gateway
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/v1/{{ .Values.SERVICE }}/lb-header
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /api/v1/hello
+      backendRefs:
+        - kind: Service
+          name: mesh-test-service-spring-lb
+          port: 8080
+---
+# Internal path: route via internal-gateway-service Service so the waypoint applies the DestinationRule.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: mesh-test-service-spring-lb-header-internal-routes
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "istiod"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  parentRefs:
+    - kind: Service
+      group: ''
+      name: internal-gateway-service
+      port: 8080
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/v1/{{ .Values.SERVICE }}/lb-header
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /api/v1/hello
+      backendRefs:
+        - kind: Service
+          name: mesh-test-service-spring-lb
+          port: 8080
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: mesh-test-service-spring-lb-header
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  host: mesh-test-service-spring-lb
+  trafficPolicy:
+    loadBalancer:
+      consistentHash:
+        httpHeaderName: X-User-Id
+{{- end }}

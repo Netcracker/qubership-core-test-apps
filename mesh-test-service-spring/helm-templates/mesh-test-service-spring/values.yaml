@@ -23,7 +23,8 @@ PRIVATE_GATEWAY_URL: '' # TO_BE_REPLACED
 PUBLIC_GATEWAY_URL: '' # TO_BE_REPLACED
 # revisionHistoryLimit value for DC
 RC_REVISIONS: 3
-REPLICAS: 1
+# 2 replicas so load-balancing / stickiness (same-pod pinning) is observable by the integration tests
+REPLICAS: 2
 # Openshift server host name
 SERVER_HOSTNAME: '' # TO_BE_REPLACED 
 # Number of IO threads in Undertow server

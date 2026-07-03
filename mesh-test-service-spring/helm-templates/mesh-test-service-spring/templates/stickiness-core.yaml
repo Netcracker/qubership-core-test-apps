@@ -1,0 +1,76 @@
+{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}
+# Core cookie stickiness: /lb-test route on public + internal gateways, StatefulSession pins by cookie.
+---
+apiVersion: core.netcracker.com/v1
+kind: Mesh
+subKind: RouteConfiguration
+metadata:
+  name: mesh-test-service-spring-lb-test-routes
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "core-operator"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  gateways: ["public-gateway-service"]
+  virtualServices:
+    - name: public-gateway-service
+      hosts: ["*"]
+      routeConfiguration:
+        version: "{{ .Values.DEPLOYMENT_VERSION }}"
+        routes:
+          - destination:
+              cluster: "{{ .Values.SERVICE }}"
+              endpoint: http://{{ .Values.DEPLOYMENT_RESOURCE_NAME }}:8080
+            rules:
+              - match:
+                  prefix: /api/v1/{{ .Values.SERVICE }}/lb-test
+                allowed: true
+                prefixRewrite: /api/v1/hello
+---
+apiVersion: core.netcracker.com/v1
+kind: Mesh
+subKind: RouteConfiguration
+metadata:
+  name: mesh-test-service-spring-lb-test-internal-routes
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "core-operator"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  gateways: ["internal-gateway-service"]
+  virtualServices:
+    - name: internal-gateway-service
+      hosts: ["*"]
+      routeConfiguration:
+        version: "{{ .Values.DEPLOYMENT_VERSION }}"
+        routes:
+          - destination:
+              cluster: "{{ .Values.SERVICE }}"
+              endpoint: http://{{ .Values.DEPLOYMENT_RESOURCE_NAME }}:8080
+            rules:
+              - match:
+                  prefix: /api/v1/{{ .Values.SERVICE }}/lb-test
+                allowed: true
+                prefixRewrite: /api/v1/hello
+---
+apiVersion: core.netcracker.com/v1
+kind: Mesh
+subKind: StatefulSession
+metadata:
+  name: mesh-test-service-spring-sticky
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "core-operator"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  gateways: ["public-gateway-service", "internal-gateway-service"]
+  cluster: "{{ .Values.SERVICE }}"
+  enabled: true
+  cookie:
+    name: sticky-cookie-spring
+    ttl: 0
+    path: /
+{{- end }}
