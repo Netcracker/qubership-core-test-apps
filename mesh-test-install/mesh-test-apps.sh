@@ -199,7 +199,7 @@ install_helm_package() {
         --set TAG="$tag" \
         --set CONSUL_ENABLED="true" \
         --set CONSUL_URL="http://consul-consul-server.consul.svc.cluster.local:8500" \
-        --wait \
+        --wait=legacy \
         --timeout=300s
 
     if [ $? -eq 0 ]; then
