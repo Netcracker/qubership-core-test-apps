@@ -333,6 +333,17 @@ jobs:
           test-branch: ${{ inputs.test-branch || 'main' }}
           mesh-type: ${{ inputs.mesh-type || 'Core' }}
 
+      - name: Print services and deployments with label key name
+        shell: bash
+        run: |
+          echo "::group::Services with label key name"
+          kubectl get svc -A -o jsonpath='{range .items[?(@.metadata.labels.name)]}{.metadata.namespace}{"\t"}{.metadata.name}{"\t"}{.metadata.labels.name}{"\n"}{end}' || true
+          echo "::endgroup::"
+
+          echo "::group::Deployments with label key name"
+          kubectl get deploy -A -o jsonpath='{range .items[?(@.metadata.labels.name)]}{.metadata.namespace}{"\t"}{.metadata.name}{"\t"}{.metadata.labels.name}{"\n"}{end}' || true
+          echo "::endgroup::"
+
       - name: preserve-cpu-resources-workaround
         if: ${{ inputs.do-resources-workaround }}
         run: |
