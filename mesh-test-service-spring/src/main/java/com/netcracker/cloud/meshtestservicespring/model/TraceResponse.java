@@ -17,6 +17,7 @@ public class TraceResponse {
     String method;
     String xversion;
     String xVersionName;
+    String xRequestId;
 
     String requestMessage;
 }
