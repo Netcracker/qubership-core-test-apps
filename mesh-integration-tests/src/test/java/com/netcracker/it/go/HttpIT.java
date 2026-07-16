@@ -4,7 +4,7 @@ import com.google.gson.Gson;
 import com.netcracker.cloud.junit.cloudcore.extension.annotations.EnableExtension;
 import com.netcracker.cloud.junit.cloudcore.extension.annotations.PortForward;
 import com.netcracker.cloud.junit.cloudcore.extension.annotations.Value;
-import com.netcracker.it.go.model.TraceResponse;
+import com.netcracker.it.common.model.TraceResponse;
 import okhttp3.Request;
 import okhttp3.Response;
 import org.junit.jupiter.api.BeforeAll;

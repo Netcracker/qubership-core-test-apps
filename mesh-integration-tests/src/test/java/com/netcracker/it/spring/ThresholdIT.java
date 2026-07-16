@@ -126,11 +126,4 @@ public class ThresholdIT {
             assertEquals(0, noMatch);
         }
     }
-
-    private Request newRequest(int requestId, String gatewayUrl, String prefix) {
-        return new Request.Builder().addHeader("x-request-id", String.valueOf(requestId)).url(gatewayUrl + prefix)
-                .build();
-
-    }
-
 }
