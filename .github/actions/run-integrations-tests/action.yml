@@ -62,7 +62,6 @@ runs:
       run: |
         ./run-it/run-integration-tests.sh \
           --exec-mode "${{ inputs.exec-mode }}" \
-          --mesh-type "${{ inputs.mesh-type }}" \
           kind-kind \
           core \
           kind-control-plane:10.244.0.1 \

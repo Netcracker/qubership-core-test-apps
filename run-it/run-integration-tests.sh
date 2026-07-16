@@ -2,7 +2,7 @@
 
 # Integration tests runner script
 # Runs integration tests sequentially for all mesh test services
-# Usage: ./run-integration-tests.sh [--profile PROFILE] [--exec-mode MODE] [--mesh-type SERVICE_MESH_TYPE] <kube-context> <namespace> <node-ip-mapping> [service-name:test-folder ...]
+# Usage: ./run-integration-tests.sh [--profile PROFILE] [--exec-mode MODE] <kube-context> <namespace> <node-ip-mapping> [service-name:test-folder ...]
 
 set -e  # Exit on any error
 
@@ -11,17 +11,17 @@ MAVEN_PROFILE="integration-test"
 
 # Function to show usage
 show_usage() {
-    echo "Usage: $0 [--profile PROFILE] [--exec-mode MODE] [--mesh-type SERVICE_MESH_TYPE] <kube-context> <namespace> <node-ip-mapping> [service-name:test-folder ...]"
+    echo "Usage: $0 [--profile PROFILE] [--exec-mode MODE] <kube-context> <namespace> <node-ip-mapping> [service-name:test-folder ...]"
     echo ""
     echo "Options:"
-    echo "  --profile PROFILE, -p PROFILE                        Maven profile to use (optional)"
-    echo "  --exec-mode MODE, -e MODE                            Executor mode (optional): EXEC_IN_POD or PORT_FORWARD"
-    echo "  --mesh-type SERVICE_MESH_TYPE, -m SERVICE_MESH_TYPE  Service mesh type (Core or Istio)"
+    echo "  --profile PROFILE, -p PROFILE  Maven profile to use (optional)"
+    echo "  --exec-mode MODE, -e MODE      Executor mode (optional): EXEC_IN_POD or PORT_FORWARD"
     echo ""
     echo "Required arguments:"
     echo "  kube-context      Kubernetes context for tests"
     echo "  namespace         Kubernetes namespace"
     echo "  node-ip-mapping   Node IP mapping (use node ip that belongs to pods network)"
+    echo "  service-mesh-type Service mesh type (Core or Istio)"
     echo ""
     echo "Optional arguments:"
     echo "  service-name:test-folder  One or more pairs of service name and test folder"
@@ -32,7 +32,6 @@ show_usage() {
     echo "  $0 minikube core minikube:10.244.0.1"
     echo "  $0 --profile integration-test minikube core minikube:10.244.0.1"
     echo "  $0 --exec-mode EXEC_IN_POD minikube core minikube:10.244.0.1"
-    echo "  $0 --mesh-type Istio minikube core minikube:10.244.0.1"
     echo "  $0 -p custom-profile -e PORT_FORWARD docker-desktop test-ns docker-desktop:10.0.0.1"
     echo "  $0 minikube core minikube:10.244.0.1 service1:test-folder1 service2:test-folder2"
     echo "  $0 --profile test --exec-mode EXEC_IN_POD minikube core minikube:10.244.0.1 mesh-integration-tests:mesh-integration-tests"
@@ -47,7 +46,6 @@ fi
 
 # Parse optional flags
 EXECUTOR_MODE="PORT_FORWARD"
-SERVICE_MESH_TYPE="Core"
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -77,22 +75,6 @@ while [[ $# -gt 0 ]]; do
             EXECUTOR_MODE="$2"
             shift 2
             ;;
-        --mesh-type|-m)
-            if [[ -z "$2" ]]; then
-                echo "Error: --mesh-type requires a value"
-                echo ""
-                show_usage
-                exit 1
-            fi
-            if [[ "$2" != "Core" && "$2" != "Istio" ]]; then
-                echo "Error: Invalid --mesh-type value '$2'. Allowed values: Core, Istio"
-                echo ""
-                show_usage
-                exit 1
-            fi
-            SERVICE_MESH_TYPE="$2"
-            shift 2
-            ;;
         *)
             break
             ;;
@@ -100,7 +82,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Check if all required arguments are provided
-if [[ -z "$1" || -z "$2" || -z "$3" ]]; then
+if [[ -z "$1" || -z "$2" || -z "$3" || -z "$4" ]]; then
     echo "Error: All required arguments are missing!"
     echo ""
     show_usage
@@ -111,13 +93,20 @@ fi
 KUBE_CONTEXT="$1"
 NAMESPACE="$2"
 NODE_IP_MAPPING="$3"
+SERVICE_MESH_TYPE="$4"
+
+if [[ "$SERVICE_MESH_TYPE" == "Istio" ]]; then
+    EXECUTOR_MODE="EXEC_IN_POD"
+else
+    EXECUTOR_MODE="PORT_FORWARD"
+fi
 
 # Parse test folders and service names from remaining arguments
 # Format: service-name:test-folder
 declare -a TEST_SERVICES=()
 declare -a TEST_FOLDERS=()
 
-shift 3  # Remove first 3 arguments
+shift 4  # Remove first 4 arguments
 
 if [[ $# -eq 0 ]]; then
     # Default behavior: use mesh-integration-tests
@@ -153,7 +142,6 @@ echo "Kube context: $KUBE_CONTEXT"
 echo "Namespace: $NAMESPACE"
 echo "Node IP mapping: $NODE_IP_MAPPING"
 echo "Executor mode: $EXECUTOR_MODE"
-echo "Mesh type: $SERVICE_MESH_TYPE"
 if [[ -n "$MAVEN_PROFILE" ]]; then
     echo "Maven profile: $MAVEN_PROFILE"
 fi
