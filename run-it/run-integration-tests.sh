@@ -21,7 +21,6 @@ show_usage() {
     echo "  kube-context      Kubernetes context for tests"
     echo "  namespace         Kubernetes namespace"
     echo "  node-ip-mapping   Node IP mapping (use node ip that belongs to pods network)"
-    echo "  service-mesh-type Service mesh type (Core or Istio)"
     echo ""
     echo "Optional arguments:"
     echo "  service-name:test-folder  One or more pairs of service name and test folder"
@@ -82,7 +81,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Check if all required arguments are provided
-if [[ -z "$1" || -z "$2" || -z "$3" || -z "$4" ]]; then
+if [[ -z "$1" || -z "$2" || -z "$3" ]]; then
     echo "Error: All required arguments are missing!"
     echo ""
     show_usage
@@ -93,20 +92,13 @@ fi
 KUBE_CONTEXT="$1"
 NAMESPACE="$2"
 NODE_IP_MAPPING="$3"
-SERVICE_MESH_TYPE="$4"
-
-if [[ "$SERVICE_MESH_TYPE" == "Istio" ]]; then
-    EXECUTOR_MODE="EXEC_IN_POD"
-else
-    EXECUTOR_MODE="PORT_FORWARD"
-fi
 
 # Parse test folders and service names from remaining arguments
 # Format: service-name:test-folder
 declare -a TEST_SERVICES=()
 declare -a TEST_FOLDERS=()
 
-shift 4  # Remove first 4 arguments
+shift 3  # Remove first 3 arguments
 
 if [[ $# -eq 0 ]]; then
     # Default behavior: use mesh-integration-tests
@@ -322,7 +314,6 @@ run_integration_tests() {
             -DORIGIN_NAMESPACE="$NAMESPACE" \
             -Denv.cloud-namespace="$NAMESPACE" \
             -Dexecutor.mode="$EXECUTOR_MODE" \
-            -Dmesh.type="$SERVICE_MESH_TYPE" \
             -Dkubernetes.master="https://${CLUSTER_DOMAIN}:${API_SERVER_PORT}" || maven_exit_code=$?
     else
         mvn --no-transfer-progress clean surefire-report:report \
@@ -332,7 +323,6 @@ run_integration_tests() {
             -DORIGIN_NAMESPACE="$NAMESPACE" \
             -Denv.cloud-namespace="$NAMESPACE" \
             -Dexecutor.mode="$EXECUTOR_MODE" \
-            -Dmesh.type="$SERVICE_MESH_TYPE" \  
             -Dkubernetes.master="https://${CLUSTER_DOMAIN}:${API_SERVER_PORT}" || maven_exit_code=$?
     fi
     
