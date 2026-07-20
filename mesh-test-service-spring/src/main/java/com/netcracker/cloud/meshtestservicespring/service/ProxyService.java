@@ -2,7 +2,6 @@ package com.netcracker.cloud.meshtestservicespring.service;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpHeaders;
@@ -13,10 +12,8 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 import java.util.Enumeration;
-import java.util.Map;
 
 import static com.netcracker.cloud.meshtestservicespring.utils.WebUtils.X_REQUEST_ID;
-import static com.netcracker.cloud.meshtestservicespring.utils.WebUtils.retryPolicy;
 
 @Slf4j
 public class ProxyService {
@@ -32,7 +29,6 @@ public class ProxyService {
         try {
             ResponseEntity<byte[]> response = m2mWebClient.method(HttpMethod.GET)
                     .uri(messageUrl)
-                    .headers(headers -> copyRequestHeaders(request, headers))
                     .retrieve()
                     .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(), clientResponse -> Mono.empty())
                     .toEntity(byte[].class)
@@ -47,22 +43,10 @@ public class ProxyService {
         }
     }
 
-    private void copyRequestHeaders(HttpServletRequest request, HttpHeaders targetHeaders) {
-        Enumeration<String> headerNames = request.getHeaderNames();
-        while (headerNames.hasMoreElements()) {
-            String headerName = headerNames.nextElement();
-            Enumeration<String> headerValues = request.getHeaders(headerName);
-            while (headerValues.hasMoreElements()) {
-                targetHeaders.add(headerName, headerValues.nextElement());
-            }
-        }
-    }
-
     private ResponseEntity<byte[]> removeXRequestId(ResponseEntity<byte[]> response) {
         HttpHeaders headers = new HttpHeaders();
         headers.putAll(response.getHeaders());
         headers.remove(X_REQUEST_ID);
         return new ResponseEntity<>(response.getBody(), headers, response.getStatusCode());
     }
-
 }
