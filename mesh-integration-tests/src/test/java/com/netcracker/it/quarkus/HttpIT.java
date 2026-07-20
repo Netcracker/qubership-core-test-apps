@@ -2,8 +2,6 @@ package com.netcracker.it.quarkus;
 
 import com.google.gson.Gson;
 import com.netcracker.cloud.junit.cloudcore.extension.annotations.*;
-//import com.netcracker.cloud.junit.cloudcore.extension.client.KubernetesClientFactory;
-//import com.netcracker.cloud.junit.cloudcore.service.ITHelper;
 import com.netcracker.it.common.model.TraceResponse;
 import okhttp3.Request;
 import okhttp3.Response;
