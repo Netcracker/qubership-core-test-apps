@@ -46,7 +46,7 @@ class EnvoyTimeoutIT extends BaseTest {
         Integer sleepSeconds = 130;
         testTimeBoundRequest(baseUrl, sleepSeconds, (response, elapsedSec) -> {
             int code = response.code();
-            assertEquals(504, code, "Expected 504 Gateway Timeout from %s, got %d".formatted(code, gatewayName));
+            assertEquals(504, code, "Expected 504 Gateway Timeout from %s, got %d".formatted(gatewayName, code));
             assertAll("Timeout window",
                     () -> assertTrue(elapsedSec > 110, String.format("Too early: %.1fs", elapsedSec)),
                     () -> assertTrue(elapsedSec < 135, String.format("Too late: %.1fs", elapsedSec)));
