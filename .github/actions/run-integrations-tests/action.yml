@@ -37,7 +37,7 @@ runs:
   steps:
     - name: Checkout requested branch
       id: checkout-requested-branch
-      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       continue-on-error: true
       with:
         repository: ${{ inputs.repository }}
@@ -46,7 +46,7 @@ runs:
 
     - name: Checkout main branch
       if: ${{ steps.checkout-requested-branch.outcome == 'failure' && inputs.branch != 'main' }}
-      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       with:
         repository: ${{ inputs.repository }}
         ref: main
