@@ -14,7 +14,7 @@ import (
 	"github.com/netcracker/qubership-mesh-test-service-go/domain"
 	"github.com/netcracker/qubership-mesh-test-service-go/utils"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/ctxhelper"
