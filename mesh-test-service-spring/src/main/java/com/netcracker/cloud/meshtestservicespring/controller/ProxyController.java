@@ -24,8 +24,8 @@ public class ProxyController {
     private ProxyService proxyService;
 
     @RequestMapping(method = RequestMethod.GET)
-    public ResponseEntity<String> proxy(HttpServletRequest request) {
-        return ResponseEntity.ok(proxyService.redirect(request));
+    public ResponseEntity<byte[]> proxy(HttpServletRequest request) {
+        return proxyService.proxy(request);
     }
 }
 

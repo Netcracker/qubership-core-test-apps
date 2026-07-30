@@ -11,6 +11,7 @@ import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class HttpClient {
+
     public static OkHttpClient okHttpClient = new OkHttpClient.Builder()
             .addInterceptor(withRetryOnServiceUnavailableOrTimeout())
             .readTimeout(60, TimeUnit.SECONDS)

@@ -12,4 +12,5 @@ spec:
     facadeGatewayMemoryLimit: 64Mi
     facadeGatewayMemoryRequest: 64Mi
   gateway: 'mesh-test-app-gateway'
+  masterConfiguration: true
 {{- end }}

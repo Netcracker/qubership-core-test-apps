@@ -1,0 +1,89 @@
+name: Collect Istio debug info
+description: >
+  Collects Istio logs and gateway/waypoint proxy-config dumps, then uploads them as artifacts.
+
+inputs:
+  namespace:
+    description: Kubernetes namespace where Istio gateways and waypoints run
+    required: false
+    default: core
+  istio-logs-path:
+    description: Path to Istio test logs directory to upload
+    required: false
+    default: ./core-bootstrap-repo/cloud-core-local-dev/istio/test/istio-logs
+  proxy-config-dir:
+    description: Directory used to store istioctl proxy-config dumps
+    required: false
+    default: ./istio-gateways-proxy-config
+  artifact-suffix:
+    description: Optional suffix appended to uploaded artifact names
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Upload Istio logs
+      uses: actions/upload-artifact@v4
+      with:
+        name: istio-logs${{ inputs.artifact-suffix }}
+        path: |
+          ${{ inputs.istio-logs-path }}
+        if-no-files-found: warn
+        retention-days: 7
+
+    - name: Setup istioctl
+      uses: istio/get-istioctl@main
+
+    - name: Check gateway proxy config
+      shell: bash
+      run: |
+        mkdir -p "${{ inputs.proxy-config-dir }}"
+
+        GW=$(kubectl get pods -n "${{ inputs.namespace }}" -l gateway.networking.k8s.io/gateway-name=public-gateway \
+          -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+
+        if [ -n "$GW" ]; then
+          echo "Getting gateway config from: $GW"
+          if istioctl proxy-config all "$GW" -n "${{ inputs.namespace }}" -o json \
+            > "${{ inputs.proxy-config-dir }}/gateway_${GW}.json" \
+            2>"${{ inputs.proxy-config-dir }}/gateway_${GW}.stderr"; then
+            echo "Gateway config saved successfully"
+          else
+            echo "Failed to get gateway config for $GW" > "${{ inputs.proxy-config-dir }}/gateway_${GW}.error"
+          fi
+        else
+          echo "No gateway pod found with label gateway.networking.k8s.io/gateway-name=public-gateway"
+          echo "No gateway pod found" > "${{ inputs.proxy-config-dir }}/gateway_missing.log"
+        fi
+
+    - name: Check waypoint proxy config
+      shell: bash
+      run: |
+        mkdir -p "${{ inputs.proxy-config-dir }}"
+
+        WP=$(kubectl get pods -n "${{ inputs.namespace }}" -l gateway.networking.k8s.io/gateway-name=waypoint \
+          -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+
+        if [ -n "$WP" ]; then
+          echo "Getting waypoint config from: $WP"
+          if istioctl proxy-config all "$WP" -n "${{ inputs.namespace }}" -o json \
+            > "${{ inputs.proxy-config-dir }}/waypoint_${WP}.json" \
+            2>"${{ inputs.proxy-config-dir }}/waypoint_${WP}.stderr"; then
+            echo "Waypoint config saved successfully"
+          else
+            echo "Failed to get waypoint config for $WP" > "${{ inputs.proxy-config-dir }}/waypoint_${WP}.error"
+          fi
+        else
+          echo "No waypoint pod found with label gateway.networking.k8s.io/gateway-name=waypoint"
+          echo "No waypoint pod found" > "${{ inputs.proxy-config-dir }}/waypoint_missing.log"
+        fi
+
+    - name: Upload Istio Gateways proxy config
+      uses: actions/upload-artifact@v4
+      with:
+        name: istio-gateways-proxy-config${{ inputs.artifact-suffix }}
+        path: |
+          ${{ inputs.proxy-config-dir }}/*
+        if-no-files-found: warn
+        retention-days: 7

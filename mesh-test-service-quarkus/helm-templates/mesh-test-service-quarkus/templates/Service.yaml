@@ -12,7 +12,7 @@ spec:
         targetPort: 8080
     selector:
         name: '{{ .Values.DEPLOYMENT_RESOURCE_NAME }}'
-    {{ if  eq .Values.K8S_SERVICE_TYPE "HEADLESS" }}
+    {{ if and (eq .Values.K8S_SERVICE_TYPE "HEADLESS") (eq .Values.SERVICE_MESH_TYPE "Core") }}
     clusterIP: None
     {{ end }}
 

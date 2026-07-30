@@ -1,4 +1,4 @@
-package com.netcracker.it.quarkus.model;
+package com.netcracker.it.common.model;
 
 import lombok.Data;
 
@@ -6,6 +6,7 @@ import lombok.Data;
 public class TraceResponse {
     String serviceName;
     String familyName;
+    String namespace;
     String version;
     String podId;
 
@@ -15,4 +16,8 @@ public class TraceResponse {
     String path;
     String method;
     String xversion;
+    String xVersionName;
+    String xRequestId;
+
+    String requestMessage;
 }
