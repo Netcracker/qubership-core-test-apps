@@ -1,198 +1,849 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
     <link rel="icon" type="image/svg+xml" sizes="any"
           href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📊</text></svg>"/>
     <title>Daily Integration Tests Report</title>
+    <script>
+        // Runs before first paint so a stored theme never flashes the wrong colors.
+        (function () {
+            try {
+                const stored = localStorage.getItem('theme');
+                if (stored === 'light' || stored === 'dark') {
+                    document.documentElement.dataset.theme = stored;
+                }
+            } catch (e) { /* private mode: fall back to the OS preference */ }
+        })();
+    </script>
     <style>
+        :root {
+            color-scheme: light;
+
+            --plane: #f9f9f7;
+            --surface: #fcfcfb;
+            --surface-sunken: #f3f3f0;
+
+            --text-primary: #0b0b0b;
+            --text-secondary: #52514e;
+            --text-muted: #898781;
+
+            --hairline: rgba(11, 11, 11, 0.10);
+            --gridline: #e1e0d9;
+
+            --accent: #2a78d6;
+
+            --good: #0ca30c;
+            --critical: #d03b3b;
+            --good-wash: rgba(12, 163, 12, 0.10);
+            --critical-wash: rgba(208, 59, 59, 0.10);
+            --good-ink: #006300;
+            --critical-ink: #b02c2c;
+
+            --shadow: 0 1px 2px rgba(11, 11, 11, .04), 0 8px 24px rgba(11, 11, 11, .06);
+            --radius: 12px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            /* :where() keeps this weak, so the explicit toggle below wins either way. */
+            :root:where(:not([data-theme="light"])) {
+                color-scheme: dark;
+
+                --plane: #0d0d0d;
+                --surface: #1a1a19;
+                --surface-sunken: #232321;
+
+                --text-primary: #ffffff;
+                --text-secondary: #c3c2b7;
+                --text-muted: #898781;
+
+                --hairline: rgba(255, 255, 255, 0.10);
+                --gridline: #2c2c2a;
+
+                --accent: #3987e5;
+
+                --good-wash: rgba(12, 163, 12, 0.16);
+                --critical-wash: rgba(208, 59, 59, 0.16);
+                --good-ink: #0ca30c;
+                --critical-ink: #e66767;
+
+                --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .3);
+            }
+        }
+
+        /* Same dark values under the toggle's own scope — beats an OS set to light. */
+        :root[data-theme="dark"] {
+            color-scheme: dark;
+
+            --plane: #0d0d0d;
+            --surface: #1a1a19;
+            --surface-sunken: #232321;
+
+            --text-primary: #ffffff;
+            --text-secondary: #c3c2b7;
+            --text-muted: #898781;
+
+            --hairline: rgba(255, 255, 255, 0.10);
+            --gridline: #2c2c2a;
+
+            --accent: #3987e5;
+
+            --good-wash: rgba(12, 163, 12, 0.16);
+            --critical-wash: rgba(208, 59, 59, 0.16);
+            --good-ink: #0ca30c;
+            --critical-ink: #e66767;
+
+            --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .3);
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        /* Class-level `display` would otherwise beat the UA rule for [hidden]. */
+        [hidden] {
+            display: none !important;
+        }
+
         body {
-            font-family: 'Inter', sans-serif;
-            padding: 20px;
-            background: linear-gradient(to bottom right, #f0f4f8, #e2e8f0);
-            color: #333;
+            margin: 0;
+            padding: 40px 24px 64px;
+            font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+            font-size: 15px;
+            line-height: 1.5;
+            background: var(--plane);
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .page {
+            max-width: 1360px;
+            margin: 0 auto;
+        }
+
+        /* ---- Header ---- */
+
+        header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .theme-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            flex: none;
+            margin-top: 4px;
+            padding: 8px 14px;
+            font: inherit;
+            font-size: 0.8125rem;
+            font-weight: 550;
+            color: var(--text-secondary);
+            background: var(--surface);
+            border: 1px solid var(--hairline);
+            border-radius: 999px;
+            box-shadow: var(--shadow);
+            cursor: pointer;
+            transition: color 0.15s ease, background 0.15s ease;
+        }
+
+        .theme-toggle:hover {
+            color: var(--text-primary);
+            background: var(--surface-sunken);
+        }
+
+        .theme-toggle svg {
+            width: 15px;
+            height: 15px;
+            flex: none;
         }
 
         h1 {
-            text-align: center;
-            font-size: 2.5rem;
+            margin: 0;
+            font-size: 1.75rem;
+            font-weight: 650;
+            letter-spacing: -0.02em;
+        }
+
+        .subtitle {
+            margin: 4px 0 0;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        /* ---- Stat tiles ---- */
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px;
             margin-bottom: 20px;
-            color: #4f46e5;
+        }
+
+        .tile {
+            background: var(--surface);
+            border: 1px solid var(--hairline);
+            border-radius: var(--radius);
+            padding: 16px 18px;
+            box-shadow: var(--shadow);
+        }
+
+        .tile-label {
+            margin: 0;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .tile-value {
+            margin: 6px 0 0;
+            font-size: 1.75rem;
+            font-weight: 600;
+            line-height: 1.1;
+            letter-spacing: -0.02em;
+        }
+
+        .tile-hero .tile-value {
+            font-size: 3rem;
+        }
+
+        .tile-note {
+            margin: 4px 0 0;
+            font-size: 0.8125rem;
+            color: var(--text-muted);
+        }
+
+        /* ---- Legend ---- */
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 18px;
+            margin-bottom: 12px;
+            padding: 0 2px;
+            font-size: 0.8125rem;
+            color: var(--text-secondary);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+
+        /* ---- Status glyph (secondary encoding — status never rides on color alone) ---- */
+
+        .glyph {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            font-size: 10px;
+            font-weight: 700;
+            line-height: 1;
+            color: #fff;
+        }
+
+        .glyph-pass {
+            background: var(--good);
+        }
+
+        .glyph-fail {
+            background: var(--critical);
+        }
+
+        .glyph-none {
+            background: transparent;
+            border: 1.5px dashed var(--gridline);
+        }
+
+        /* ---- Table ---- */
+
+        .table-card {
+            background: var(--surface);
+            border: 1px solid var(--hairline);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        .table-scroll {
+            overflow-x: auto;
         }
 
         table {
-            width: 95%;
-            margin: 20px auto;
-            border-collapse: separate;
-            border-spacing: 0;
-            border-radius: 10px;
-            overflow: hidden;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
-            background: white;
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+
+        caption {
+            padding: 14px 18px;
+            text-align: left;
+            font-size: 0.8125rem;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--gridline);
         }
 
         th, td {
-            padding: 12px 16px;
+            padding: 10px 10px;
             text-align: center;
+            white-space: nowrap;
+            border-bottom: 1px solid var(--gridline);
         }
 
-        th {
-            background: #4f46e5;
-            color: white;
+        tbody tr:last-child th,
+        tbody tr:last-child td {
+            border-bottom: 0;
+        }
+
+        thead th {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: var(--surface-sunken);
             font-weight: 600;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
             text-transform: uppercase;
             letter-spacing: 0.05em;
         }
 
-        tr:nth-child(even) td {
-            background: #f7f9fc;
+        .col-project {
+            position: sticky;
+            left: 0;
+            z-index: 1;
+            text-align: left;
+            background: var(--surface);
+            border-right: 1px solid var(--gridline);
         }
 
-        tr:hover td {
-            background: #e0e7ff;
-            transition: background 0.3s;
+        thead .col-project {
+            z-index: 3;
+            background: var(--surface-sunken);
         }
 
-        .success-cell {
-            background: #16a34a;
-            color: white;
+        tbody tr:hover .col-project {
+            background: var(--surface-sunken);
+        }
+
+        tbody tr {
+            transition: background 0.15s ease;
+        }
+
+        tbody tr:hover {
+            background: var(--surface-sunken);
+        }
+
+        .day-line {
+            display: flex;
+            align-items: baseline;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        /* The ISO date is the widest thing in the header — don't pay for tracking on it. */
+        .day-line time {
+            letter-spacing: normal;
+        }
+
+        /* Always occupies a line, empty or not, so every date sits on the same baseline. */
+        .day-meta {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+            min-height: 1.5em;
+            font-size: 0.6875rem;
+            letter-spacing: 0.04em;
+        }
+
+        .day-weekday {
+            color: var(--text-muted);
             font-weight: 500;
-            border-radius: 6px;
-            padding: 6px;
         }
 
-        .failure-cell {
-            background: #dc2626;
-            color: white;
-            font-weight: 500;
-            border-radius: 6px;
-            padding: 6px;
+        /* A day with failures is marked on the header itself, not by column color alone. */
+        thead th.day-failing {
+            box-shadow: inset 0 2px 0 var(--critical);
         }
 
-        a .success-cell, a .failure-cell {
-            color: white;
+        .day-alert {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: var(--critical-ink);
+            font-weight: 650;
+        }
+
+        .day-alert::before {
+            content: "";
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--critical);
+        }
+
+        .project-name {
+            font-weight: 550;
+            color: var(--text-primary);
             text-decoration: none;
-            display: inline-block;
-            width: 100%;
+        }
+
+        .project-name:hover {
+            color: var(--accent);
+            text-decoration: underline;
+        }
+
+        /* ---- Result cells ---- */
+
+        .cell {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            min-width: 86px;
+            padding: 5px 10px;
+            border-radius: 8px;
+            font-variant-numeric: tabular-nums;
+            font-weight: 550;
+            text-decoration: none;
+            color: var(--text-primary);
+            transition: filter 0.15s ease;
+        }
+
+        a.cell:hover {
+            filter: brightness(0.96);
+            text-decoration: none;
+        }
+
+        .cell-pass {
+            background: var(--good-wash);
+            color: var(--good-ink);
+        }
+
+        .cell-fail {
+            background: var(--critical-wash);
+            color: var(--critical-ink);
+        }
+
+        .cell-none {
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        /* ---- States ---- */
+
+        .state {
+            padding: 48px 18px;
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        .state-error {
+            color: var(--critical-ink);
+        }
+
+        :focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+            border-radius: 4px;
+        }
+
+        .visually-hidden {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            margin: -1px;
+            padding: 0;
+            overflow: hidden;
+            clip: rect(0 0 0 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        /* Reclaim the side gutters before the table is forced to scroll. */
+        @media (max-width: 1200px) {
+            body {
+                padding-left: 12px;
+                padding-right: 12px;
+            }
+        }
+
+        @media (max-width: 640px) {
+            body {
+                padding: 24px 12px 48px;
+            }
+
+            .tile-hero .tile-value {
+                font-size: 2.25rem;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                transition: none !important;
+            }
         }
     </style>
 </head>
 <body>
-<h1>Daily Integration Tests Report</h1>
+<div class="page">
+    <header>
+        <div>
+            <h1>Daily Integration Tests Report</h1>
+            <p class="subtitle" id="subtitle">Loading report data…</p>
+        </div>
+        <button type="button" class="theme-toggle" id="themeToggle">
+            <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"></svg>
+            <span id="themeLabel">Theme</span>
+        </button>
+    </header>
 
-<table id="reportTable"></table>
+    <section class="stats" id="stats" aria-label="Summary"></section>
+
+    <div class="legend" id="legend" hidden>
+        <span class="legend-item"><span class="glyph glyph-pass" aria-hidden="true">✓</span>All tests passed</span>
+        <span class="legend-item"><span class="glyph glyph-fail" aria-hidden="true">✕</span>Has failures</span>
+        <span class="legend-item"><span class="glyph glyph-none" aria-hidden="true"></span>No run recorded</span>
+    </div>
+
+    <div class="table-card">
+        <div class="state" id="state">Loading…</div>
+        <div class="table-scroll" id="tableScroll" hidden>
+            <table id="reportTable">
+                <caption id="tableCaption"></caption>
+            </table>
+        </div>
+    </div>
+</div>
 
 <script>
+    'use strict';
+
+    const DAYS = 7;
+
+    /* ---- Theme toggle ---- */
+
+    const ICONS = {
+        light: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+        dark: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>'
+    };
+
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
+
+    /** The theme actually on screen — an explicit choice if one was made, else the OS preference. */
+    function activeTheme() {
+        const chosen = document.documentElement.dataset.theme;
+        return chosen === 'light' || chosen === 'dark'
+            ? chosen
+            : (prefersDark.matches ? 'dark' : 'light');
+    }
+
+    /** The button advertises the theme it switches *to*, so its label is never ambiguous. */
+    function paintToggle() {
+        const next = activeTheme() === 'dark' ? 'light' : 'dark';
+        document.getElementById('themeIcon').innerHTML = ICONS[next];
+        document.getElementById('themeLabel').textContent = next === 'dark' ? 'Dark' : 'Light';
+        document.getElementById('themeToggle').setAttribute('aria-label', 'Switch to ' + next + ' theme');
+    }
+
+    function initTheme() {
+        paintToggle();
+
+        document.getElementById('themeToggle').addEventListener('click', () => {
+            const next = activeTheme() === 'dark' ? 'light' : 'dark';
+            document.documentElement.dataset.theme = next;
+            try {
+                localStorage.setItem('theme', next);
+            } catch (e) { /* private mode: the choice just won't persist */ }
+            paintToggle();
+        });
+
+        // Track the OS only while the viewer hasn't overridden it.
+        prefersDark.addEventListener('change', () => {
+            if (!document.documentElement.dataset.theme) paintToggle();
+        });
+    }
+
+    /** Only http(s) links are ever written to an href — history.json is generated, but never trust a URL blindly. */
+    function safeUrl(value) {
+        if (typeof value !== 'string') return null;
+        try {
+            const url = new URL(value, window.location.href);
+            return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : null;
+        } catch {
+            return null;
+        }
+    }
+
+    /** UTC day keys, newest first — history.json keys are produced with UTC dates on the runner. */
+    function recentDays(count) {
+        const days = [];
+        const now = new Date();
+        for (let i = 0; i < count; i++) {
+            const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - i));
+            days.push(d.toISOString().slice(0, 10));
+        }
+        return days;
+    }
+
+    function el(tag, className, text) {
+        const node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text !== undefined) node.textContent = text;
+        return node;
+    }
+
+    function glyph(kind, symbol) {
+        const node = el('span', 'glyph glyph-' + kind, symbol);
+        node.setAttribute('aria-hidden', 'true');
+        return node;
+    }
+
+    /** A day entry is {job, projects:[{name, successes, failures, path}]}; anything else is treated as missing. */
+    function projectsOf(dayEntry) {
+        return dayEntry && Array.isArray(dayEntry.projects) ? dayEntry.projects : [];
+    }
+
+    function toCount(value) {
+        return Number.isFinite(value) && value > 0 ? value : 0;
+    }
+
+    function totalsFor(entries) {
+        return entries.reduce((acc, p) => ({
+            successes: acc.successes + toCount(p.successes),
+            failures: acc.failures + toCount(p.failures)
+        }), {successes: 0, failures: 0});
+    }
+
+    function failingCountFor(dayEntry) {
+        return projectsOf(dayEntry).filter(p => toCount(p.failures) > 0).length;
+    }
+
+    function formatDayHeader(day, failing) {
+        const th = el('th');
+        th.scope = 'col';
+        if (failing > 0) th.classList.add('day-failing');
+
+        const date = new Date(day + 'T00:00:00Z');
+
+        // Weekday rides the date itself; the line below is reserved for status.
+        const line = el('div', 'day-line');
+        line.appendChild(el('span', 'day-weekday',
+            date.toLocaleDateString('en-US', {weekday: 'short', timeZone: 'UTC'})));
+        const time = el('time', null, day);
+        time.dateTime = day;
+        line.appendChild(time);
+        th.appendChild(line);
+
+        const meta = el('div', 'day-meta');
+        if (failing > 0) {
+            const alert = el('span', 'day-alert', failing + ' failing');
+            alert.title = failing + (failing === 1 ? ' project has' : ' projects have') + ' failures on ' + day;
+            meta.appendChild(alert);
+        }
+        th.appendChild(meta);
+
+        return th;
+    }
+
+    function buildStatTiles(container, latestDay, entries) {
+        const {successes, failures} = totalsFor(entries);
+        const total = successes + failures;
+        const failingProjects = entries.filter(p => toCount(p.failures) > 0).length;
+        const passRate = total > 0 ? (successes / total) * 100 : null;
+
+        const tiles = [
+            {
+                label: 'Pass rate',
+                value: passRate === null ? '—' : passRate.toFixed(passRate === 100 ? 0 : 1) + '%',
+                note: total > 0 ? total.toLocaleString('en-US') + ' tests on ' + latestDay : 'No results yet',
+                hero: true
+            },
+            {label: 'Passed', value: successes.toLocaleString('en-US'), note: 'Tests green'},
+            {label: 'Failed', value: failures.toLocaleString('en-US'), note: 'Failures and errors'},
+            {
+                label: 'Projects failing',
+                value: failingProjects + ' / ' + entries.length,
+                note: failingProjects === 0 ? 'All projects green' : 'Need attention'
+            }
+        ];
+
+        container.replaceChildren(...tiles.map(t => {
+            const tile = el('div', t.hero ? 'tile tile-hero' : 'tile');
+            tile.appendChild(el('p', 'tile-label', t.label));
+            tile.appendChild(el('p', 'tile-value', t.value));
+            tile.appendChild(el('p', 'tile-note', t.note));
+            return tile;
+        }));
+    }
+
+    /**
+     * Cell for one project on one day. `reports/` only ever holds the newest run's
+     * HTML, so the per-project report link is offered for that day only; older days
+     * fall back to their workflow run.
+     */
+    function buildResultCell(project, day, dayEntry, isLatest) {
+        const td = el('td');
+        const entry = projectsOf(dayEntry).find(p => p.name === project);
+
+        if (!entry) {
+            const span = el('span', 'cell cell-none');
+            span.appendChild(glyph('none', ''));
+            span.appendChild(document.createTextNode('No run'));
+            td.appendChild(span);
+            return td;
+        }
+
+        const successes = toCount(entry.successes);
+        const failures = toCount(entry.failures);
+        const total = successes + failures;
+
+        let kind, label, description;
+        if (total === 0) {
+            kind = 'none';
+            label = 'No tests';
+            description = 'no tests recorded';
+        } else if (failures > 0) {
+            kind = 'fail';
+            label = failures + ' / ' + total;   // compact so 7 day columns fit without scrolling
+            description = failures + ' of ' + total + ' tests failed';
+        } else {
+            kind = 'pass';
+            label = String(successes);
+            description = 'all ' + successes + ' tests passed';
+        }
+
+        const content = el('span', 'cell cell-' + kind);
+        content.appendChild(glyph(kind, kind === 'pass' ? '✓' : kind === 'fail' ? '✕' : ''));
+        content.appendChild(document.createTextNode(label));
+
+        const reportUrl = isLatest && typeof entry.path === 'string' ? safeUrl(entry.path + 'index.html') : null;
+        const href = reportUrl || safeUrl(dayEntry && dayEntry.job);
+
+        if (href) {
+            const link = el('a', content.className);
+            link.href = href;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.replaceChildren(...content.childNodes);
+            link.title = project + ' on ' + day + ' — ' + description;
+            link.setAttribute('aria-label', link.title);
+            td.appendChild(link);
+        } else {
+            content.title = project + ' on ' + day + ' — ' + description;
+            content.appendChild(el('span', 'visually-hidden', ' (' + description + ')'));
+            td.appendChild(content);
+        }
+
+        return td;
+    }
+
+    function render(data) {
+        const table = document.getElementById('reportTable');
+        const caption = document.getElementById('tableCaption');
+        const state = document.getElementById('state');
+        const scroll = document.getElementById('tableScroll');
+        const subtitle = document.getElementById('subtitle');
+        const stats = document.getElementById('stats');
+
+        const days = recentDays(DAYS);
+        const projects = [...new Set(
+            Object.values(data).flatMap(dayEntry => projectsOf(dayEntry).map(p => p.name))
+        )].sort();
+
+        if (projects.length === 0) {
+            state.textContent = 'No test runs recorded yet.';
+            subtitle.textContent = 'Waiting for the first scheduled run.';
+            return;
+        }
+
+        // The deployed reports/ directory always belongs to the newest day present in the data.
+        const latestDay = Object.keys(data).sort().pop();
+
+        // ---- Head ----
+        const thead = el('thead');
+        const headRow = el('tr');
+        const corner = el('th', 'col-project', 'Project');
+        corner.scope = 'col';
+        headRow.appendChild(corner);
+        days.forEach(day => headRow.appendChild(
+            formatDayHeader(day, failingCountFor(data[day]))
+        ));
+        thead.appendChild(headRow);
+
+        // ---- Body ----
+        const tbody = el('tbody');
+        const latestJobUrl = safeUrl(data[latestDay] && data[latestDay].job);
+
+        projects.forEach(project => {
+            const row = el('tr');
+
+            const nameCell = el('th', 'col-project');
+            nameCell.scope = 'row';
+            if (latestJobUrl) {
+                const link = el('a', 'project-name', project);
+                link.href = latestJobUrl;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.title = 'Latest workflow run for ' + project;
+                nameCell.appendChild(link);
+            } else {
+                nameCell.appendChild(el('span', 'project-name', project));
+            }
+            row.appendChild(nameCell);
+
+            days.forEach(day => {
+                row.appendChild(buildResultCell(project, day, data[day], day === latestDay));
+            });
+
+            tbody.appendChild(row);
+        });
+
+        caption.textContent = 'Test results per project over the last ' + DAYS + ' days (UTC), newest first. '
+            + 'Green shows tests passed; red shows failed / total.';
+        table.replaceChildren(caption, thead, tbody);
+
+        buildStatTiles(stats, latestDay, projectsOf(data[latestDay]));
+        subtitle.textContent = 'Latest run ' + latestDay + ' · ' + projects.length + ' projects · ' + DAYS + '-day window';
+
+        state.hidden = true;
+        scroll.hidden = false;
+        document.getElementById('legend').hidden = false;
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
-        fetch('history.json')
-            .then(res => res.json())
+        initTheme();   // wired up front, so the toggle also works on the error/empty states
+
+        fetch('history.json', {cache: 'no-store'})
+            .then(res => {
+                if (!res.ok) throw new Error('HTTP ' + res.status + ' fetching history.json');
+                return res.json();
+            })
             .then(data => {
-                const table = document.getElementById('reportTable');
-                const dates = [];
-
-                // Gather all unique project names
-                const projects = new Set();
-                Object.values(data).forEach(dayEntry => {
-                    if (dayEntry.projects) {
-                        dayEntry.projects.forEach(p => projects.add(p.name));
-                    }
-                });
-                const projectList = [...projects].sort();
-
-                // Last 7 days newest → oldest (left → right)
-                for (let i = 0; i <= 6; i++) {
-                    const d = new Date();
-                    d.setUTCDate(d.getUTCDate() - i);
-                    dates.push(d.toISOString().slice(0, 10));
+                if (!data || typeof data !== 'object' || Array.isArray(data)) {
+                    throw new Error('history.json is not an object');
                 }
-
-                const today = new Date().toISOString().slice(0, 10);
-
-                // ---- Header ----
-                const header = document.createElement('tr');
-                const headerHtml = ['<th>Project</th>'];
-                dates.forEach(day => {
-                    let dayFailed = false;
-                    const dayEntry = data[day];
-
-                    if (dayEntry && dayEntry.projects) {
-                        for (const p of dayEntry.projects) {
-                            if (p.failures > 0) dayFailed = true;
-                        }
-                    }
-
-                    const warning = dayFailed ? ' ⚠️' : '';
-                    headerHtml.push(`<th>${day}${warning}</th>`);
-                });
-                header.innerHTML = headerHtml.join('');
-                table.appendChild(header);
-
-                // ---- Rows ----
-                const jobUrlToday = data[today] && data[today].job ? data[today].job : null;
-
-                projectList.forEach(project => {
-                    const row = document.createElement('tr');
-
-                    // Project name cell
-                    const projectCell = document.createElement('td');
-                    if (jobUrlToday) {
-                        const link = document.createElement('a');
-                        link.href = jobUrlToday;
-                        link.target = "_blank";
-                        link.textContent = project;
-                        link.style.fontWeight = "600";
-                        link.style.color = "#4f46e5";
-                        link.style.textDecoration = "none";
-                        projectCell.appendChild(link);
-                    } else {
-                        projectCell.textContent = project;
-                    }
-                    row.appendChild(projectCell);
-
-                    // Day cells
-                    dates.forEach(day => {
-                        const cell = document.createElement('td');
-                        const dayEntry = data[day];
-                        const entry = dayEntry && dayEntry.projects
-                            ? dayEntry.projects.find(p => p.name === project) || null
-                            : null;
-
-                        if (entry) {
-                            const cls = entry.failures > 0 ? 'failure-cell' : 'success-cell';
-                            const text = `✔️ ${entry.successes} / ⚠️ ${entry.failures}`;
-                            const jobUrl = dayEntry.job || null;
-
-                            const span = document.createElement('span');
-                            span.className = cls;
-                            span.textContent = text;
-
-                            const href = day === today ? entry.path + 'index.html' : jobUrl;
-                            if (href) {
-                                const link = document.createElement('a');
-                                link.href = href;
-                                link.target = '_blank';
-                                link.appendChild(span);
-                                cell.appendChild(link);
-                            } else {
-                                cell.appendChild(span);
-                            }
-                        } else {
-                            cell.textContent = '-';
-                        }
-
-                        row.appendChild(cell);
-                    });
-
-                    table.appendChild(row);
-                });
+                render(data);
             })
             .catch(err => {
-                const table = document.getElementById('reportTable');
-                table.innerHTML = '<tr><td>Failed to load report data.</td></tr>';
+                const state = document.getElementById('state');
+                state.className = 'state state-error';
+                state.textContent = 'Failed to load report data: ' + err.message;
+                document.getElementById('subtitle').textContent = 'Report data unavailable.';
                 console.error('Failed to load history.json', err);
             });
     });
 </script>
-
 </body>
 </html>
