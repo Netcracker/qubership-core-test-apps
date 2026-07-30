@@ -119,7 +119,7 @@
         }
 
         .page {
-            max-width: 1200px;
+            max-width: 1360px;
             margin: 0 auto;
         }
 
@@ -296,7 +296,7 @@
         }
 
         th, td {
-            padding: 10px 14px;
+            padding: 10px 10px;
             text-align: center;
             white-space: nowrap;
             border-bottom: 1px solid var(--gridline);
@@ -350,6 +350,11 @@
             align-items: baseline;
             justify-content: center;
             gap: 6px;
+        }
+
+        /* The ISO date is the widest thing in the header — don't pay for tracking on it. */
+        .day-line time {
+            letter-spacing: normal;
         }
 
         /* Always occupies a line, empty or not, so every date sits on the same baseline. */
@@ -463,6 +468,14 @@
             clip: rect(0 0 0 0);
             white-space: nowrap;
             border: 0;
+        }
+
+        /* Reclaim the side gutters before the table is forced to scroll. */
+        @media (max-width: 1200px) {
+            body {
+                padding-left: 12px;
+                padding-right: 12px;
+            }
         }
 
         @media (max-width: 640px) {
