@@ -605,8 +605,12 @@ jobs:
             }
             
             echo "==== Collecting unhealthy pod logs ===="
+            # kubectl jsonpath has no && operator - a predicate using one fails to parse and
+            # yields nothing, so filter on the phase column instead.
             kubectl get pods -A \
-              -o jsonpath='{range .items[?(@.status.phase!="Running" && @.status.phase!="Succeeded")]}{.metadata.namespace} {.metadata.name} {.status.phase}{"\n"}{end}' \
+              -o custom-columns='NS:.metadata.namespace,NAME:.metadata.name,PHASE:.status.phase' \
+              --no-headers 2>/dev/null \
+              | awk '$3 != "Running" && $3 != "Succeeded" { print $1, $2, $3 }' \
               > /tmp/unhealthy-pods.txt || true
             
             collect_pod_logs /tmp/unhealthy-pods.txt "No unhealthy pods found"
@@ -630,12 +634,81 @@ jobs:
             fi
 
             collect_pod_logs /tmp/load-logs-pods.txt "No pods found for provided labels: $COLLECT_LOGS_FOR"
-            
+
             # cleanup
             rm -f /tmp/unhealthy-pods.txt /tmp/load-logs-pods.txt
-            
+
           } > pods-logs.txt 2>&1
-      
+
+          echo "==== Collecting helm hook jobs and declarative CRs ===="
+
+          # Helm hook jobs (cr-synchronizer pre-install/post-install) stay in phase Running while
+          # they poll declarative CRs, so they are skipped by the unhealthy-pods collection above.
+          # Their logs name the CR the deploy is blocked on, which is what "helm ... context
+          # deadline exceeded" on a hook does not tell us.
+          {
+            echo "==== HELM RELEASES ===="
+            helm list -A --all || true
+
+            echo
+            echo "==== JOBS (ALL NAMESPACES) ===="
+            kubectl get jobs -A -o wide || true
+
+            # A still-running job has no .status.succeeded field at all, so filter in awk
+            # rather than in jsonpath - a jsonpath predicate drops items missing the field.
+            kubectl get jobs -A \
+              -o custom-columns='NS:.metadata.namespace,NAME:.metadata.name,SUCCEEDED:.status.succeeded' \
+              --no-headers 2>/dev/null \
+              | awk '$3 != 1 { print $1, $2 }' \
+              > /tmp/incomplete-jobs.txt || true
+
+            if [ ! -s /tmp/incomplete-jobs.txt ]; then
+              echo
+              echo "No incomplete jobs found"
+            fi
+
+            while read -r ns job; do
+              [ -z "$job" ] && continue
+              echo
+              echo "################################################"
+              echo "# Job: $job"
+              echo "# Namespace: $ns"
+              echo "################################################"
+
+              echo
+              echo "---- kubectl describe job ----"
+              kubectl describe job "$job" -n "$ns" || true
+
+              echo
+              echo "---- pod logs ----"
+              for p in $(kubectl get pods -n "$ns" -l "job-name=$job" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+                echo
+                echo "-- logs for pod: $p"
+                kubectl logs -n "$ns" "$p" --tail=500 || true
+              done
+            done < /tmp/incomplete-jobs.txt
+
+            # A hook waits on a CR that a healthy, Running operator failed to move to phase
+            # Updated, so the operator's own log is the other half of the story and no
+            # health-based collection above will pick it up.
+            echo
+            echo "==== CORE NAMESPACE POD LOGS ===="
+            for p in $(kubectl get pods -n core -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+              echo
+              echo "-- logs for pod: $p"
+              kubectl logs -n core "$p" --all-containers --tail=300 || true
+            done
+
+            echo
+            echo "==== DECLARATIVE CRs (core.netcracker.com) ===="
+            for crd in $(kubectl get crd -o jsonpath='{range .items[?(@.spec.group=="core.netcracker.com")]}{.metadata.name}{"\n"}{end}' 2>/dev/null); do
+              echo
+              echo "---- $crd ----"
+              kubectl get "$crd" -A -o custom-columns='NAMESPACE:.metadata.namespace,NAME:.metadata.name,PHASE:.status.phase' || true
+              kubectl get "$crd" -A -o yaml || true
+            done
+          } > helm-hooks-and-declaratives.txt 2>&1
+
       - name: Upload Kubernetes diagnostics
         if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -644,3 +717,4 @@ jobs:
           path: |
             cluster-state.txt
             pods-logs.txt
+            helm-hooks-and-declaratives.txt
