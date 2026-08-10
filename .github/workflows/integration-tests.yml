@@ -73,6 +73,11 @@ on:
         required: false
         default: 'latest'
         type: string
+      maas-agent-tag:
+        description: 'Docker image tag for MaaS Agent'
+        required: false
+        default: 'latest'
+        type: string
       core-operator-tag:
         description: 'Docker image tag for Core Operator'
         required: false
@@ -98,7 +103,7 @@ on:
         required: false
         default: 'latest'
         type: string
-      mesh-test-quarkus-tag:  
+      mesh-test-quarkus-tag:
         description: 'Docker image tag for Mesh test Quarkus service'
         required: false
         default: 'latest'
@@ -107,7 +112,7 @@ on:
         description: 'Docker image tag for Mesh test Go service'
         required: false
         default: 'latest'
-        type: string        
+        type: string
       dummy-separator-2:
         description: '--------------------------------'
         required: false
@@ -200,6 +205,11 @@ on:
         required: false
         default: 'latest'
         type: string
+      maas-agent-tag:
+        description: 'Docker image tag for MaaS Agent'
+        required: false
+        default: 'latest'
+        type: string
       core-operator-tag:
         description: 'Docker image tag for Core Operator'
         required: false
@@ -288,6 +298,7 @@ jobs:
             echo "| control-plane-tag | \`${{ inputs.control-plane-tag || 'latest' }}\` |"
             echo "| paas-mediation-tag | \`${{ inputs.paas-mediation-tag || 'latest' }}\` |"
             echo "| dbaas-agent-tag | \`${{ inputs.dbaas-agent-tag || 'latest' }}\` |"
+            echo "| maas-agent-tag | \`${{ inputs.maas-agent-tag || 'latest' }}\` |"
             echo "| core-operator-tag | \`${{ inputs.core-operator-tag || 'latest' }}\` |"
             echo "| config-server-tag | \`${{ inputs.config-server-tag || 'latest' }}\` |"
             echo "| site-management-tag | \`${{ inputs.site-management-tag || 'latest' }}\` |"
@@ -312,6 +323,7 @@ jobs:
           echo "control-plane-tag=${{ inputs.control-plane-tag || 'latest' }}"
           echo "paas-mediation-tag=${{ inputs.paas-mediation-tag || 'latest' }}"
           echo "dbaas-agent-tag=${{ inputs.dbaas-agent-tag || 'latest' }}"
+          echo "maas-agent-tag=${{ inputs.maas-agent-tag || 'latest' }}"
           echo "core-operator-tag=${{ inputs.core-operator-tag || 'latest' }}"
           echo "config-server-tag=${{ inputs.config-server-tag || 'latest' }}"
           echo "site-management-tag=${{ inputs.site-management-tag || 'latest' }}"
@@ -336,6 +348,7 @@ jobs:
           control-plane-tag: ${{ inputs.control-plane-tag || 'latest' }}
           paas-mediation-tag: ${{ inputs.paas-mediation-tag || 'latest' }}
           dbaas-agent-tag: ${{ inputs.dbaas-agent-tag || 'latest' }}
+          maas-agent-tag: ${{ inputs.maas-agent-tag || 'latest' }}
           core-operator-tag: ${{ inputs.core-operator-tag || 'latest' }}
           config-server-tag: ${{ inputs.config-server-tag || 'latest' }}
           site-management-tag: ${{ inputs.site-management-tag || 'latest' }}
