@@ -24,7 +24,7 @@ runs:
   using: composite
   steps:
     - name: Upload Istio logs
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
       with:
         name: istio-logs${{ inputs.artifact-suffix }}
         path: |
@@ -80,7 +80,7 @@ runs:
         fi
 
     - name: Upload Istio Gateways proxy config
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
       with:
         name: istio-gateways-proxy-config${{ inputs.artifact-suffix }}
         path: |
