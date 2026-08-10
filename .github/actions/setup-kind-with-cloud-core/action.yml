@@ -28,10 +28,6 @@ inputs:
     description: Docker image tag for DBaaS Agent
     required: false
     default: latest
-  maas-agent-tag:
-    description: Docker image tag for MaaS Agent
-    required: false
-    default: latest
   core-operator-tag:
     description: Docker image tag for Core Operator
     required: false
@@ -115,7 +111,6 @@ runs:
         CONTROL_PLANE_TAG="${{ inputs.control-plane-tag }}"
         PAAS_MEDIATION_TAG="${{ inputs.paas-mediation-tag }}"
         DBAAS_AGENT_TAG="${{ inputs.dbaas-agent-tag }}"
-        MAAS_AGENT_TAG="${{ inputs.maas-agent-tag }}"
         CORE_OPERATOR_TAG="${{ inputs.core-operator-tag }}"
         CONFIG_SERVER_TAG="${{ inputs.config-server-tag }}"
         SITE_MANAGEMENT_TAG="${{ inputs.site-management-tag }}"
@@ -133,9 +128,6 @@ runs:
         fi
         if [ "$DBAAS_AGENT_TAG" != "latest" ] && [ -n "$DBAAS_AGENT_TAG" ]; then
           MAKE_ARGS="$MAKE_ARGS DBAAS_AGENT_TAG=$DBAAS_AGENT_TAG"
-        fi
-        if [ "$MAAS_AGENT_TAG" != "latest" ] && [ -n "$MAAS_AGENT_TAG" ]; then
-          MAKE_ARGS="$MAKE_ARGS MAAS_AGENT_TAG=$MAAS_AGENT_TAG"
         fi
         if [ "$CORE_OPERATOR_TAG" != "latest" ] && [ -n "$CORE_OPERATOR_TAG" ]; then
           MAKE_ARGS="$MAKE_ARGS CORE_OPERATOR_TAG=$CORE_OPERATOR_TAG"
