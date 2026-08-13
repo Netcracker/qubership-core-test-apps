@@ -7,7 +7,7 @@ DEPLOYMENT_VERSION: v1
 DEPLOYMENT_SESSION_ID:
 CR_SYNCHRONIZER_IMAGE: "ghcr.io/netcracker/cr-synchronizer:latest@sha256:0d1ee974fe64e843f75546af08ffe9fff718f6b3c8b64779010508be2cb12343"
 RESOURCE_POLLING_TIMEOUT: 60
-IMAGE_REPOSITORY: ghcr.io/netcracker/qubership-core-test-apps/storage-test-service-spring
+IMAGE_REPOSITORY: 'ghcr.io/netcracker/qubership-core-storage-test-service-spring'
 TAG: latest
 REPLICAS: 1
 RC_REVISIONS: 3

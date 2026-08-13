@@ -449,9 +449,13 @@ jobs:
         continue-on-error: true
         uses: ./.github/actions/run-storage-tests
         with:
-          # hardcoded: see the commented-out inputs above
-          spring-tag: 'latest'
+          # hardcoded: see the commented-out inputs above. Empty lets the action derive the tag
+          # from the ref, since latest is only built from main.
+          spring-tag: ''
           scenarios: ''
+          # free the resources only when the run asked for it; otherwise the service stays up and
+          # the cluster-state step at the end of this workflow picks it up
+          cleanup: ${{ inputs.do-resources-workaround || 'false' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run paas-mediation integration tests

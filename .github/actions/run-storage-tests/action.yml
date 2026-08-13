@@ -1,6 +1,6 @@
 name: Run storage integration tests
 description: >
-  Installs the storage test service, runs the storage failover integration tests, then uninstalls.
+  Installs the storage test service and runs the storage failover integration tests.
 
 inputs:
   namespace:
@@ -8,9 +8,11 @@ inputs:
     required: false
     default: core
   spring-tag:
-    description: Docker image tag for storage-test-service-spring
+    description: >
+      Docker image tag for storage-test-service-spring. Empty derives it from the ref: latest on
+      main, <ref>-snapshot elsewhere, since latest is only built from main.
     required: false
-    default: latest
+    default: ''
   dbaas-agent-url:
     description: Address of the DBaaS agent the client under test talks to
     required: false
@@ -20,6 +22,12 @@ inputs:
       Tests to run, as a JUnit selector; empty runs the whole suite. Example: PostgresStorageIT.
     required: false
     default: ''
+  cleanup:
+    description: >
+      Uninstall the test service when the run ends. Only worth doing when the cluster is short on
+      resources: otherwise leaving it in place lets the workflow collect its state at the end.
+    required: false
+    default: 'false'
   github-token:
     description: GitHub token for pulling images
     required: true
@@ -38,11 +46,18 @@ runs:
         SCENARIOS: ${{ inputs.scenarios }}
       run: |
         set -e
-        INSTALL="./storage-test-install/storage-test-apps.sh install --namespace $NAMESPACE --dbaas-agent $DBAAS_AGENT_URL"
-        if [ -n "$SPRING_TAG" ] && [ "$SPRING_TAG" != "latest" ]; then
-          INSTALL="$INSTALL --spring-tag $SPRING_TAG"
+        TAG="$SPRING_TAG"
+        if [ -z "$TAG" ]; then
+          if [ "$GITHUB_REF_NAME" = "main" ]; then
+            TAG="latest"
+          else
+            # slashes are legal in a ref name but not in a tag: pull_request gives '<number>/merge'
+            TAG="${GITHUB_REF_NAME//\//-}-snapshot"
+          fi
         fi
-        $INSTALL
+        echo "Installing storage-test-service-spring:$TAG"
+        ./storage-test-install/storage-test-apps.sh install \
+            --namespace "$NAMESPACE" --dbaas-agent "$DBAAS_AGENT_URL" --spring-tag "$TAG"
 
         # -Dtest selects scenarios; the runner passes the rest of the maven arguments through
         if [ -n "$SCENARIOS" ]; then
@@ -52,6 +67,6 @@ runs:
             storage-test-service-spring:storage-integration-tests
 
     - name: Uninstall the storage test service
-      if: always()
+      if: always() && inputs.cleanup == 'true'
       shell: bash
       run: ./storage-test-install/storage-test-apps.sh uninstall --namespace ${{ inputs.namespace }}
