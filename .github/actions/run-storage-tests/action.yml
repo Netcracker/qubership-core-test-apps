@@ -1,0 +1,57 @@
+name: Run storage integration tests
+description: >
+  Installs the storage test service, runs the storage failover integration tests, then uninstalls.
+
+inputs:
+  namespace:
+    description: Kubernetes namespace to install the storage test service into
+    required: false
+    default: core
+  spring-tag:
+    description: Docker image tag for storage-test-service-spring
+    required: false
+    default: latest
+  dbaas-agent-url:
+    description: Address of the DBaaS agent the client under test talks to
+    required: false
+    default: http://dbaas-agent:8080
+  scenarios:
+    description: >
+      Tests to run, as a JUnit selector; empty runs the whole suite. Example: PostgresStorageIT.
+    required: false
+    default: ''
+  github-token:
+    description: GitHub token for pulling images
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Run storage integration tests
+      shell: bash
+      env:
+        GITHUB_ACTOR: ${{ github.actor }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        NAMESPACE: ${{ inputs.namespace }}
+        SPRING_TAG: ${{ inputs.spring-tag }}
+        DBAAS_AGENT_URL: ${{ inputs.dbaas-agent-url }}
+        SCENARIOS: ${{ inputs.scenarios }}
+      run: |
+        set -e
+        INSTALL="./storage-test-install/storage-test-apps.sh install --namespace $NAMESPACE --dbaas-agent $DBAAS_AGENT_URL"
+        if [ -n "$SPRING_TAG" ] && [ "$SPRING_TAG" != "latest" ]; then
+          INSTALL="$INSTALL --spring-tag $SPRING_TAG"
+        fi
+        $INSTALL
+
+        # -Dtest selects scenarios; the runner passes the rest of the maven arguments through
+        if [ -n "$SCENARIOS" ]; then
+          export MAVEN_OPTS_EXTRA="-Dtest=$SCENARIOS"
+        fi
+        ./run-it/run-integration-tests.sh kind-kind "$NAMESPACE" kind-control-plane:10.244.0.1 \
+            storage-test-service-spring:storage-integration-tests
+
+    - name: Uninstall the storage test service
+      if: always()
+      shell: bash
+      run: ./storage-test-install/storage-test-apps.sh uninstall --namespace ${{ inputs.namespace }}

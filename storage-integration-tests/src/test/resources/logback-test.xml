@@ -1,0 +1,17 @@
+<configuration>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- The scenario log is the audit trail of a failed run: which pod was leader, when the fault
+         was injected, when the cluster stabilised. Keep it, and keep the client libraries quiet. -->
+    <logger name="com.netcracker.it.failover" level="INFO"/>
+    <logger name="io.fabric8" level="WARN"/>
+    <logger name="okhttp3" level="WARN"/>
+
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+    </root>
+</configuration>

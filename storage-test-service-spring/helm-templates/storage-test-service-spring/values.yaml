@@ -1,0 +1,27 @@
+SERVICE: storage-test-service-spring
+# Read by the coretpl library chart, which names its hook resources after it.
+SERVICE_NAME: 'storage-test-service-spring'
+APPLICATION_NAME: 'storage-test-app'
+DEPLOYMENT_RESOURCE_NAME: storage-test-service-spring
+DEPLOYMENT_VERSION: v1
+DEPLOYMENT_SESSION_ID:
+CR_SYNCHRONIZER_IMAGE: "ghcr.io/netcracker/cr-synchronizer:latest@sha256:0d1ee974fe64e843f75546af08ffe9fff718f6b3c8b64779010508be2cb12343"
+RESOURCE_POLLING_TIMEOUT: 60
+IMAGE_REPOSITORY: ghcr.io/netcracker/qubership-core-test-apps/storage-test-service-spring
+TAG: latest
+REPLICAS: 1
+RC_REVISIONS: 3
+PAAS_PLATFORM: KUBERNETES
+CLOUD_TOPOLOGY_KEY: kubernetes.io/hostname
+INTERNAL_TLS_ENABLED: false
+
+CPU_REQUEST: 100m
+CPU_LIMIT: 500m
+MEMORY_LIMIT: 512Mi
+
+# Address of the DBaaS agent the client talks to. The default matches the local-dev install.
+DBAAS_AGENT_URL: http://dbaas-agent:8080
+
+# Pinning the pod to a node lets the drain scenario know which node to cordon. Empty means the
+# scheduler decides, which is what every scenario except the node-level one wants.
+NODE_NAME: ""

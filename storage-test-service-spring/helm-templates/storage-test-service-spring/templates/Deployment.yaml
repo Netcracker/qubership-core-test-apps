@@ -1,0 +1,97 @@
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+    name: '{{ .Values.DEPLOYMENT_RESOURCE_NAME }}'
+    labels:
+        name: '{{ .Values.DEPLOYMENT_RESOURCE_NAME }}'
+        app.kubernetes.io/instance: '{{ cat .Values.SERVICE | nospace | trunc 63 }}'
+        app.kubernetes.io/part-of: 'storage-test-app'
+    annotations:
+        netcracker.cloud/start.stage: '0'
+spec:
+    replicas: {{ .Values.REPLICAS }}
+    revisionHistoryLimit: {{ .Values.RC_REVISIONS }}
+    strategy:
+        type: RollingUpdate
+        rollingUpdate:
+            maxSurge: 25%
+            maxUnavailable: 25%
+    template:
+        metadata:
+            labels:
+                name: '{{ .Values.DEPLOYMENT_RESOURCE_NAME }}'
+                app.kubernetes.io/instance: '{{ cat .Values.SERVICE "-" .Release.Namespace | nospace | trunc 63 }}'
+                app.kubernetes.io/part-of: 'storage-test-app'
+        spec:
+            serviceAccountName: '{{ .Values.SERVICE }}'
+{{- if .Values.NODE_NAME }}
+            nodeSelector:
+                kubernetes.io/hostname: '{{ .Values.NODE_NAME }}'
+{{- end }}
+            containers:
+            -   name: '{{ .Values.SERVICE }}'
+                image: '{{ .Values.IMAGE_REPOSITORY }}:{{ .Values.TAG }}'
+                securityContext:
+    {{ if eq .Values.PAAS_PLATFORM "KUBERNETES" }}
+                    runAsGroup: 10001
+    {{ end }}
+                    runAsNonRoot: true
+                    seccompProfile:
+                        type: RuntimeDefault
+                    allowPrivilegeEscalation: false
+                    capabilities:
+                        drop:
+                            - ALL
+                ports:
+                -   name: web
+                    containerPort: 8080
+                    protocol: TCP
+                env:
+                -   name: MICROSERVICE_NAME
+                    value: '{{ .Values.SERVICE }}'
+                -   name: CLOUD_SERVICE_NAME
+                    value: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
+                -   name: DEPLOYMENT_VERSION
+                    value: "{{ .Values.DEPLOYMENT_VERSION }}"
+                -   name: CLOUD_NAMESPACE
+                    valueFrom:
+                        fieldRef:
+                            fieldPath: metadata.namespace
+                -   name: NAMESPACE
+                    valueFrom:
+                        fieldRef:
+                            fieldPath: metadata.namespace
+                -   name: DBAAS_AGENT_URL
+                    value: '{{ .Values.DBAAS_AGENT_URL }}'
+                # The scenarios read the pod name back from /api/v1/diag callers' perspective;
+                # having it in the environment makes a failed run traceable to a specific pod.
+                -   name: POD_NAME
+                    valueFrom:
+                        fieldRef:
+                            fieldPath: metadata.name
+                readinessProbe:
+                    httpGet:
+                        path: /actuator/health/readiness
+                        port: 8080
+                    initialDelaySeconds: 10
+                    periodSeconds: 5
+                livenessProbe:
+                    httpGet:
+                        path: /actuator/health/liveness
+                        port: 8080
+                    # Deliberately slack: a storage failover must not restart the application, or
+                    # the recovery being measured would be the container's, not the library's.
+                    initialDelaySeconds: 60
+                    periodSeconds: 30
+                    failureThreshold: 10
+                resources:
+                    requests:
+                        cpu: '{{ .Values.CPU_REQUEST }}'
+                        memory: '{{ .Values.MEMORY_LIMIT }}'
+                    limits:
+                        cpu: '{{ .Values.CPU_LIMIT }}'
+                        memory: '{{ .Values.MEMORY_LIMIT }}'
+    selector:
+        matchLabels:
+            name: '{{ .Values.DEPLOYMENT_RESOURCE_NAME }}'
