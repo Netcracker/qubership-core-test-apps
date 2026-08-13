@@ -1,9 +1,9 @@
 module github.com/netcracker/qubership-mesh-test-service-go
 
-go 1.26.5
+go 1.26.6
 
 require (
-	github.com/gofiber/fiber/v2 v2.52.14
+	github.com/gofiber/fiber/v2 v2.52.15
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.11.1
 )
