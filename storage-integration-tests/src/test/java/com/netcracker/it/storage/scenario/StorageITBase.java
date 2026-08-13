@@ -20,7 +20,9 @@ import org.slf4j.LoggerFactory;
 
 import java.net.URL;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import static com.netcracker.it.storage.scenario.StorageAssertions.assertContract;
 import static com.netcracker.it.storage.scenario.StorageAssertions.assertNoLeak;
@@ -44,6 +46,16 @@ public abstract class StorageITBase {
     private static final String NAMESPACE = System.getProperty("storage.namespace");
     private static final String LABEL_KEY = System.getProperty("storage.labelKey");
     private static final String LABEL_VALUE = System.getProperty("storage.labelValue");
+
+    /** Namespace of the application, as the integration-test runner already passes it. */
+    private static String appNamespace() {
+        return Stream.of("ORIGIN_NAMESPACE", "env.cloud-namespace", "clouds.cloud.namespaces.namespace")
+                .map(System::getProperty)
+                .filter(value -> value != null && !value.isBlank())
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException(
+                        "the application namespace is not set; run through run-it/run-integration-tests.sh"));
+    }
 
     @PortForward(serviceName = @Value("storage-test-service-spring"), port = @IntValue(8080))
     protected static URL appUrl;
@@ -78,13 +90,34 @@ public abstract class StorageITBase {
         return new PatroniFaultController(kubernetes, NAMESPACE, LABEL_KEY, LABEL_VALUE);
     }
 
+    /**
+     * Services this storage cannot be tested without. Checked up front so a missing install fails
+     * with its own name rather than as a client timeout thirty operations later.
+     */
+    protected List<String> requiredServices() {
+        return List.of();
+    }
+
     @BeforeEach
     void setUpFixture() {
+        requireServices();
         app = new StorageTestApp(appUrl);
         faults = newController();
         // start healthy, so a previous scenario's damage is never attributed to this one
         faults.awaitStable(STABILISATION);
         app.initStorage(storage());
+    }
+
+    private void requireServices() {
+        String namespace = appNamespace();
+        List<String> missing = requiredServices().stream()
+                .filter(name -> kubernetes.services().inNamespace(namespace).withName(name).get() == null)
+                .toList();
+        if (!missing.isEmpty()) {
+            throw new IllegalStateException(storage() + " tests need " + missing
+                    + " in namespace " + namespace + ", and they are not deployed."
+                    + " Run the workflow with install-maas enabled, or exclude this suite.");
+        }
     }
 
     @AfterEach
