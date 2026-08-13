@@ -108,16 +108,18 @@ on:
         required: false
         default: 'latest'
         type: string        
-      storage-test-spring-tag:
-        description: 'Docker image tag for Storage test Spring service'
-        required: false
-        default: 'latest'
-        type: string
-      storage-test-scenarios:
-        description: 'Storage scenarios to run, as a JUnit -Dtest selector. Empty runs the whole suite'
-        required: false
-        default: ''
-        type: string
+      # workflow_dispatch allows at most 25 inputs and is already at the cap, so these are
+      # hardcoded in the step below until slots are freed.
+      # storage-test-spring-tag:
+      #   description: 'Docker image tag for Storage test Spring service'
+      #   required: false
+      #   default: 'latest'
+      #   type: string
+      # storage-test-scenarios:
+      #   description: 'Storage scenarios to run, as a JUnit -Dtest selector. Empty runs the whole suite'
+      #   required: false
+      #   default: ''
+      #   type: string
       dummy-separator-2:
         description: '--------------------------------'
         required: false
@@ -245,16 +247,6 @@ on:
         required: false
         default: 'latest'
         type: string        
-      storage-test-spring-tag:
-        description: 'Docker image tag for Storage test Spring service'
-        required: false
-        default: 'latest'
-        type: string
-      storage-test-scenarios:
-        description: 'Storage scenarios to run, as a JUnit -Dtest selector. Empty runs the whole suite'
-        required: false
-        default: ''
-        type: string
       dummy-separator-2:
         description: '--------------------------------'
         required: false
@@ -457,8 +449,9 @@ jobs:
         continue-on-error: true
         uses: ./.github/actions/run-storage-tests
         with:
-          spring-tag: ${{ inputs.storage-test-spring-tag || 'latest' }}
-          scenarios: ${{ inputs.storage-test-scenarios || '' }}
+          # hardcoded: see the commented-out inputs above
+          spring-tag: 'latest'
+          scenarios: ''
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run paas-mediation integration tests
@@ -666,18 +659,4 @@ jobs:
               done
             fi
 
-            collect_pod_logs /tmp/load-logs-pods.txt "No pods found for provided labels: $COLLECT_LOGS_FOR"
-            
-            # cleanup
-            rm -f /tmp/unhealthy-pods.txt /tmp/load-logs-pods.txt
-            
-          } > pods-logs.txt 2>&1
-      
-      - name: Upload Kubernetes diagnostics
-        if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure' }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: kind-k8s-debug${{ inputs.test-usecase != '' && format('-{0}', inputs.test-usecase) || '' }}
-          path: |
-            cluster-state.txt
-            pods-logs.txt
+            collect_pod_logs /tmp/load-logs-pods.txt "No pods found for provided labels: $COLLECT_LOG
