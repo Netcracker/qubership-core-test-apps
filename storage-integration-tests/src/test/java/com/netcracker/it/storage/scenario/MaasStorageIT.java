@@ -1,11 +1,14 @@
 package com.netcracker.it.storage.scenario;
 
+import com.netcracker.cloud.junit.cloudcore.extension.annotations.EnableExtension;
+
 import java.util.List;
 
 /**
  * The MaaS client while the database behind maas-service moves its leader. A demoted leader
  * surfaces to the client as 405 from maas-service and 500 from maas-agent.
  */
+@EnableExtension
 class MaasStorageIT extends StorageITBase {
 
     @Override
