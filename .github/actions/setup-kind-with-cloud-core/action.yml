@@ -82,13 +82,13 @@ runs:
     - name: Install Helm 4
       uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4
       with:
-         version: v4.2.3  
+         version: v4.2.4  
 
     - name: Set up kubectl
       uses: azure/setup-kubectl@776406bce94f63e41d621b960d78ee25c8b76ede # v4
 
     - name: Set up JDK 21
-      uses: actions/setup-java@17f84c3641ba7b8f6deff6309fc4c864478f5d62 # v3
+      uses: actions/setup-java@e9fbacdec3bb3b6036605a3e6f7995d66773a8c6 # v3
       with:
         java-version: '21'
         distribution: temurin
