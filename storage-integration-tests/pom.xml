@@ -26,8 +26,9 @@
         <skipIT>true</skipIT>
         <!-- Where the storage under test runs. Override with -Dstorage.namespace=... -->
         <storage.namespace>postgres</storage.namespace>
-        <storage.labelKey>application</storage.labelKey>
-        <storage.labelValue>patroni</storage.labelValue>
+        <!-- Service whose endpoints point at the primary, and the pod-name prefix of the members. -->
+        <storage.leaderService>pg-patroni</storage.leaderService>
+        <storage.memberPrefix>pg-patroni-node</storage.memberPrefix>
     </properties>
 
     <repositories>
@@ -134,8 +135,8 @@
                     </argLine>
                     <systemPropertyVariables>
                         <storage.namespace>${storage.namespace}</storage.namespace>
-                        <storage.labelKey>${storage.labelKey}</storage.labelKey>
-                        <storage.labelValue>${storage.labelValue}</storage.labelValue>
+                        <storage.leaderService>${storage.leaderService}</storage.leaderService>
+                        <storage.memberPrefix>${storage.memberPrefix}</storage.memberPrefix>
                     </systemPropertyVariables>
                     <includes>
                         <include>**/*IT.java</include>

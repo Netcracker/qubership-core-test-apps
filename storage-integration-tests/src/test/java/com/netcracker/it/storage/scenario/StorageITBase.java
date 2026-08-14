@@ -44,8 +44,8 @@ public abstract class StorageITBase {
     private static final long MIN_OPERATIONS = 30;
 
     private static final String NAMESPACE = System.getProperty("storage.namespace");
-    private static final String LABEL_KEY = System.getProperty("storage.labelKey");
-    private static final String LABEL_VALUE = System.getProperty("storage.labelValue");
+    private static final String LEADER_SERVICE = System.getProperty("storage.leaderService");
+    private static final String MEMBER_PREFIX = System.getProperty("storage.memberPrefix");
 
     /** Namespace of the application, as the integration-test runner already passes it. */
     private static String appNamespace() {
@@ -87,7 +87,7 @@ public abstract class StorageITBase {
      * client, and through maas-service's own database for the MaaS client.
      */
     protected FaultController newController() {
-        return new PatroniFaultController(kubernetes, NAMESPACE, LABEL_KEY, LABEL_VALUE);
+        return new PatroniFaultController(kubernetes, NAMESPACE, LEADER_SERVICE, MEMBER_PREFIX);
     }
 
     /**

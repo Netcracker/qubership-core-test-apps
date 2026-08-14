@@ -1,5 +1,6 @@
 package com.netcracker.it.storage.controller;
 
+import io.fabric8.kubernetes.api.model.Endpoints;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.ExecListener;
@@ -18,48 +19,55 @@ import java.util.concurrent.TimeUnit;
 import static org.awaitility.Awaitility.await;
 
 /**
- * PostgreSQL under Patroni. Leadership comes from the pod label Patroni maintains; handover uses
- * {@code patronictl}, which transfers leadership before the old leader stops serving.
+ * PostgreSQL under Patroni.
+ *
+ * <p>Leadership is read from the endpoints of the read-write Service: the operator points it at
+ * whichever member is primary. That is more dependable than a pod label, which Patroni sets at
+ * runtime and names differently across chart versions.
  */
 public class PatroniFaultController implements FaultController {
 
     private static final Logger log = LoggerFactory.getLogger(PatroniFaultController.class);
 
-    /** Patroni labels its members with the current role; the leader carries {@code master}. */
-    private static final String ROLE_LABEL = "role";
-    private static final String LEADER_ROLE = "master";
-
     private static final Duration EXEC_TIMEOUT = Duration.ofSeconds(60);
 
     private final KubernetesClient client;
     private final String namespace;
-    private final String clusterLabelKey;
-    private final String clusterLabelValue;
+    private final String leaderService;
+    private final String memberPrefix;
 
     public PatroniFaultController(KubernetesClient client, String namespace,
-                                  String clusterLabelKey, String clusterLabelValue) {
+                                  String leaderService, String memberPrefix) {
         this.client = client;
         this.namespace = namespace;
-        this.clusterLabelKey = clusterLabelKey;
-        this.clusterLabelValue = clusterLabelValue;
+        this.leaderService = leaderService;
+        this.memberPrefix = memberPrefix;
+    }
+
+    /** The pod currently behind the read-write Service. */
+    private Optional<String> findLeader() {
+        Endpoints endpoints = client.endpoints().inNamespace(namespace).withName(leaderService).get();
+        if (endpoints == null || endpoints.getSubsets() == null) {
+            return Optional.empty();
+        }
+        return endpoints.getSubsets().stream()
+                .filter(subset -> subset.getAddresses() != null)
+                .flatMap(subset -> subset.getAddresses().stream())
+                .filter(address -> address.getTargetRef() != null)
+                .map(address -> address.getTargetRef().getName())
+                .findFirst();
     }
 
     private String leaderPod() {
         return findLeader().orElseThrow(() -> new IllegalStateException(
-                "no Patroni member is labelled " + ROLE_LABEL + "=" + LEADER_ROLE + " in " + namespace));
+                "service " + namespace + "/" + leaderService + " has no ready endpoint, so there is no primary"));
     }
 
-    private Optional<String> findLeader() {
-        return members().stream()
-                .filter(pod -> LEADER_ROLE.equals(pod.getMetadata().getLabels().get(ROLE_LABEL)))
-                .map(pod -> pod.getMetadata().getName())
-                .findFirst();
-    }
-
+    /** Every member of the cluster; each Patroni node is its own StatefulSet, hence the prefix. */
     private List<Pod> members() {
-        return client.pods().inNamespace(namespace)
-                .withLabel(clusterLabelKey, clusterLabelValue)
-                .list().getItems();
+        return client.pods().inNamespace(namespace).list().getItems().stream()
+                .filter(pod -> pod.getMetadata().getName().startsWith(memberPrefix))
+                .toList();
     }
 
     @Override
@@ -78,7 +86,8 @@ public class PatroniFaultController implements FaultController {
                 .filter(name -> !name.equals(leader))
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException(
-                        "switchover needs a second member, but " + leader + " is the only one"));
+                        "switchover needs a second member, but " + leader + " is the only one."
+                                + " Run with two Patroni replicas."));
 
         log.info("Handing leadership from {} to {}", leader, candidate);
         exec(leader, "patronictl", "switchover", "--leader", leader, "--candidate", candidate, "--force");
@@ -96,15 +105,19 @@ public class PatroniFaultController implements FaultController {
 
     @Override
     public void awaitStable(Duration timeout) {
-        await("a Patroni leader is elected and every member is ready")
+        // an empty member list is a configuration error, not something to wait out
+        if (members().isEmpty()) {
+            throw new IllegalStateException("no pod in namespace " + namespace + " starts with '"
+                    + memberPrefix + "'. Check the storage.memberPrefix property.");
+        }
+        await("a Patroni primary is serving and every member is ready")
                 .atMost(timeout)
                 .pollInterval(Duration.ofSeconds(2))
                 .until(() -> findLeader().isPresent() && allMembersReady());
     }
 
     private boolean allMembersReady() {
-        List<Pod> members = members();
-        return !members.isEmpty() && members.stream().allMatch(this::isReady);
+        return members().stream().allMatch(this::isReady);
     }
 
     private boolean isReady(Pod pod) {
