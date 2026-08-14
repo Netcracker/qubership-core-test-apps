@@ -44,13 +44,7 @@ public class PatroniFaultController implements FaultController {
         this.clusterLabelValue = clusterLabelValue;
     }
 
-    @Override
-    public String storage() {
-        return "postgresql";
-    }
-
-    @Override
-    public String leaderPod() {
+    private String leaderPod() {
         return findLeader().orElseThrow(() -> new IllegalStateException(
                 "no Patroni member is labelled " + ROLE_LABEL + "=" + LEADER_ROLE + " in " + namespace));
     }
@@ -91,11 +85,6 @@ public class PatroniFaultController implements FaultController {
     }
 
     @Override
-    public void blackhole(Duration duration) {
-        throw new UnsupportedOperationException("the silent-blackhole scenario runs through Toxiproxy");
-    }
-
-    @Override
     public void rollingRestart() {
         for (Pod pod : members()) {
             String name = pod.getMetadata().getName();
@@ -103,31 +92,6 @@ public class PatroniFaultController implements FaultController {
             client.pods().inNamespace(namespace).withName(name).withGracePeriod(0).delete();
             awaitStable(Duration.ofMinutes(3));
         }
-    }
-
-    @Override
-    public void cordonAndDrain(String node) {
-        log.info("Cordoning {} and evicting its pods", node);
-        client.nodes().withName(node).edit(n -> {
-            n.getSpec().setUnschedulable(true);
-            return n;
-        });
-        client.pods().inAnyNamespace().list().getItems().stream()
-                .filter(pod -> node.equals(pod.getSpec().getNodeName()))
-                .filter(pod -> !"kube-system".equals(pod.getMetadata().getNamespace()))
-                .forEach(pod -> client.pods()
-                        .inNamespace(pod.getMetadata().getNamespace())
-                        .withName(pod.getMetadata().getName())
-                        .evict());
-    }
-
-    @Override
-    public void uncordon(String node) {
-        log.info("Uncordoning {}", node);
-        client.nodes().withName(node).edit(n -> {
-            n.getSpec().setUnschedulable(false);
-            return n;
-        });
     }
 
     @Override

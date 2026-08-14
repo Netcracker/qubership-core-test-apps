@@ -17,11 +17,6 @@ inputs:
     description: Address of the DBaaS agent the client under test talks to
     required: false
     default: http://dbaas-agent:8080
-  scenarios:
-    description: >
-      Tests to run, as a JUnit selector; empty runs the whole suite. Example: PostgresStorageIT.
-    required: false
-    default: ''
   cleanup:
     description: >
       Uninstall the test service when the run ends. Only worth doing when the cluster is short on
@@ -43,7 +38,6 @@ runs:
         NAMESPACE: ${{ inputs.namespace }}
         SPRING_TAG: ${{ inputs.spring-tag }}
         DBAAS_AGENT_URL: ${{ inputs.dbaas-agent-url }}
-        SCENARIOS: ${{ inputs.scenarios }}
         BRANCH: ${{ github.head_ref || github.ref_name }}
       run: |
         set -e
@@ -60,10 +54,6 @@ runs:
         ./storage-test-install/storage-test-apps.sh install \
             --namespace "$NAMESPACE" --dbaas-agent "$DBAAS_AGENT_URL" --spring-tag "$TAG"
 
-        # -Dtest selects scenarios; the runner passes the rest of the maven arguments through
-        if [ -n "$SCENARIOS" ]; then
-          export MAVEN_OPTS_EXTRA="-Dtest=$SCENARIOS"
-        fi
         ./run-it/run-integration-tests.sh kind-kind "$NAMESPACE" kind-control-plane:10.244.0.1 \
             storage-test-service-spring:storage-integration-tests
 

@@ -8,9 +8,6 @@ set -e
 NAMESPACE="core"
 SPRING_TAG="latest"
 DBAAS_AGENT_URL="http://dbaas-agent:8080"
-# Empty means the scheduler places the pod. Set it when the drain scenario needs the application
-# on a known node.
-NODE_NAME=""
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -24,7 +21,6 @@ show_usage() {
     echo "  --namespace NS       Target namespace (default: core)"
     echo "  --spring-tag TAG     Image tag for storage-test-service-spring (default: latest)"
     echo "  --dbaas-agent URL    DBaaS agent address (default: http://dbaas-agent:8080)"
-    echo "  --node-name NODE     Pin the application to a node, for the drain scenario"
     echo ""
     echo "Examples:"
     echo "  $0 install"
@@ -44,7 +40,6 @@ while [[ $# -gt 0 ]]; do
         --namespace)   NAMESPACE="$2"; shift 2 ;;
         --spring-tag)  SPRING_TAG="$2"; shift 2 ;;
         --dbaas-agent) DBAAS_AGENT_URL="$2"; shift 2 ;;
-        --node-name)   NODE_NAME="$2"; shift 2 ;;
         *) echo "Unknown option: $1"; echo ""; show_usage; exit 1 ;;
     esac
 done
@@ -81,7 +76,6 @@ install_helm_package() {
         --namespace "$NAMESPACE" \
         --set TAG="$tag" \
         --set DBAAS_AGENT_URL="$DBAAS_AGENT_URL" \
-        --set NODE_NAME="$NODE_NAME" \
         --wait \
         --timeout=300s
 

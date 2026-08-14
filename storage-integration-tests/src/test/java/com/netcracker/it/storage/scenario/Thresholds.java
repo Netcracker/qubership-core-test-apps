@@ -35,8 +35,4 @@ public record Thresholds(
         return new Thresholds(Duration.ofSeconds(90), Duration.ofSeconds(65), 0.25, 10);
     }
 
-    /** Brokers additionally have to re-form a consumer group, which is the slower part. */
-    public static Thresholds kafka() {
-        return new Thresholds(Duration.ofSeconds(60), Duration.ofSeconds(20), 0.25, 10);
-    }
 }

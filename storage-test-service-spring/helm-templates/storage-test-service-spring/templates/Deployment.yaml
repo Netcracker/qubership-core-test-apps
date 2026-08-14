@@ -25,10 +25,6 @@ spec:
                 app.kubernetes.io/part-of: 'storage-test-app'
         spec:
             serviceAccountName: '{{ .Values.SERVICE }}'
-{{- if .Values.NODE_NAME }}
-            nodeSelector:
-                kubernetes.io/hostname: '{{ .Values.NODE_NAME }}'
-{{- end }}
             containers:
             -   name: '{{ .Values.SERVICE }}'
                 image: '{{ .Values.IMAGE_REPOSITORY }}:{{ .Values.TAG }}'
@@ -64,12 +60,11 @@ spec:
                             fieldPath: metadata.namespace
                 -   name: DBAAS_AGENT_URL
                     value: '{{ .Values.DBAAS_AGENT_URL }}'
-                # The scenarios read the pod name back from /api/v1/diag callers' perspective;
-                # having it in the environment makes a failed run traceable to a specific pod.
-                -   name: POD_NAME
-                    valueFrom:
-                        fieldRef:
-                            fieldPath: metadata.name
+                # Consul config source, same as the mesh test services
+                -   name: CONSUL_ENABLED
+                    value: '{{ .Values.CONSUL_ENABLED }}'
+                -   name: CONSUL_URL
+                    value: '{{ .Values.CONSUL_URL }}'
                 readinessProbe:
                     httpGet:
                         path: /actuator/health/readiness

@@ -108,18 +108,6 @@ on:
         required: false
         default: 'latest'
         type: string        
-      # workflow_dispatch allows at most 25 inputs and is already at the cap, so these are
-      # hardcoded in the step below until slots are freed.
-      # storage-test-spring-tag:
-      #   description: 'Docker image tag for Storage test Spring service'
-      #   required: false
-      #   default: 'latest'
-      #   type: string
-      # storage-test-scenarios:
-      #   description: 'Storage scenarios to run, as a JUnit -Dtest selector. Empty runs the whole suite'
-      #   required: false
-      #   default: ''
-      #   type: string
       dummy-separator-2:
         description: '--------------------------------'
         required: false
@@ -449,10 +437,6 @@ jobs:
         continue-on-error: true
         uses: ./.github/actions/run-storage-tests
         with:
-          # hardcoded: see the commented-out inputs above. Empty lets the action derive the tag
-          # from the ref, since latest is only built from main.
-          spring-tag: ''
-          scenarios: ''
           # free the resources only when the run asked for it; otherwise the service stays up and
           # the cluster-state step at the end of this workflow picks it up
           cleanup: ${{ inputs.do-resources-workaround || 'false' }}
@@ -642,6 +626,11 @@ jobs:
             kubectl get pods -A \
               -o jsonpath='{range .items[?(@.status.phase!="Running" && @.status.phase!="Succeeded")]}{.metadata.namespace} {.metadata.name} {.status.phase}{"\n"}{end}' \
               > /tmp/unhealthy-pods.txt || true
+
+            kubectl get pods -A \
+              -o jsonpath='{range .items[?(@.status.containerStatuses[*].ready==false)]}{.metadata.namespace} {.metadata.name} {.status.phase}{"\n"}{end}' \
+              >> /tmp/unhealthy-pods.txt || true
+            sort -u -o /tmp/unhealthy-pods.txt /tmp/unhealthy-pods.txt || true
             
             collect_pod_logs /tmp/unhealthy-pods.txt "No unhealthy pods found"
             
