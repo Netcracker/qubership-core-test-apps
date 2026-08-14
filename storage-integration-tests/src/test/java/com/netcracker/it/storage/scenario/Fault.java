@@ -22,7 +22,11 @@ public enum Fault {
 
     /** Every member restarted in turn, the way a node sweep moves them. */
     ROLLING_RESTART("every member is restarted in turn", Duration.ofMinutes(5),
-            FaultController::rollingRestart);
+            FaultController::rollingRestart),
+
+    /** The whole broker goes away and comes back, which is not a leader moving between brokers. */
+    BROKER_LOSS("the broker is killed and comes back", Duration.ofMinutes(3),
+            FaultController::killLeader);
 
     private final String description;
     private final Duration stabilisationTimeout;

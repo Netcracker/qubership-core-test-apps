@@ -29,6 +29,9 @@
         <!-- Service whose endpoints point at the primary, and the pod-name prefix of the members. -->
         <storage.leaderService>pg-patroni</storage.leaderService>
         <storage.memberPrefix>pg-patroni-node</storage.memberPrefix>
+        <!-- Kafka instance to disturb; each local-dev release is one single-node broker. -->
+        <storage.kafkaNamespace>kafka</storage.kafkaNamespace>
+        <storage.kafkaInstance>kafka-1</storage.kafkaInstance>
     </properties>
 
     <repositories>
@@ -137,6 +140,8 @@
                         <storage.namespace>${storage.namespace}</storage.namespace>
                         <storage.leaderService>${storage.leaderService}</storage.leaderService>
                         <storage.memberPrefix>${storage.memberPrefix}</storage.memberPrefix>
+                        <storage.kafkaNamespace>${storage.kafkaNamespace}</storage.kafkaNamespace>
+                        <storage.kafkaInstance>${storage.kafkaInstance}</storage.kafkaInstance>
                     </systemPropertyVariables>
                     <includes>
                         <include>**/*IT.java</include>

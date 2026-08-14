@@ -89,6 +89,27 @@ public final class StorageAssertions {
                 .isLessThanOrEqualTo(Math.round(before.longValue() * (1 + tolerance)) + 5);
     }
 
+    /**
+     * What the fault actually did, for the run log. A scenario where nothing ever failed is not
+     * measuring recovery, and only this line makes that visible.
+     */
+    public static String summarise(WorkloadStats stats, long faultClearedAtMillis) {
+        List<OperationOutcome> failures = stats.outcomes().stream()
+                .filter(outcome -> !outcome.success())
+                .toList();
+        String recovery = stats.since(faultClearedAtMillis).stream()
+                .filter(OperationOutcome::success)
+                .findFirst()
+                .map(first -> (first.startedAtMillis() - faultClearedAtMillis) + "ms")
+                .orElse("never");
+
+        return String.format(
+                "operations=%d succeeded=%d failed=%d, failure window=%dms, recovery after fault cleared=%s,"
+                        + " slowest operation=%dms, errors: %s",
+                stats.total(), stats.succeeded(), stats.failed(), stats.failureWindowMillis(),
+                recovery, stats.maxDurationMillis(), errorSummary(failures));
+    }
+
     /** Failures grouped by error class, so a failed assertion says what went wrong. */
     public static String errorSummary(List<OperationOutcome> outcomes) {
         List<OperationOutcome> failures = outcomes.stream().filter(o -> !o.success()).toList();

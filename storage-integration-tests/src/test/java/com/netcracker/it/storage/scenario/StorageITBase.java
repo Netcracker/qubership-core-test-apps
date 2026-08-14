@@ -14,7 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -70,7 +70,7 @@ public abstract class StorageITBase {
     protected StorageTestApp app;
     protected FaultController faults;
 
-    private long faultClearedAt;
+    protected long faultClearedAt;
 
     /** Probe name in the application contract, for example {@code postgresql}. */
     protected abstract String storage();
@@ -129,8 +129,19 @@ public abstract class StorageITBase {
         }
     }
 
+    /** Faults every leader-electing storage goes through; a storage may hide this with its own. */
+    static Stream<Fault> faults() {
+        return Stream.of(Fault.ABRUPT_LEADER_LOSS, Fault.ENDPOINT_CHANGE,
+                Fault.GRACEFUL_SWITCHOVER, Fault.ROLLING_RESTART);
+    }
+
+    /** The fault used where a scenario needs just one; a broker-only storage overrides it. */
+    protected Fault primaryFault() {
+        return Fault.ABRUPT_LEADER_LOSS;
+    }
+
     @ParameterizedTest(name = "{0}")
-    @EnumSource(Fault.class)
+    @MethodSource("faults")
     void clientRecoversFrom(Fault fault) {
         assertContract(runWorkloadThrough(fault, "PER_CALL"), faultClearedAt, thresholds(), MIN_OPERATIONS);
     }
@@ -140,7 +151,7 @@ public abstract class StorageITBase {
     void longHeldHandleRecovers() {
         // the access pattern of a service that wires its handle at boot; the library's recovery
         // path is only entered when the caller asks again
-        assertContract(runWorkloadThrough(Fault.ABRUPT_LEADER_LOSS, "LONG_HELD"),
+        assertContract(runWorkloadThrough(primaryFault(), "LONG_HELD"),
                 faultClearedAt, thresholds(), MIN_OPERATIONS);
     }
 
@@ -154,7 +165,7 @@ public abstract class StorageITBase {
 
         for (int cycle = 1; cycle <= thresholds().leakCycles(); cycle++) {
             log.info("Leak cycle {}/{}", cycle, thresholds().leakCycles());
-            Fault.ABRUPT_LEADER_LOSS.injectAndAwaitRecovery(faults);
+            primaryFault().injectAndAwaitRecovery(faults);
             letWorkloadRun(Duration.ofSeconds(10));
         }
 
@@ -167,15 +178,18 @@ public abstract class StorageITBase {
     }
 
     /** Warm up, inject, let it settle, return the timeline. The shape every scenario shares. */
-    private WorkloadStats runWorkloadThrough(Fault fault, String handleMode) {
+    protected WorkloadStats runWorkloadThrough(Fault fault, String handleMode) {
         app.startWorkload(storage(), handleMode, operationsPerSecond());
         letWorkloadRun(WARM_UP);
         faultClearedAt = fault.injectAndAwaitRecovery(faults);
         letWorkloadRun(SETTLE.plus(thresholds().recovery()));
-        return app.stats();
+
+        WorkloadStats stats = app.stats();
+        log.info("{} / {}: {}", storage(), fault, StorageAssertions.summarise(stats, faultClearedAt));
+        return stats;
     }
 
-    private static void letWorkloadRun(Duration duration) {
+    protected static void letWorkloadRun(Duration duration) {
         await().pollDelay(duration).atMost(duration.plusSeconds(5)).until(() -> true);
     }
 }

@@ -35,4 +35,11 @@ public record Thresholds(
         return new Thresholds(Duration.ofSeconds(90), Duration.ofSeconds(65), 0.25, 10);
     }
 
+    /**
+     * Losing the broker takes the whole instance down, so recovery is the pod returning plus the
+     * producer refreshing metadata. maxOperation matches the producer delivery timeout.
+     */
+    public static Thresholds kafka() {
+        return new Thresholds(Duration.ofSeconds(60), Duration.ofSeconds(25), 0.25, 5);
+    }
 }
