@@ -44,15 +44,16 @@ runs:
         SPRING_TAG: ${{ inputs.spring-tag }}
         DBAAS_AGENT_URL: ${{ inputs.dbaas-agent-url }}
         SCENARIOS: ${{ inputs.scenarios }}
+        BRANCH: ${{ github.head_ref || github.ref_name }}
       run: |
         set -e
         TAG="$SPRING_TAG"
         if [ -z "$TAG" ]; then
-          if [ "$GITHUB_REF_NAME" = "main" ]; then
+          if [ "$BRANCH" = "main" ]; then
             TAG="latest"
           else
-            # slashes are legal in a ref name but not in a tag: pull_request gives '<number>/merge'
-            TAG="${GITHUB_REF_NAME//\//-}-snapshot"
+            # the image is tagged with slashes replaced, so feat/x becomes feat-x-snapshot
+            TAG="${BRANCH//\//-}-snapshot"
           fi
         fi
         echo "Installing storage-test-service-spring:$TAG"
