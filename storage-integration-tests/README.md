@@ -30,6 +30,19 @@ and the faults. Everything else — the scenarios, the workload shape, the asser
 | `KafkaGoStorageIT` | go | Go MaaS client plus segmentio |
 | `MaasQuarkusStorageIT` | quarkus | Quarkus MaaS extension over the Java MaaS client |
 | `KafkaQuarkusStorageIT` | quarkus | Quarkus MaaS extension plus kafka-clients |
+| `MaasAgentStorageIT` | spring | Java MaaS client, with maas-agent losing an instance |
+| `MaasAgentGoStorageIT` | go | Go MaaS client, with maas-agent losing an instance |
+
+The `MaasAgent` classes exercise the other half of the retry logic. When the database behind
+maas-service moves its leader the client gets 405 with a `MAAS-0600` body; when maas-agent itself
+loses a pod the client gets a reset connection. Those are different branches, and the second one
+was only covered by unit tests before. The controller scales maas-agent to two instances first,
+since losing one of one is a full outage rather than the endpoint change being measured.
+
+There is no Quarkus counterpart on purpose: the Quarkus extension wraps the same Java client the
+Spring application uses, so a third run of the same code would cost time without adding coverage.
+For the same reason the Quarkus classes run one fault instead of the whole sweep and skip the leak
+scenario — what is new on that platform is the CDI wiring, not the retry logic.
 
 ## What passes
 
@@ -37,10 +50,13 @@ and the faults. Everything else — the scenarios, the workload shape, the asser
 
 | Assertion | Meaning |
 |---|---|
-| recovered | a success occurred within the storage's recovery budget after the fault cleared |
-| errors stopped | no failures once the storage was healthy again plus the recovery allowance |
+| recovered | a success occurred within the storage's recovery allowance after the fault cleared |
+| errors stopped | no failures once the client had settled, measured from its first success |
 | nothing hung | every operation returned, success or error, within the per-operation limit |
 | no leak | threads and descriptors back to baseline after repeated fault cycles |
+
+A scenario waits for the client to answer again rather than sitting out the whole allowance, so a
+storage that recovers in a second costs a second. The allowance stays the limit that fails the test.
 
 Zero-error failover is explicitly **not** the contract. A leader change produces errors; what is
 asserted is that they are bounded and recoverable. Thresholds live in `scenario/Thresholds.java`,
@@ -61,3 +77,5 @@ one record per storage.
 | `storage.memberPrefix` | `pg-patroni-node` | pod-name prefix of the cluster members |
 | `storage.kafkaNamespace` | `kafka` | where the broker under test runs |
 | `storage.kafkaInstance` | `kafka-1` | Helm release of the broker to disturb |
+| `storage.maasAgentDeployment` | `maas-agent` | deployment whose instances are killed |
+| `storage.maasAgentReplicas` | `2` | instances the scenario needs running |

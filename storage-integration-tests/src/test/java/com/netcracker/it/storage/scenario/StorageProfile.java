@@ -1,5 +1,6 @@
 package com.netcracker.it.storage.scenario;
 
+import com.netcracker.it.storage.controller.DeploymentFaultController;
 import com.netcracker.it.storage.controller.FaultController;
 import com.netcracker.it.storage.controller.KafkaFaultController;
 import com.netcracker.it.storage.controller.PatroniFaultController;
@@ -31,13 +32,24 @@ public enum StorageProfile {
      * so the achievable event is the broker going away and coming back, not a leader election.
      */
     KAFKA("kafka", 5, List.of("maas-agent"), Thresholds.kafka(),
-            List.of(Fault.BROKER_LOSS), Fault.BROKER_LOSS, StorageProfile::kafka);
+            List.of(Fault.BROKER_LOSS), Fault.BROKER_LOSS, StorageProfile::kafka),
+
+    /**
+     * The same MaaS calls, but the fault is maas-agent itself losing an instance. The client sees
+     * a reset connection rather than a status code, which is the other half of its retry logic.
+     */
+    MAAS_AGENT("maas-kafka", 2, List.of("maas-agent"), Thresholds.maasAgent(),
+            List.of(Fault.INSTANCE_LOSS, Fault.ROLLING_RESTART), Fault.INSTANCE_LOSS,
+            StorageProfile::maasAgent);
 
     private static final String NAMESPACE = System.getProperty("storage.namespace");
     private static final String LEADER_SERVICE = System.getProperty("storage.leaderService");
     private static final String MEMBER_PREFIX = System.getProperty("storage.memberPrefix");
     private static final String KAFKA_NAMESPACE = System.getProperty("storage.kafkaNamespace");
     private static final String KAFKA_INSTANCE = System.getProperty("storage.kafkaInstance");
+    private static final String AGENT_DEPLOYMENT = System.getProperty("storage.maasAgentDeployment");
+    private static final int AGENT_REPLICAS =
+            Integer.parseInt(System.getProperty("storage.maasAgentReplicas", "2"));
 
     private final String probe;
     private final int operationsPerSecond;
@@ -95,8 +107,7 @@ public enum StorageProfile {
     }
 
     private static List<Fault> leaderFaults() {
-        return List.of(Fault.ABRUPT_LEADER_LOSS, Fault.ENDPOINT_CHANGE,
-                Fault.GRACEFUL_SWITCHOVER, Fault.ROLLING_RESTART);
+        return List.of(Fault.ABRUPT_LEADER_LOSS, Fault.GRACEFUL_SWITCHOVER, Fault.ROLLING_RESTART);
     }
 
     private static FaultController patroni(KubernetesClient kubernetes) {
@@ -105,5 +116,10 @@ public enum StorageProfile {
 
     private static FaultController kafka(KubernetesClient kubernetes) {
         return new KafkaFaultController(kubernetes, KAFKA_NAMESPACE, KAFKA_INSTANCE);
+    }
+
+    private static FaultController maasAgent(KubernetesClient kubernetes) {
+        return new DeploymentFaultController(kubernetes, Namespaces.application(),
+                AGENT_DEPLOYMENT, AGENT_REPLICAS);
     }
 }

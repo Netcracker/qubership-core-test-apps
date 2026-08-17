@@ -84,11 +84,7 @@ func (p *Kafka) WriteAndRead(ctx context.Context, mode HandleMode, key, value st
 		if err != nil {
 			return "", err
 		}
-		defer func() {
-			if closeErr := perCall.Close(); closeErr != nil {
-				logger.Warn("Failed to close the per-call writer: %v", closeErr)
-			}
-		}()
+		defer closeWriter(perCall)
 		writer = perCall
 	}
 	if writer == nil {
@@ -127,10 +123,17 @@ func (p *Kafka) ReleaseHeldHandle() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.writer != nil {
-		if err := p.writer.Close(); err != nil {
-			logger.Warn("Failed to close the writer: %v", err)
-		}
+		closeWriter(p.writer)
 		p.writer = nil
+	}
+}
+
+func closeWriter(writer *kafkago.Writer) {
+	if err := writer.Close(); err != nil {
+		logger.Warn("Failed to close the writer: %v", err)
+	}
+	if transport, ok := writer.Transport.(*kafkago.Transport); ok {
+		transport.CloseIdleConnections()
 	}
 }
 

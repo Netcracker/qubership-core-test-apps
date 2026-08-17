@@ -8,12 +8,11 @@ import java.util.function.Consumer;
 /** A fault a scenario can inject. Scenarios differ only in which one, so they are driven from here. */
 public enum Fault {
 
-    /** Leader deleted with no grace period, so connections are reset. */
+    /**
+     * Leader deleted with no grace period, so connections are reset. The replacement comes up with
+     * a new pod IP, so this is also the endpoint change the client has to follow.
+     */
     ABRUPT_LEADER_LOSS("the leader is killed abruptly", Duration.ofMinutes(3),
-            FaultController::killLeader),
-
-    /** The leader is rescheduled, so the new one comes up with a different pod IP. */
-    ENDPOINT_CHANGE("the new leader has a new pod IP", Duration.ofMinutes(3),
             FaultController::killLeader),
 
     /** Leadership transferred before the old leader stops serving. */
@@ -26,6 +25,10 @@ public enum Fault {
 
     /** The whole broker goes away and comes back, which is not a leader moving between brokers. */
     BROKER_LOSS("the broker is killed and comes back", Duration.ofMinutes(3),
+            FaultController::killLeader),
+
+    /** One instance of a stateless service disappears while its peers keep serving. */
+    INSTANCE_LOSS("one instance is killed while its peers serve", Duration.ofMinutes(3),
             FaultController::killLeader);
 
     private final String description;

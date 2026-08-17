@@ -5,6 +5,7 @@ import com.netcracker.it.storage.app.WorkloadStats.OperationOutcome;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -19,12 +20,18 @@ public final class StorageAssertions {
     private StorageAssertions() {
     }
 
+    /**
+     * How long after its first success the client is still allowed to fail. Recovery is not
+     * instantaneous across a connection pool, but it is not open-ended either.
+     */
+    private static final long SETTLING_MILLIS = 10_000;
+
     /** The whole contract in one call, so a scenario reads as "inject the fault, assert this". */
     public static void assertContract(WorkloadStats stats, long faultClearedAtMillis,
                                       Thresholds thresholds, long minimumOperations) {
         assertWorkloadRan(stats, minimumOperations);
         assertRecovered(stats, faultClearedAtMillis, thresholds);
-        assertErrorsStopped(stats, faultClearedAtMillis, thresholds);
+        assertErrorsStopped(stats, faultClearedAtMillis);
         assertNothingHung(stats, thresholds);
     }
 
@@ -38,10 +45,7 @@ public final class StorageAssertions {
     /** A successful operation occurred within the recovery allowance after the fault cleared. */
     public static void assertRecovered(WorkloadStats stats, long faultClearedAtMillis, Thresholds thresholds) {
         List<OperationOutcome> after = stats.since(faultClearedAtMillis);
-        OperationOutcome firstSuccess = after.stream()
-                .filter(OperationOutcome::success)
-                .findFirst()
-                .orElse(null);
+        OperationOutcome firstSuccess = firstSuccessAfter(stats, faultClearedAtMillis).orElse(null);
 
         assertThat(firstSuccess)
                 .as("first success after the fault cleared; errors seen: %s", errorSummary(after))
@@ -52,16 +56,28 @@ public final class StorageAssertions {
     }
 
     /**
-     * Errors stopped once the storage was healthy again. A client still failing long afterwards is
-     * the defect this looks for: a cached connection that is never rebuilt.
+     * Errors stopped once the client had recovered. Measured from the first success rather than
+     * from the recovery allowance, so a client that recovers quickly is still held to the same
+     * standard, and the scenario does not have to wait out the allowance to check it.
      */
-    public static void assertErrorsStopped(WorkloadStats stats, long faultClearedAtMillis, Thresholds thresholds) {
-        List<OperationOutcome> late = stats.since(faultClearedAtMillis + thresholds.recovery().toMillis())
-                .stream().filter(outcome -> !outcome.success()).toList();
+    public static void assertErrorsStopped(WorkloadStats stats, long faultClearedAtMillis) {
+        long recoveredAt = firstSuccessAfter(stats, faultClearedAtMillis)
+                .map(OperationOutcome::startedAtMillis)
+                .orElseThrow(() -> new AssertionError("the client never recovered, so there is "
+                        + "nothing to measure quiet traffic against"));
 
-        assertThat(late)
-                .as("failures after recovery settled: %s", errorSummary(late))
+        List<OperationOutcome> settled = stats.since(recoveredAt + SETTLING_MILLIS);
+        assertThat(settled)
+                .as("operations recorded after the client settled; without them this check is vacuous")
+                .isNotEmpty();
+        assertThat(settled.stream().filter(outcome -> !outcome.success()).toList())
+                .as("failures after the client settled: %s", errorSummary(settled))
                 .isEmpty();
+    }
+
+    /** The first operation that succeeded once the storage was healthy again. */
+    static Optional<OperationOutcome> firstSuccessAfter(WorkloadStats stats, long millis) {
+        return stats.since(millis).stream().filter(OperationOutcome::success).findFirst();
     }
 
     /** Every operation returned, success or error. A hung call is a hard failure. */
@@ -97,9 +113,7 @@ public final class StorageAssertions {
         List<OperationOutcome> failures = stats.outcomes().stream()
                 .filter(outcome -> !outcome.success())
                 .toList();
-        String recovery = stats.since(faultClearedAtMillis).stream()
-                .filter(OperationOutcome::success)
-                .findFirst()
+        String recovery = firstSuccessAfter(stats, faultClearedAtMillis)
                 .map(first -> (first.startedAtMillis() - faultClearedAtMillis) + "ms")
                 .orElse("never");
 

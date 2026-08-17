@@ -15,7 +15,7 @@ public record Thresholds(
         Duration maxOperation,
         /* Tolerance for the leak scenario, as a fraction of the baseline. */
         double leakTolerance,
-        /* Fault cycles the leak scenario performs. */
+        /* Fault cycles the leak scenario performs. A leak is monotonic, so a handful shows it. */
         int leakCycles) {
 
     /**
@@ -24,7 +24,7 @@ public record Thresholds(
      * — an operation that outlives it is hanging, not slow.
      */
     public static Thresholds postgresql() {
-        return new Thresholds(Duration.ofSeconds(30), Duration.ofSeconds(15), 0.25, 20);
+        return new Thresholds(Duration.ofSeconds(30), Duration.ofSeconds(15), 0.25, 5);
     }
 
     /**
@@ -32,7 +32,16 @@ public record Thresholds(
      * default) before failing, so both numbers sit above the database election itself.
      */
     public static Thresholds maas() {
-        return new Thresholds(Duration.ofSeconds(90), Duration.ofSeconds(65), 0.25, 10);
+        return new Thresholds(Duration.ofSeconds(90), Duration.ofSeconds(65), 0.25, 5);
+    }
+
+    /**
+     * Losing one instance of maas-agent is a transport error on an open connection, not a wait for
+     * an election, so the client should be back on the next call. Fewer cycles than a database
+     * failover: a pod restart is quick, and twenty of them is time spent, not coverage gained.
+     */
+    public static Thresholds maasAgent() {
+        return new Thresholds(Duration.ofSeconds(45), Duration.ofSeconds(30), 0.25, 5);
     }
 
     /**

@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.awaitility.core.ConditionTimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,6 +27,7 @@ import static com.netcracker.it.storage.scenario.StorageAssertions.assertContrac
 import static com.netcracker.it.storage.scenario.StorageAssertions.assertNoLeak;
 import static com.netcracker.it.storage.scenario.StorageAssertions.assertNothingHung;
 import static org.awaitility.Awaitility.await;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * The scenarios themselves, written once. A subclass supplies the platform it drives and the
@@ -42,7 +44,10 @@ public abstract class StorageITBase {
     private static final Duration STABILISATION = Duration.ofMinutes(3);
     /** Long enough for the timeline to show a clear before, during and after. */
     private static final Duration WARM_UP = Duration.ofSeconds(15);
-    private static final Duration SETTLE = Duration.ofSeconds(45);
+    /** Clean traffic observed after recovery, which is what "the errors stopped" is asserted on. */
+    private static final Duration QUIET_PERIOD = Duration.ofSeconds(30);
+    /** Slack over the recovery allowance, so a late success is reported by the assertion. */
+    private static final Duration RECOVERY_GRACE = Duration.ofSeconds(15);
     private static final long MIN_OPERATIONS = 30;
 
     /**
@@ -63,16 +68,6 @@ public abstract class StorageITBase {
     /** The storage this class exercises. */
     protected abstract StorageProfile profile();
 
-    /** Namespace of the application, as the integration-test runner already passes it. */
-    private static String appNamespace() {
-        return Stream.of("ORIGIN_NAMESPACE", "env.cloud-namespace", "clouds.cloud.namespaces.namespace")
-                .map(System::getProperty)
-                .filter(value -> value != null && !value.isBlank())
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException(
-                        "the application namespace is not set; run through run-it/run-integration-tests.sh"));
-    }
-
     @BeforeEach
     void setUpFixture() {
         requireServices();
@@ -84,7 +79,7 @@ public abstract class StorageITBase {
     }
 
     private void requireServices() {
-        String namespace = appNamespace();
+        String namespace = Namespaces.application();
         List<String> missing = profile().requiredServices().stream()
                 .filter(name -> kubernetes.services().inNamespace(namespace).withName(name).get() == null)
                 .toList();
@@ -125,9 +120,16 @@ public abstract class StorageITBase {
                 profile().thresholds(), MIN_OPERATIONS);
     }
 
+    /** Whether this class runs the leak scenario; false where the same library is cycled elsewhere. */
+    protected boolean checksResourceHygiene() {
+        return true;
+    }
+
     @Test
     @DisplayName("repeated failover leaves no threads or descriptors behind")
     void resourceHygiene() {
+        assumeTrue(checksResourceHygiene(),
+                "the leak lives in the client library, which another class already cycles");
         Thresholds thresholds = profile().thresholds();
         app.startWorkload(profile().probe(), "PER_CALL", profile().operationsPerSecond());
         letWorkloadRun(WARM_UP);
@@ -140,7 +142,7 @@ public abstract class StorageITBase {
             letWorkloadRun(Duration.ofSeconds(10));
         }
 
-        letWorkloadRun(SETTLE);
+        letWorkloadRun(QUIET_PERIOD);
         Map<String, Object> after = app.diag();
         log.info("Leak after {} cycles: {}", thresholds.leakCycles(), after);
 
@@ -153,11 +155,28 @@ public abstract class StorageITBase {
         app.startWorkload(profile().probe(), handleMode, profile().operationsPerSecond());
         letWorkloadRun(WARM_UP);
         faultClearedAt = fault.injectAndAwaitRecovery(faults);
-        letWorkloadRun(SETTLE.plus(profile().thresholds().recovery()));
+        awaitRecovery();
+        letWorkloadRun(QUIET_PERIOD);
 
         WorkloadStats stats = app.stats();
         log.info("{} / {}: {}", profile().probe(), fault, StorageAssertions.summarise(stats, faultClearedAt));
         return stats;
+    }
+
+    /**
+     * Waits for the client to answer again rather than sitting out the whole recovery allowance,
+     * which is what a scenario used to cost even when recovery took a second. A client that never
+     * comes back falls through to the assertions, which report the timeline instead of a timeout.
+     */
+    private void awaitRecovery() {
+        try {
+            await("the client answers again")
+                    .atMost(profile().thresholds().recovery().plus(RECOVERY_GRACE))
+                    .pollInterval(Duration.ofSeconds(2))
+                    .until(() -> StorageAssertions.firstSuccessAfter(app.stats(), faultClearedAt).isPresent());
+        } catch (ConditionTimeoutException e) {
+            log.warn("No successful operation within the recovery allowance; the assertions will report it");
+        }
     }
 
     private static void letWorkloadRun(Duration duration) {

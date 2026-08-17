@@ -535,8 +535,13 @@ jobs:
         if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.storage_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure' }}
         env:
           COLLECT_LOGS_FOR: ${{ inputs.collect-logs-for || '' }}
+          STORAGE_TESTS: ${{ steps.integrations_tests_selection.outputs.storage_tests }}
         run: |
           set +e
+          if [ "$STORAGE_TESTS" = "true" ]; then
+            STORAGE_SELECTORS='app.kubernetes.io/part-of=storage-test-app,name=maas-agent,name=maas-service'
+            COLLECT_LOGS_FOR="${COLLECT_LOGS_FOR:+$COLLECT_LOGS_FOR,}$STORAGE_SELECTORS"
+          fi
 
           echo "==== Collecting cluster state ===="
 
@@ -625,9 +630,10 @@ jobs:
             }
             
             echo "==== Collecting unhealthy pod logs ===="
+            # kubectl jsonpath has no boolean operators; Succeeded is filtered out afterwards
             kubectl get pods -A \
-              -o jsonpath='{range .items[?(@.status.phase!="Running" && @.status.phase!="Succeeded")]}{.metadata.namespace} {.metadata.name} {.status.phase}{"\n"}{end}' \
-              > /tmp/unhealthy-pods.txt || true
+              -o jsonpath='{range .items[?(@.status.phase!="Running")]}{.metadata.namespace} {.metadata.name} {.status.phase}{"\n"}{end}' \
+              | grep -v ' Succeeded$' > /tmp/unhealthy-pods.txt || true
 
             kubectl get pods -A \
               -o jsonpath='{range .items[?(@.status.containerStatuses[*].ready==false)]}{.metadata.namespace} {.metadata.name} {.status.phase}{"\n"}{end}' \

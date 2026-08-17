@@ -32,6 +32,9 @@
         <!-- Kafka instance to disturb; each local-dev release is one single-node broker. -->
         <storage.kafkaNamespace>kafka</storage.kafkaNamespace>
         <storage.kafkaInstance>kafka-1</storage.kafkaInstance>
+        <!-- Deployment whose instances are killed, and how many the scenario needs running. -->
+        <storage.maasAgentDeployment>maas-agent</storage.maasAgentDeployment>
+        <storage.maasAgentReplicas>2</storage.maasAgentReplicas>
     </properties>
 
     <repositories>
@@ -142,6 +145,8 @@
                         <storage.memberPrefix>${storage.memberPrefix}</storage.memberPrefix>
                         <storage.kafkaNamespace>${storage.kafkaNamespace}</storage.kafkaNamespace>
                         <storage.kafkaInstance>${storage.kafkaInstance}</storage.kafkaInstance>
+                        <storage.maasAgentDeployment>${storage.maasAgentDeployment}</storage.maasAgentDeployment>
+                        <storage.maasAgentReplicas>${storage.maasAgentReplicas}</storage.maasAgentReplicas>
                     </systemPropertyVariables>
                     <includes>
                         <include>**/*IT.java</include>
