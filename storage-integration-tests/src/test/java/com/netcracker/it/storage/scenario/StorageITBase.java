@@ -1,18 +1,16 @@
 package com.netcracker.it.storage.scenario;
 
 import com.netcracker.cloud.junit.cloudcore.extension.annotations.Cloud;
-import com.netcracker.cloud.junit.cloudcore.extension.annotations.IntValue;
-import com.netcracker.cloud.junit.cloudcore.extension.annotations.PortForward;
 import com.netcracker.cloud.junit.cloudcore.extension.annotations.Value;
 import com.netcracker.it.storage.app.StorageTestApp;
 import com.netcracker.it.storage.app.WorkloadStats;
 import com.netcracker.it.storage.controller.FaultController;
-import com.netcracker.it.storage.controller.PatroniFaultController;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
@@ -30,9 +28,13 @@ import static com.netcracker.it.storage.scenario.StorageAssertions.assertNothing
 import static org.awaitility.Awaitility.await;
 
 /**
- * The scenarios themselves, written once. A storage supplies its probe name and thresholds; the
- * faults, the workload shape and the assertions are shared.
+ * The scenarios themselves, written once. A subclass supplies the platform it drives and the
+ * storage profile it exercises; the faults, the workload shape and the assertions are shared.
+ *
+ * <p>The per-class lifecycle is what lets the fault list come from the profile: a
+ * {@code @MethodSource} factory may only be an instance method under it.
  */
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class StorageITBase {
 
     private static final Logger log = LoggerFactory.getLogger(StorageITBase.class);
@@ -42,23 +44,6 @@ public abstract class StorageITBase {
     private static final Duration WARM_UP = Duration.ofSeconds(15);
     private static final Duration SETTLE = Duration.ofSeconds(45);
     private static final long MIN_OPERATIONS = 30;
-
-    private static final String NAMESPACE = System.getProperty("storage.namespace");
-    private static final String LEADER_SERVICE = System.getProperty("storage.leaderService");
-    private static final String MEMBER_PREFIX = System.getProperty("storage.memberPrefix");
-
-    /** Namespace of the application, as the integration-test runner already passes it. */
-    private static String appNamespace() {
-        return Stream.of("ORIGIN_NAMESPACE", "env.cloud-namespace", "clouds.cloud.namespaces.namespace")
-                .map(System::getProperty)
-                .filter(value -> value != null && !value.isBlank())
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException(
-                        "the application namespace is not set; run through run-it/run-integration-tests.sh"));
-    }
-
-    @PortForward(serviceName = @Value("storage-test-service-spring"), port = @IntValue(8080))
-    protected static URL appUrl;
 
     /**
      * Injected and closed by the extension. The namespace is the storage's, not the application's,
@@ -72,49 +57,39 @@ public abstract class StorageITBase {
 
     protected long faultClearedAt;
 
-    /** Probe name in the application contract, for example {@code postgresql}. */
-    protected abstract String storage();
+    /** The application under test, port-forwarded by the platform's base class. */
+    protected abstract URL appUrl();
 
-    protected abstract Thresholds thresholds();
+    /** The storage this class exercises. */
+    protected abstract StorageProfile profile();
 
-    /** Operations per second the workload issues; slower for storages whose calls are expensive. */
-    protected int operationsPerSecond() {
-        return 10;
-    }
-
-    /**
-     * The fault is a Patroni leader change for every storage covered so far: directly for the DBaaS
-     * client, and through maas-service's own database for the MaaS client.
-     */
-    protected FaultController newController() {
-        return new PatroniFaultController(kubernetes, NAMESPACE, LEADER_SERVICE, MEMBER_PREFIX);
-    }
-
-    /**
-     * Services this storage cannot be tested without. Checked up front so a missing install fails
-     * with its own name rather than as a client timeout thirty operations later.
-     */
-    protected List<String> requiredServices() {
-        return List.of();
+    /** Namespace of the application, as the integration-test runner already passes it. */
+    private static String appNamespace() {
+        return Stream.of("ORIGIN_NAMESPACE", "env.cloud-namespace", "clouds.cloud.namespaces.namespace")
+                .map(System::getProperty)
+                .filter(value -> value != null && !value.isBlank())
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException(
+                        "the application namespace is not set; run through run-it/run-integration-tests.sh"));
     }
 
     @BeforeEach
     void setUpFixture() {
         requireServices();
-        app = new StorageTestApp(appUrl);
-        faults = newController();
+        app = new StorageTestApp(appUrl());
+        faults = profile().newController(kubernetes);
         // start healthy, so a previous scenario's damage is never attributed to this one
         faults.awaitStable(STABILISATION);
-        app.initStorage(storage());
+        app.initStorage(profile().probe());
     }
 
     private void requireServices() {
         String namespace = appNamespace();
-        List<String> missing = requiredServices().stream()
+        List<String> missing = profile().requiredServices().stream()
                 .filter(name -> kubernetes.services().inNamespace(namespace).withName(name).get() == null)
                 .toList();
         if (!missing.isEmpty()) {
-            throw new IllegalStateException(storage() + " tests need " + missing
+            throw new IllegalStateException(profile().probe() + " tests need " + missing
                     + " in namespace " + namespace + ", and they are not deployed."
                     + " Run the workflow with install-maas enabled, or exclude this suite.");
         }
@@ -129,21 +104,16 @@ public abstract class StorageITBase {
         }
     }
 
-    /** Faults every leader-electing storage goes through; a storage may hide this with its own. */
-    static Stream<Fault> faults() {
-        return Stream.of(Fault.ABRUPT_LEADER_LOSS, Fault.ENDPOINT_CHANGE,
-                Fault.GRACEFUL_SWITCHOVER, Fault.ROLLING_RESTART);
-    }
-
-    /** The fault used where a scenario needs just one; a broker-only storage overrides it. */
-    protected Fault primaryFault() {
-        return Fault.ABRUPT_LEADER_LOSS;
+    /** The faults the storage under test can be subjected to. */
+    Stream<Fault> faults() {
+        return profile().faults().stream();
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("faults")
     void clientRecoversFrom(Fault fault) {
-        assertContract(runWorkloadThrough(fault, "PER_CALL"), faultClearedAt, thresholds(), MIN_OPERATIONS);
+        assertContract(runWorkloadThrough(fault, "PER_CALL"), faultClearedAt,
+                profile().thresholds(), MIN_OPERATIONS);
     }
 
     @Test
@@ -151,45 +121,46 @@ public abstract class StorageITBase {
     void longHeldHandleRecovers() {
         // the access pattern of a service that wires its handle at boot; the library's recovery
         // path is only entered when the caller asks again
-        assertContract(runWorkloadThrough(primaryFault(), "LONG_HELD"),
-                faultClearedAt, thresholds(), MIN_OPERATIONS);
+        assertContract(runWorkloadThrough(profile().primaryFault(), "LONG_HELD"), faultClearedAt,
+                profile().thresholds(), MIN_OPERATIONS);
     }
 
     @Test
     @DisplayName("repeated failover leaves no threads or descriptors behind")
     void resourceHygiene() {
-        app.startWorkload(storage(), "PER_CALL", operationsPerSecond());
+        Thresholds thresholds = profile().thresholds();
+        app.startWorkload(profile().probe(), "PER_CALL", profile().operationsPerSecond());
         letWorkloadRun(WARM_UP);
         Map<String, Object> baseline = app.diag();
         log.info("Leak baseline: {}", baseline);
 
-        for (int cycle = 1; cycle <= thresholds().leakCycles(); cycle++) {
-            log.info("Leak cycle {}/{}", cycle, thresholds().leakCycles());
-            primaryFault().injectAndAwaitRecovery(faults);
+        for (int cycle = 1; cycle <= thresholds.leakCycles(); cycle++) {
+            log.info("Leak cycle {}/{}", cycle, thresholds.leakCycles());
+            profile().primaryFault().injectAndAwaitRecovery(faults);
             letWorkloadRun(Duration.ofSeconds(10));
         }
 
         letWorkloadRun(SETTLE);
         Map<String, Object> after = app.diag();
-        log.info("Leak after {} cycles: {}", thresholds().leakCycles(), after);
+        log.info("Leak after {} cycles: {}", thresholds.leakCycles(), after);
 
-        assertNoLeak(baseline, after, thresholds());
-        assertNothingHung(app.stats(), thresholds());
+        assertNoLeak(baseline, after, thresholds);
+        assertNothingHung(app.stats(), thresholds);
     }
 
     /** Warm up, inject, let it settle, return the timeline. The shape every scenario shares. */
     protected WorkloadStats runWorkloadThrough(Fault fault, String handleMode) {
-        app.startWorkload(storage(), handleMode, operationsPerSecond());
+        app.startWorkload(profile().probe(), handleMode, profile().operationsPerSecond());
         letWorkloadRun(WARM_UP);
         faultClearedAt = fault.injectAndAwaitRecovery(faults);
-        letWorkloadRun(SETTLE.plus(thresholds().recovery()));
+        letWorkloadRun(SETTLE.plus(profile().thresholds().recovery()));
 
         WorkloadStats stats = app.stats();
-        log.info("{} / {}: {}", storage(), fault, StorageAssertions.summarise(stats, faultClearedAt));
+        log.info("{} / {}: {}", profile().probe(), fault, StorageAssertions.summarise(stats, faultClearedAt));
         return stats;
     }
 
-    protected static void letWorkloadRun(Duration duration) {
+    private static void letWorkloadRun(Duration duration) {
         await().pollDelay(duration).atMost(duration.plusSeconds(5)).until(() -> true);
     }
 }

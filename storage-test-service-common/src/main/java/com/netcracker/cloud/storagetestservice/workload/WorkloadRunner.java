@@ -3,7 +3,6 @@ package com.netcracker.cloud.storagetestservice.workload;
 import com.netcracker.cloud.storagetestservice.storage.StorageProbe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
@@ -19,7 +18,6 @@ import java.util.stream.Collectors;
  * Background load against one storage. The timeline is recorded in-cluster, next to the library
  * under test, so a stalling port-forward cannot be mistaken for a storage failure.
  */
-@Component
 public class WorkloadRunner {
 
     private static final Logger log = LoggerFactory.getLogger(WorkloadRunner.class);
@@ -44,6 +42,11 @@ public class WorkloadRunner {
 
     public WorkloadRunner(List<StorageProbe> probes) {
         this.probes = probes.stream().collect(Collectors.toMap(StorageProbe::type, probe -> probe));
+    }
+
+    /** Every probe this runner knows, for the diagnostics endpoint. */
+    public List<StorageProbe> probes() {
+        return List.copyOf(probes.values());
     }
 
     public StorageProbe probe(String storageType) {

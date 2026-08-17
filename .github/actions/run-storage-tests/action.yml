@@ -1,26 +1,34 @@
 name: Run storage integration tests
 description: >
-  Installs the storage test service and runs the storage failover integration tests.
+  Installs the storage test services and runs the storage failover integration tests.
 
 inputs:
   namespace:
-    description: Kubernetes namespace to install the storage test service into
+    description: Kubernetes namespace to install the storage test services into
     required: false
     default: core
-  spring-tag:
+  apps:
+    description: Comma-separated platforms to install and test, for example "spring,go"
+    required: false
+    default: spring,go,quarkus
+  tag:
     description: >
-      Docker image tag for storage-test-service-spring. Empty derives it from the ref: latest on
-      main, <ref>-snapshot elsewhere, since latest is only built from main.
+      Docker image tag for the test services. Empty derives it from the ref: latest on main,
+      <ref>-snapshot elsewhere, since latest is only built from main.
     required: false
     default: ''
   dbaas-agent-url:
     description: Address of the DBaaS agent the client under test talks to
     required: false
     default: http://dbaas-agent:8080
+  maas-agent-url:
+    description: Address of the MaaS agent the client under test talks to
+    required: false
+    default: http://maas-agent:8080
   cleanup:
     description: >
-      Uninstall the test service when the run ends. Only worth doing when the cluster is short on
-      resources: otherwise leaving it in place lets the workflow collect its state at the end.
+      Uninstall the test services when the run ends. Only worth doing when the cluster is short on
+      resources: otherwise leaving them in place lets the workflow collect their state at the end.
     required: false
     default: 'false'
   github-token:
@@ -36,12 +44,14 @@ runs:
         GITHUB_ACTOR: ${{ github.actor }}
         GITHUB_TOKEN: ${{ inputs.github-token }}
         NAMESPACE: ${{ inputs.namespace }}
-        SPRING_TAG: ${{ inputs.spring-tag }}
+        APPS: ${{ inputs.apps }}
+        IMAGE_TAG: ${{ inputs.tag }}
         DBAAS_AGENT_URL: ${{ inputs.dbaas-agent-url }}
+        MAAS_AGENT_URL: ${{ inputs.maas-agent-url }}
         BRANCH: ${{ github.head_ref || github.ref_name }}
       run: |
         set -e
-        TAG="$SPRING_TAG"
+        TAG="$IMAGE_TAG"
         if [ -z "$TAG" ]; then
           if [ "$BRANCH" = "main" ]; then
             TAG="latest"
@@ -50,14 +60,17 @@ runs:
             TAG="${BRANCH//\//-}-snapshot"
           fi
         fi
-        echo "Installing storage-test-service-spring:$TAG"
+        echo "Installing storage test services ($APPS) with tag $TAG"
         ./storage-test-install/storage-test-apps.sh install \
-            --namespace "$NAMESPACE" --dbaas-agent "$DBAAS_AGENT_URL" --spring-tag "$TAG"
+            --namespace "$NAMESPACE" --apps "$APPS" --tag "$TAG" \
+            --dbaas-agent "$DBAAS_AGENT_URL" --maas-agent "$MAAS_AGENT_URL"
 
         ./run-it/run-integration-tests.sh kind-kind "$NAMESPACE" kind-control-plane:10.244.0.1 \
-            storage-test-service-spring:storage-integration-tests
+            storage-test-apps:storage-integration-tests
 
-    - name: Uninstall the storage test service
+    - name: Uninstall the storage test services
       if: always() && inputs.cleanup == 'true'
       shell: bash
-      run: ./storage-test-install/storage-test-apps.sh uninstall --namespace ${{ inputs.namespace }}
+      run: >
+        ./storage-test-install/storage-test-apps.sh uninstall
+        --namespace ${{ inputs.namespace }} --apps ${{ inputs.apps }}

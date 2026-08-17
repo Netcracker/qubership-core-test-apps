@@ -1,0 +1,10 @@
+{
+    "components" : [
+      {
+        "name": "qubership-core-storage-test-service-go",
+        "file": "./storage-test-service-go/Dockerfile",
+        "context": "./storage-test-service-go/"
+      }
+    ],
+    "platforms" : "linux/amd64"
+  }

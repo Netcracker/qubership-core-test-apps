@@ -2,12 +2,12 @@ package com.netcracker.it.storage.scenario;
 
 import com.netcracker.cloud.junit.cloudcore.extension.annotations.EnableExtension;
 
-/** The Java DBaaS PostgreSQL client against a Patroni leader change. */
+/** The Quarkus Kafka client producing and consuming through a topic obtained from MaaS. */
 @EnableExtension
-class PostgresStorageIT extends SpringStorageITBase {
+class KafkaQuarkusStorageIT extends QuarkusStorageITBase {
 
     @Override
     protected StorageProfile profile() {
-        return StorageProfile.POSTGRESQL;
+        return StorageProfile.KAFKA;
     }
 }

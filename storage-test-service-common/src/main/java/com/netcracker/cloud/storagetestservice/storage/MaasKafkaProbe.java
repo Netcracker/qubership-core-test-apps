@@ -6,7 +6,6 @@ import com.netcracker.cloud.maas.client.api.MaaSAPIClient;
 import com.netcracker.cloud.maas.client.api.kafka.KafkaMaaSClient;
 import com.netcracker.cloud.maas.client.api.kafka.TopicAddress;
 import com.netcracker.cloud.maas.client.api.kafka.TopicCreateOptions;
-import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -16,7 +15,6 @@ import java.util.Optional;
  * MaaS control plane, not the broker. maas-service keeps its state in PostgreSQL, so a leader
  * change there surfaces as 405 from maas-service and 500 from maas-agent.
  */
-@Component
 public class MaasKafkaProbe implements StorageProbe {
 
     private final MaaSAPIClient maas;

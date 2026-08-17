@@ -28,8 +28,8 @@ public record Thresholds(
     }
 
     /**
-     * The MaaS client retries a call for up to its own budget (maas.http.retry.max-total-duration-ms,
-     * 60s by default) before failing, so both numbers sit above the database election itself.
+     * The MaaS client retries a call for up to maas.http.retry.max-total-duration-ms (60s by
+     * default) before failing, so both numbers sit above the database election itself.
      */
     public static Thresholds maas() {
         return new Thresholds(Duration.ofSeconds(90), Duration.ofSeconds(65), 0.25, 10);

@@ -5,7 +5,6 @@ import com.netcracker.cloud.maas.client.api.MaaSAPIClient;
 import com.netcracker.cloud.maas.client.api.kafka.TopicAddress;
 import com.netcracker.cloud.maas.client.api.kafka.TopicCreateOptions;
 import com.netcracker.cloud.storagetestservice.workload.HandleMode;
-import jakarta.annotation.PreDestroy;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -17,7 +16,6 @@ import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.util.HashMap;
@@ -26,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -34,8 +33,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * <p>An operation is one produce that waits for the broker acknowledgement. A background consumer
  * records what actually arrived, so the suite can tell a slow delivery from a lost message.
  */
-@Component
-public class KafkaProbe implements StorageProbe {
+public class KafkaProbe implements StorageProbe, AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(KafkaProbe.class);
 
@@ -91,7 +89,7 @@ public class KafkaProbe implements StorageProbe {
     private void send(KafkaProducer<String, String> target, String key, String value) {
         try {
             target.send(new ProducerRecord<>(topic.getTopicName(), key, value))
-                    .get(ACK_TIMEOUT.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS);
+                    .get(ACK_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
             sent.incrementAndGet();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -177,8 +175,9 @@ public class KafkaProbe implements StorageProbe {
         }
     }
 
-    @PreDestroy
-    public synchronized void stop() {
+    /** Stops the consumer thread; both frameworks call this when the bean goes away. */
+    @Override
+    public synchronized void close() {
         consuming = false;
         releaseHeldHandle();
     }

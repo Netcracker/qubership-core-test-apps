@@ -1,7 +1,5 @@
 package com.netcracker.cloud.storagetestservice.workload;
 
-import org.springframework.core.NestedExceptionUtils;
-
 /** One operation the workload performed, as the application saw it. */
 public record OperationOutcome(
         long sequence,
@@ -17,7 +15,10 @@ public record OperationOutcome(
 
     public static OperationOutcome failed(long sequence, long startedAtMillis, long durationMillis, Throwable error) {
         // the root cause is what classifies the failure; the wrapper rarely says anything useful
-        Throwable root = NestedExceptionUtils.getMostSpecificCause(error);
+        Throwable root = error;
+        while (root.getCause() != null && root.getCause() != root) {
+            root = root.getCause();
+        }
         return new OperationOutcome(sequence, startedAtMillis, durationMillis, false,
                 root.getClass().getName(), root.getMessage());
     }

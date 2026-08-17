@@ -80,6 +80,13 @@
     </dependencyManagement>
 
     <dependencies>
+        <!-- the probes and the workload runner, shared with the other platform applications -->
+        <dependency>
+            <groupId>com.netcracker.cloud</groupId>
+            <artifactId>storage-test-service-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>

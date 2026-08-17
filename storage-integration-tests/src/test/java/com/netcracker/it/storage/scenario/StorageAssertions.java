@@ -35,7 +35,7 @@ public final class StorageAssertions {
                 .isGreaterThanOrEqualTo(minimumOperations);
     }
 
-    /** A successful operation occurred within the recovery budget after the fault cleared. */
+    /** A successful operation occurred within the recovery allowance after the fault cleared. */
     public static void assertRecovered(WorkloadStats stats, long faultClearedAtMillis, Thresholds thresholds) {
         List<OperationOutcome> after = stats.since(faultClearedAtMillis);
         OperationOutcome firstSuccess = after.stream()

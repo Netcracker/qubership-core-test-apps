@@ -2,33 +2,12 @@ package com.netcracker.it.storage.scenario;
 
 import com.netcracker.cloud.junit.cloudcore.extension.annotations.EnableExtension;
 
-import java.util.List;
-
-/**
- * The MaaS client while the database behind maas-service moves its leader. A demoted leader
- * surfaces to the client as 405 from maas-service and 500 from maas-agent.
- */
+/** The Java MaaS client while the database behind maas-service moves its leader. */
 @EnableExtension
-class MaasStorageIT extends StorageITBase {
+class MaasStorageIT extends SpringStorageITBase {
 
     @Override
-    protected String storage() {
-        return "maas-kafka";
-    }
-
-    @Override
-    protected Thresholds thresholds() {
-        return Thresholds.maas();
-    }
-
-    /** A get-or-create is a round trip through two services; ten per second would only queue. */
-    @Override
-    protected int operationsPerSecond() {
-        return 2;
-    }
-
-    @Override
-    protected List<String> requiredServices() {
-        return List.of("maas-agent");
+    protected StorageProfile profile() {
+        return StorageProfile.MAAS_KAFKA;
     }
 }
