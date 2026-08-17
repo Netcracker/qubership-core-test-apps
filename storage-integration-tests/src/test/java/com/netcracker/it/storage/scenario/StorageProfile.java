@@ -21,8 +21,10 @@ public enum StorageProfile {
             leaderFaults(), Fault.ABRUPT_LEADER_LOSS, StorageProfile::patroni),
 
     /**
-     * The MaaS control plane while the database behind maas-service moves its leader. A demoted
-     * leader surfaces to the client as 405 from maas-service and 500 from maas-agent.
+     * The MaaS client while the database behind maas-service moves its leader. A demoted leader
+     * surfaces to the client as 405 from maas-service and 500 from maas-agent. Not control-plane
+     * only: maas-service reaches into the broker to create and describe the topic, so this needs
+     * a healthy Kafka as well.
      */
     MAAS_KAFKA("maas-kafka", 2, List.of("maas-agent"), Thresholds.maas(),
             leaderFaults(), Fault.ABRUPT_LEADER_LOSS, StorageProfile::patroni),
@@ -104,6 +106,15 @@ public enum StorageProfile {
 
     public FaultController newController(KubernetesClient kubernetes) {
         return controller.apply(kubernetes);
+    }
+
+    /**
+     * Waits for what this storage needs but does not disturb. Every probe here goes through a
+     * topic, and a broker killed by the preceding scenario makes get-or-create fail on setup with
+     * MAAS-0600 rather than anything about the client.
+     */
+    public void awaitDependencies(KubernetesClient kubernetes, java.time.Duration timeout) {
+        kafka(kubernetes).awaitStable(timeout);
     }
 
     private static List<Fault> leaderFaults() {

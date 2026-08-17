@@ -78,7 +78,7 @@ public class StorageTestApp {
                         + ": " + bodyOf(response));
             }
         } catch (IOException e) {
-            throw new IllegalStateException("POST " + url + " failed", e);
+            throw new IllegalStateException("POST " + url + " failed: " + e, e);
         }
     }
 

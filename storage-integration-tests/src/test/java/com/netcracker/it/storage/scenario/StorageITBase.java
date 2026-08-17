@@ -75,6 +75,7 @@ public abstract class StorageITBase {
         faults = profile().newController(kubernetes);
         // start healthy, so a previous scenario's damage is never attributed to this one
         faults.awaitStable(STABILISATION);
+        profile().awaitDependencies(kubernetes, STABILISATION);
         app.initStorage(profile().probe());
     }
 

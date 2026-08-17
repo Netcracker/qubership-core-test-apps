@@ -1,5 +1,6 @@
 package com.netcracker.it.storage.controller;
 
+import io.fabric8.kubernetes.api.model.Endpoints;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import org.slf4j.Logger;
@@ -63,7 +64,14 @@ public class KafkaFaultController implements FaultController {
         await("the Kafka broker is ready")
                 .atMost(timeout)
                 .pollInterval(Duration.ofSeconds(2))
-                .until(() -> !brokers().isEmpty() && brokers().stream().allMatch(this::isReady));
+                .until(() -> !brokers().isEmpty() && brokers().stream().allMatch(this::isReady)
+                        && hasReadyEndpoint());
+    }
+
+    private boolean hasReadyEndpoint() {
+        Endpoints endpoints = client.endpoints().inNamespace(namespace).withName(instance).get();
+        return endpoints != null && endpoints.getSubsets().stream()
+                .anyMatch(subset -> subset.getAddresses() != null && !subset.getAddresses().isEmpty());
     }
 
     private boolean isReady(Pod pod) {
