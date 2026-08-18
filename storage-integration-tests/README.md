@@ -32,12 +32,22 @@ and the faults. Everything else — the scenarios, the workload shape, the asser
 | `KafkaQuarkusStorageIT` | quarkus | Quarkus MaaS extension plus kafka-clients |
 | `MaasAgentStorageIT` | spring | Java MaaS client, with maas-agent losing an instance |
 | `MaasAgentGoStorageIT` | go | Go MaaS client, with maas-agent losing an instance |
+| `MaasRabbitStorageIT` | spring | Java MaaS client obtaining a vhost |
+| `MaasRabbitGoStorageIT` | go | Go MaaS client obtaining a vhost |
+| `MaasWatchStorageIT` | spring | Java MaaS client watch subscription |
+| `MaasWatchGoStorageIT` | go | Go MaaS client watch subscription |
 
 The `MaasAgent` classes exercise the other half of the retry logic. When the database behind
 maas-service moves its leader the client gets 405 with a `MAAS-0600` body; when maas-agent itself
 loses a pod the client gets a reset connection. Those are different branches, and the second one
 was only covered by unit tests before. The controller scales maas-agent to two instances first,
 since losing one of one is a full outage rather than the endpoint change being measured.
+
+The `MaasWatch` classes cover the long poll the client holds open against maas-agent, which no
+other class touches: everywhere else the client opens a connection per call. One operation
+subscribes to a name that does not exist, creates the topic and waits for the notification. Names
+have to be unique because a watch fires once, and the Java client has no delete, so registrations
+accumulate — hence one operation per second rather than the usual rate.
 
 ## What the Kafka fault really is
 

@@ -3,6 +3,8 @@ package com.netcracker.cloud.storagetestservice.configuration;
 import com.netcracker.cloud.maas.client.api.MaaSAPIClient;
 import com.netcracker.cloud.storagetestservice.storage.KafkaProbe;
 import com.netcracker.cloud.storagetestservice.storage.MaasKafkaProbe;
+import com.netcracker.cloud.storagetestservice.storage.MaasRabbitProbe;
+import com.netcracker.cloud.storagetestservice.storage.MaasWatchProbe;
 import com.netcracker.cloud.storagetestservice.storage.StorageProbe;
 import com.netcracker.cloud.storagetestservice.workload.WorkloadRunner;
 import jakarta.enterprise.context.Dependent;
@@ -30,6 +32,18 @@ public class WorkloadConfiguration {
     /** A produced bean gets no lifecycle callbacks, so the consumer thread is stopped here. */
     public void closeKafkaProbe(@Disposes KafkaProbe probe) {
         probe.close();
+    }
+
+    @Produces
+    @Singleton
+    public MaasRabbitProbe maasRabbitProbe(MaaSAPIClient maas) {
+        return new MaasRabbitProbe(maas);
+    }
+
+    @Produces
+    @Singleton
+    public MaasWatchProbe maasWatchProbe(MaaSAPIClient maas) {
+        return new MaasWatchProbe(maas);
     }
 
     @Produces

@@ -3,6 +3,8 @@ package com.netcracker.cloud.storagetestservice.configuration;
 import com.netcracker.cloud.maas.client.api.MaaSAPIClient;
 import com.netcracker.cloud.storagetestservice.storage.KafkaProbe;
 import com.netcracker.cloud.storagetestservice.storage.MaasKafkaProbe;
+import com.netcracker.cloud.storagetestservice.storage.MaasRabbitProbe;
+import com.netcracker.cloud.storagetestservice.storage.MaasWatchProbe;
 import com.netcracker.cloud.storagetestservice.storage.StorageProbe;
 import com.netcracker.cloud.storagetestservice.workload.WorkloadRunner;
 import org.springframework.context.annotation.Bean;
@@ -23,6 +25,16 @@ public class WorkloadConfiguration {
     @Bean
     public KafkaProbe kafkaProbe(MaaSAPIClient maas) {
         return new KafkaProbe(maas);
+    }
+
+    @Bean
+    public MaasRabbitProbe maasRabbitProbe(MaaSAPIClient maas) {
+        return new MaasRabbitProbe(maas);
+    }
+
+    @Bean
+    public MaasWatchProbe maasWatchProbe(MaaSAPIClient maas) {
+        return new MaasWatchProbe(maas);
     }
 
     @Bean

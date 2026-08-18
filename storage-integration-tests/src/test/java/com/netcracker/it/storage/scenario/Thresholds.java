@@ -45,6 +45,22 @@ public record Thresholds(
     }
 
     /**
+     * A vhost is obtained over the same path as a topic, so the same allowance applies.
+     */
+    public static Thresholds maasRabbit() {
+        return new Thresholds(Duration.ofSeconds(90), Duration.ofSeconds(65), 0.25, 5);
+    }
+
+    /**
+     * A watch operation is a subscription plus a topic creation plus the notification, so it is
+     * slower than a plain call even when nothing is wrong. Three cycles is enough to see a
+     * subscription that never comes back.
+     */
+    public static Thresholds maasWatch() {
+        return new Thresholds(Duration.ofSeconds(120), Duration.ofSeconds(45), 0.25, 3);
+    }
+
+    /**
      * Losing the broker takes the whole instance down, so recovery is the pod returning, the topic
      * being reconciled and the producer refreshing metadata. maxOperation matches the producer
      * delivery timeout.

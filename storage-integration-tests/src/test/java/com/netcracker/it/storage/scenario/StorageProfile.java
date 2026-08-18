@@ -37,6 +37,18 @@ public enum StorageProfile {
     KAFKA("kafka", 5, List.of("maas-agent"), Thresholds.kafka(),
             List.of(Fault.BROKER_DATA_LOSS), Fault.BROKER_DATA_LOSS, StorageProfile::kafka),
 
+    /** The other MaaS resource. A vhost travels the same path as a topic, so a leader change hits it too. */
+    MAAS_RABBIT("maas-rabbit", 2, List.of("maas-agent"), Thresholds.maasRabbit(),
+            leaderFaults(), Fault.ABRUPT_LEADER_LOSS, StorageProfile::patroni),
+
+    /**
+     * The watch subscription: a long poll the client holds open against maas-agent, rather than a
+     * connection opened per call. Covered nowhere else, and the place a regression already
+     * happened once in the Go client.
+     */
+    MAAS_WATCH("maas-watch", 1, List.of("maas-agent"), Thresholds.maasWatch(),
+            leaderFaults(), Fault.ABRUPT_LEADER_LOSS, StorageProfile::patroni),
+
     /**
      * The same MaaS calls, but the fault is maas-agent itself losing an instance. The client sees
      * a reset connection rather than a status code, which is the other half of its retry logic.
