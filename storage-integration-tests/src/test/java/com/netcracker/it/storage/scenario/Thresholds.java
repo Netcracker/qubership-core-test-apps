@@ -29,7 +29,8 @@ public record Thresholds(
 
     /**
      * The MaaS client retries a call for up to maas.http.retry.max-total-duration-ms (60s by
-     * default) before failing, so both numbers sit above the database election itself.
+     * default) before failing, so both numbers sit above the database election itself. A vhost and
+     * a watch travel the same path as a topic, so all three MaaS profiles share this allowance.
      */
     public static Thresholds maas() {
         return new Thresholds(Duration.ofSeconds(90), Duration.ofSeconds(65), 0.25, 5);
@@ -42,22 +43,6 @@ public record Thresholds(
      */
     public static Thresholds maasAgent() {
         return new Thresholds(Duration.ofSeconds(45), Duration.ofSeconds(30), 0.25, 5);
-    }
-
-    /**
-     * A vhost is obtained over the same path as a topic, so the same allowance applies.
-     */
-    public static Thresholds maasRabbit() {
-        return new Thresholds(Duration.ofSeconds(90), Duration.ofSeconds(65), 0.25, 5);
-    }
-
-    /**
-     * A watch operation is a subscription plus a topic creation plus the notification, so it is
-     * slower than a plain call even when nothing is wrong. Three cycles is enough to see a
-     * subscription that never comes back.
-     */
-    public static Thresholds maasWatch() {
-        return new Thresholds(Duration.ofSeconds(120), Duration.ofSeconds(45), 0.25, 3);
     }
 
     /**

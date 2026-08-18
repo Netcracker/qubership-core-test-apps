@@ -38,7 +38,7 @@ public enum StorageProfile {
             List.of(Fault.BROKER_DATA_LOSS), Fault.BROKER_DATA_LOSS, StorageProfile::kafka),
 
     /** The other MaaS resource. A vhost travels the same path as a topic, so a leader change hits it too. */
-    MAAS_RABBIT("maas-rabbit", 2, List.of("maas-agent"), Thresholds.maasRabbit(),
+    MAAS_RABBIT("maas-rabbit", 2, List.of("maas-agent"), Thresholds.maas(),
             leaderFaults(), Fault.ABRUPT_LEADER_LOSS, StorageProfile::patroni),
 
     /**
@@ -46,7 +46,7 @@ public enum StorageProfile {
      * connection opened per call. Covered nowhere else, and the place a regression already
      * happened once in the Go client.
      */
-    MAAS_WATCH("maas-watch", 1, List.of("maas-agent"), Thresholds.maasWatch(),
+    MAAS_WATCH("maas-watch", 2, List.of("maas-agent"), Thresholds.maas(),
             leaderFaults(), Fault.ABRUPT_LEADER_LOSS, StorageProfile::patroni),
 
     /**

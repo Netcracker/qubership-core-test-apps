@@ -9,30 +9,36 @@ import com.netcracker.cloud.storagetestservice.workload.HandleMode;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * The watch subscription, which is a long poll held open against maas-agent. Nothing else in the
- * suite covers it, and it is where the client keeps its own connection across a fault rather than
- * opening a new one per call.
+ * The watch subscription, which is a long poll the client holds open against maas-agent. Nothing
+ * else in the suite covers it, and it is the one place the client keeps a connection across a fault
+ * instead of opening a new one per call.
  *
- * <p>One operation registers a watch on a name that does not exist yet, creates the topic, and
- * waits for the callback. The names are unique because a watch fires once; the Java client has no
- * delete, so the registrations accumulate and the workload runs slowly on purpose.
+ * <p>An operation therefore never blocks: it creates the watched topic, collects the callback if it
+ * has arrived, and arms the next subscription. A callback that never arrives fails the operation
+ * once the deadline passes, and the probe re-arms rather than wedging the workload.
  */
 public class MaasWatchProbe implements StorageProbe {
 
-    private static final long CALLBACK_TIMEOUT_SECONDS = 30;
+    /** How long a notification may take before the subscription is considered broken. */
+    private static final long CALLBACK_TIMEOUT_MILLIS = 30_000;
 
     private final MaaSAPIClient maas;
+    private final AtomicLong names = new AtomicLong();
     private final AtomicLong watched = new AtomicLong();
     private final AtomicLong delivered = new AtomicLong();
 
-    private volatile KafkaMaaSClient heldClient;
+    private volatile KafkaMaaSClient client;
+    private volatile Subscription current;
 
     public MaasWatchProbe(MaaSAPIClient maas) {
         this.maas = maas;
+    }
+
+    /** One armed watch: the name nobody else uses, and the latch its callback counts down. */
+    private record Subscription(String name, CountDownLatch notified, long armedAtMillis) {
     }
 
     @Override
@@ -42,33 +48,36 @@ public class MaasWatchProbe implements StorageProbe {
 
     @Override
     public void init() {
-        // nothing to prepare: every operation subscribes to a name of its own
+        if (client == null) {
+            client = maas.getKafkaClient();
+        }
+        arm();
     }
 
-    /** One operation: subscribe, create the topic, and wait for the notification to arrive. */
+    /**
+     * Creates the watched topic, then reports whether the callback for it has arrived. The handle
+     * mode is not honoured: a subscription is long-held by nature, and a per-call client would open
+     * a poll per operation.
+     */
     @Override
     public String writeAndRead(HandleMode handleMode, String key, String value) {
-        KafkaMaaSClient client = kafkaClient(handleMode);
-        String name = "storage-watch-" + watched.incrementAndGet();
-        CountDownLatch notified = new CountDownLatch(1);
+        Subscription subscription = current;
+        client.getOrCreateTopic(new Classifier(subscription.name()), TopicCreateOptions.DEFAULTS);
 
-        client.watchTopicCreate(name, address -> notified.countDown());
-        client.getOrCreateTopic(new Classifier(name), TopicCreateOptions.DEFAULTS);
-
-        try {
-            if (!notified.await(CALLBACK_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
-                throw new IllegalStateException("no watch callback for " + name + " within "
-                        + CALLBACK_TIMEOUT_SECONDS + "s");
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("interrupted while waiting for the watch callback", e);
+        if (subscription.notified().getCount() == 0) {
+            delivered.incrementAndGet();
+            arm();
+            return value;
         }
-        delivered.incrementAndGet();
+        if (System.currentTimeMillis() - subscription.armedAtMillis() > CALLBACK_TIMEOUT_MILLIS) {
+            arm();
+            throw new IllegalStateException("no watch callback for " + subscription.name()
+                    + " within " + CALLBACK_TIMEOUT_MILLIS + "ms");
+        }
         return value;
     }
 
-    /** Watches are one-shot, so there is nothing to read back beyond what the callback delivered. */
+    /** Watches are one-shot, so there is nothing to read back beyond what the callbacks delivered. */
     @Override
     public String read(HandleMode handleMode, String key) {
         return delivered.get() > 0 ? key : null;
@@ -76,7 +85,8 @@ public class MaasWatchProbe implements StorageProbe {
 
     @Override
     public void releaseHeldHandle() {
-        heldClient = null;
+        client = null;
+        current = null;
     }
 
     @Override
@@ -84,21 +94,16 @@ public class MaasWatchProbe implements StorageProbe {
         Map<String, Object> diagnostics = new LinkedHashMap<>();
         diagnostics.put("watched", watched.get());
         diagnostics.put("delivered", delivered.get());
-        diagnostics.put("holdsClient", heldClient != null);
+        diagnostics.put("holdsClient", client != null);
         return diagnostics;
     }
 
-    private KafkaMaaSClient kafkaClient(HandleMode handleMode) {
-        if (handleMode == HandleMode.PER_CALL) {
-            return maas.getKafkaClient();
-        }
-        if (heldClient == null) {
-            synchronized (this) {
-                if (heldClient == null) {
-                    heldClient = maas.getKafkaClient();
-                }
-            }
-        }
-        return heldClient;
+    /** Subscribes to a name no topic carries yet, so the callback can only come from our create. */
+    private void arm() {
+        CountDownLatch notified = new CountDownLatch(1);
+        String name = "storage-watch-" + names.incrementAndGet();
+        current = new Subscription(name, notified, System.currentTimeMillis());
+        watched.incrementAndGet();
+        client.watchTopicCreate(name, address -> notified.countDown());
     }
 }

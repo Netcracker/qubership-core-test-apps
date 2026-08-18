@@ -343,6 +343,7 @@ jobs:
           mesh-type: ${{ inputs.mesh-type || 'Core' }}
           # a leader change needs a second node, and only the storage suite induces one
           patroni-replicas: ${{ contains(inputs.run-tests-for, 'storage-tests') && '2' || '1' }}
+          rabbit-instances: ${{ contains(inputs.run-tests-for, 'storage-tests') && 'rabbitmq-1' || '' }}
 
       - name: preserve-cpu-resources-workaround
         if: ${{ inputs.do-resources-workaround }}

@@ -20,6 +20,11 @@ public record WorkloadStats(
         long maxDurationMillis,
         List<OperationOutcome> outcomes) {
 
+    /** An application that has recorded nothing yet omits the list rather than sending an empty one. */
+    public WorkloadStats {
+        outcomes = outcomes == null ? List.of() : List.copyOf(outcomes);
+    }
+
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record OperationOutcome(
             long sequence,

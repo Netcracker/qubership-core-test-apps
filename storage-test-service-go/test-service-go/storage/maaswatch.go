@@ -17,17 +17,34 @@ import (
 // How long a notification may take before the subscription is considered broken.
 const watchCallbackTimeout = 30 * time.Second
 
-// MaasWatch exercises the watch subscription, which is a long poll held open against maas-agent.
+// MaasWatch exercises the watch subscription, which is a long poll the client holds open against
+// maas-agent, rather than a connection opened per call.
 //
-// One operation subscribes to a name that does not exist yet, creates the topic, and waits for the
-// callback. Names are unique because a watch fires once, so the registrations accumulate and the
-// workload runs slowly on purpose.
+// One subscription is outstanding at a time, on one client that lives for the whole scenario. The
+// client restarts its poll on every registration and maas-service delivers each event to a single
+// waiting watcher, so a subscription per operation would both lose notifications and pile up polls
+// until maas-agent stops answering.
+//
+// An operation therefore never blocks: it creates the watched topic, collects the callback if it
+// has arrived, and arms the next subscription. A callback that never arrives fails the operation
+// once the deadline passes, and the probe re-arms rather than wedging the workload.
 type MaasWatch struct {
-	mu         sync.Mutex
-	heldClient maaskafka.MaasClient
+	mu       sync.Mutex
+	client   maaskafka.MaasClient
+	watchCtx context.Context
+	cancel   context.CancelFunc
+	current  *subscription
 
+	names     atomic.Int64
 	watched   atomic.Int64
 	delivered atomic.Int64
+}
+
+// subscription is one armed watch: the name nobody else uses, and the channel its callback closes.
+type subscription struct {
+	name     string
+	notified chan struct{}
+	armedAt  time.Time
 }
 
 func NewMaasWatch() *MaasWatch {
@@ -38,44 +55,49 @@ func (p *MaasWatch) Type() string {
 	return "maas-watch"
 }
 
-func (p *MaasWatch) Init(_ context.Context) error {
-	// nothing to prepare: every operation subscribes to a name of its own
-	return nil
+func (p *MaasWatch) Init(ctx context.Context) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.client == nil {
+		p.client = maascore.NewKafkaClient()
+	}
+	if p.cancel == nil {
+		// the watcher outlives the call that armed it, so it gets a context of its own
+		watchCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
+		p.watchCtx, p.cancel = watchCtx, cancel
+	}
+	return p.arm()
 }
 
-// WriteAndRead subscribes, creates the topic, and waits for the notification to arrive.
-func (p *MaasWatch) WriteAndRead(ctx context.Context, mode HandleMode, key, value string) (string, error) {
-	client := p.client(mode)
-	name := "storage-watch-" + strconv.FormatInt(p.watched.Add(1), 10)
-
-	// the watcher outlives the call only until the callback arrives
-	watchCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	notified := make(chan struct{}, 1)
-	err := client.WatchTopicCreate(watchCtx, classifier.New(name), func(maasmodel.TopicAddress) {
-		select {
-		case notified <- struct{}{}:
-		default:
-		}
-	})
-	if err != nil {
-		return "", fmt.Errorf("failed to watch %s: %w", name, err)
+// WriteAndRead creates the watched topic, then reports whether the callback for it has arrived.
+// The handle mode is not honoured: a subscription is long-held by nature, and a per-call client
+// would open a poll per operation.
+func (p *MaasWatch) WriteAndRead(ctx context.Context, _ HandleMode, key, value string) (string, error) {
+	p.mu.Lock()
+	client, current := p.client, p.current
+	p.mu.Unlock()
+	if client == nil || current == nil {
+		return "", fmt.Errorf("the watch probe has no armed subscription")
 	}
 
-	if _, err = client.GetOrCreateTopic(ctx, classifier.New(name)); err != nil {
+	if _, err := client.GetOrCreateTopic(ctx, classifier.New(current.name)); err != nil {
 		return "", err
 	}
 
 	select {
-	case <-notified:
+	case <-current.notified:
 		p.delivered.Add(1)
-		return value, nil
-	case <-time.After(watchCallbackTimeout):
-		return "", fmt.Errorf("no watch callback for %s within %s", name, watchCallbackTimeout)
-	case <-ctx.Done():
-		return "", ctx.Err()
+		return value, p.rearm()
+	default:
 	}
+
+	if time.Since(current.armedAt) > watchCallbackTimeout {
+		if err := p.rearm(); err != nil {
+			return "", err
+		}
+		return "", fmt.Errorf("no watch callback for %s within %s", current.name, watchCallbackTimeout)
+	}
+	return value, nil
 }
 
 // Read has nothing to return beyond what the callbacks delivered: a watch is one-shot.
@@ -89,12 +111,17 @@ func (p *MaasWatch) Read(_ context.Context, _ HandleMode, key string) (string, e
 func (p *MaasWatch) ReleaseHeldHandle() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.heldClient = nil
+	if p.cancel != nil {
+		p.cancel()
+		p.cancel, p.watchCtx = nil, nil
+	}
+	p.client = nil
+	p.current = nil
 }
 
 func (p *MaasWatch) Diagnostics() map[string]any {
 	p.mu.Lock()
-	holdsClient := p.heldClient != nil
+	holdsClient := p.client != nil
 	p.mu.Unlock()
 
 	return map[string]any{
@@ -104,14 +131,26 @@ func (p *MaasWatch) Diagnostics() map[string]any {
 	}
 }
 
-func (p *MaasWatch) client(mode HandleMode) maaskafka.MaasClient {
-	if mode == PerCall {
-		return maascore.NewKafkaClient()
-	}
+func (p *MaasWatch) rearm() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if p.heldClient == nil {
-		p.heldClient = maascore.NewKafkaClient()
+	return p.arm()
+}
+
+// arm subscribes to a name no topic carries yet, so the callback can only come from our create.
+// The caller holds the lock.
+func (p *MaasWatch) arm() error {
+	notified := make(chan struct{})
+	name := "storage-watch-" + strconv.FormatInt(p.names.Add(1), 10)
+	var once sync.Once
+	err := p.client.WatchTopicCreate(p.watchCtx, classifier.New(name), func(maasmodel.TopicAddress) {
+		once.Do(func() { close(notified) })
+	})
+	if err != nil {
+		return fmt.Errorf("failed to watch %s: %w", name, err)
 	}
-	return p.heldClient
+
+	p.current = &subscription{name: name, notified: notified, armedAt: time.Now()}
+	p.watched.Add(1)
+	return nil
 }
