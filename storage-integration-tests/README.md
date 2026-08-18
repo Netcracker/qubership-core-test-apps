@@ -39,6 +39,14 @@ loses a pod the client gets a reset connection. Those are different branches, an
 was only covered by unit tests before. The controller scales maas-agent to two instances first,
 since losing one of one is a full outage rather than the endpoint change being measured.
 
+## What the Kafka fault really is
+
+The local-dev chart runs one single-node KRaft broker per Helm release with no volume, so killing
+its pod destroys the log directory. The broker returns without a single topic while MaaS still has
+them registered, and get-or-create then fails with `MAAS-0600` until the registry is reconciled.
+The suite therefore calls `POST /api/v2/kafka/recovery/{namespace}` through maas-agent before each
+scenario — the same operation an operator would run after such an outage.
+
 There is no Quarkus counterpart on purpose: the Quarkus extension wraps the same Java client the
 Spring application uses, so a third run of the same code would cost time without adding coverage.
 For the same reason the Quarkus classes run one fault instead of the whole sweep and skip the leak

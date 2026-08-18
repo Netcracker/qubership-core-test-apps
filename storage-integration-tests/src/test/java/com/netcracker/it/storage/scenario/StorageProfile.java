@@ -30,11 +30,12 @@ public enum StorageProfile {
             leaderFaults(), Fault.ABRUPT_LEADER_LOSS, StorageProfile::patroni),
 
     /**
-     * The Kafka data plane. The local-dev chart deploys one single-node KRaft broker per release,
-     * so the achievable event is the broker going away and coming back, not a leader election.
+     * The Kafka data plane. The local-dev chart deploys one single-node KRaft broker per release
+     * and gives it no volume, so the achievable event is the broker losing both its process and
+     * its data — not a partition leader moving, and not a plain restart either.
      */
     KAFKA("kafka", 5, List.of("maas-agent"), Thresholds.kafka(),
-            List.of(Fault.BROKER_LOSS), Fault.BROKER_LOSS, StorageProfile::kafka),
+            List.of(Fault.BROKER_DATA_LOSS), Fault.BROKER_DATA_LOSS, StorageProfile::kafka),
 
     /**
      * The same MaaS calls, but the fault is maas-agent itself losing an instance. The client sees

@@ -23,8 +23,13 @@ public enum Fault {
     ROLLING_RESTART("every member is restarted in turn", Duration.ofMinutes(5),
             FaultController::rollingRestart),
 
-    /** The whole broker goes away and comes back, which is not a leader moving between brokers. */
-    BROKER_LOSS("the broker is killed and comes back", Duration.ofMinutes(3),
+    /**
+     * The broker is killed and comes back empty. The local-dev chart gives it no volume, so its
+     * log directory does not survive the pod, and every topic is gone while MaaS still has the
+     * registration. That is a harder event than a restart, and the suite reconciles the registry
+     * afterwards the way an operator would.
+     */
+    BROKER_DATA_LOSS("the broker is killed and comes back without its data", Duration.ofMinutes(3),
             FaultController::killLeader),
 
     /** One instance of a stateless service disappears while its peers keep serving. */

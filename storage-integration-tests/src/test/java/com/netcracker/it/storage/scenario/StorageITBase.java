@@ -1,7 +1,10 @@
 package com.netcracker.it.storage.scenario;
 
 import com.netcracker.cloud.junit.cloudcore.extension.annotations.Cloud;
+import com.netcracker.cloud.junit.cloudcore.extension.annotations.IntValue;
+import com.netcracker.cloud.junit.cloudcore.extension.annotations.PortForward;
 import com.netcracker.cloud.junit.cloudcore.extension.annotations.Value;
+import com.netcracker.it.storage.app.MaasAgent;
 import com.netcracker.it.storage.app.StorageTestApp;
 import com.netcracker.it.storage.app.WorkloadStats;
 import com.netcracker.it.storage.controller.FaultController;
@@ -57,6 +60,10 @@ public abstract class StorageITBase {
     @Cloud(namespace = @Value(prop = "storage.namespace"))
     protected static KubernetesClient kubernetes;
 
+    /** Reached for topic reconciliation, which is a platform operation rather than a client call. */
+    @PortForward(serviceName = @Value("maas-agent"), port = @IntValue(8080))
+    protected static URL maasAgentUrl;
+
     protected StorageTestApp app;
     protected FaultController faults;
 
@@ -76,7 +83,18 @@ public abstract class StorageITBase {
         // start healthy, so a previous scenario's damage is never attributed to this one
         faults.awaitStable(STABILISATION);
         profile().awaitDependencies(kubernetes, STABILISATION);
+        recoverTopics();
         app.initStorage(profile().probe());
+    }
+
+    /**
+     * The local-dev broker has no volume, so losing its pod loses every topic while MaaS keeps the
+     * registration. Reconciling here is what an operator would do after such an outage, and
+     * without it the next scenario fails on setup with MAAS-0600 rather than on anything it means
+     * to measure.
+     */
+    private void recoverTopics() {
+        new MaasAgent(maasAgentUrl).recoverTopics(Namespaces.application());
     }
 
     private void requireServices() {
