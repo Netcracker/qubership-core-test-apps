@@ -1,8 +1,6 @@
 package com.netcracker.it.storage.scenario;
 
 import com.netcracker.cloud.junit.cloudcore.extension.annotations.Cloud;
-import com.netcracker.cloud.junit.cloudcore.extension.annotations.IntValue;
-import com.netcracker.cloud.junit.cloudcore.extension.annotations.PortForward;
 import com.netcracker.cloud.junit.cloudcore.extension.annotations.Value;
 import com.netcracker.it.storage.app.MaasAgent;
 import com.netcracker.it.storage.app.StorageTestApp;
@@ -60,10 +58,6 @@ public abstract class StorageITBase {
     @Cloud(namespace = @Value(prop = "storage.namespace"))
     protected static KubernetesClient kubernetes;
 
-    /** Reached for topic reconciliation, which is a platform operation rather than a client call. */
-    @PortForward(serviceName = @Value("maas-agent"), port = @IntValue(8080))
-    protected static URL maasAgentUrl;
-
     protected StorageTestApp app;
     protected FaultController faults;
 
@@ -94,7 +88,7 @@ public abstract class StorageITBase {
      * to measure.
      */
     private void recoverTopics() {
-        new MaasAgent(maasAgentUrl).recoverTopics(Namespaces.application());
+        new MaasAgent(kubernetes, Namespaces.application(), "maas-agent").recoverTopics();
     }
 
     private void requireServices() {

@@ -57,11 +57,7 @@ public class KafkaFaultController implements FaultController {
 
     @Override
     public void awaitStable(Duration timeout) {
-        if (brokers().isEmpty()) {
-            throw new IllegalStateException("no pod labelled app=" + instance + " in namespace "
-                    + namespace + ". Check the storage.kafkaInstance property.");
-        }
-        await("the Kafka broker is ready")
+        await("the Kafka broker is ready, or the storage.kafkaInstance label is wrong")
                 .atMost(timeout)
                 .pollInterval(Duration.ofSeconds(2))
                 .until(() -> !brokers().isEmpty() && brokers().stream().allMatch(this::isReady)

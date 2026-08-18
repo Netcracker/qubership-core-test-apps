@@ -24,7 +24,7 @@ public record Thresholds(
      * — an operation that outlives it is hanging, not slow.
      */
     public static Thresholds postgresql() {
-        return new Thresholds(Duration.ofSeconds(30), Duration.ofSeconds(15), 0.25, 5);
+        return new Thresholds(Duration.ofSeconds(30), Duration.ofSeconds(20), 0.25, 5);
     }
 
     /**

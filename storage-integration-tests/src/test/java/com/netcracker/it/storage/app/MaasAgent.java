@@ -1,16 +1,14 @@
 package com.netcracker.it.storage.app;
 
-import okhttp3.HttpUrl;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.RequestBody;
-import okhttp3.Response;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.fabric8.kubernetes.client.KubernetesClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.net.URL;
-import java.util.concurrent.TimeUnit;
+import java.util.List;
 
 /**
  * The MaaS reconciliation endpoint, reached through maas-agent.
@@ -19,39 +17,66 @@ import java.util.concurrent.TimeUnit;
  * needs no separate account. Recreating a registered topic that vanished from the broker is
  * deliberately not part of get-or-create — a topic may have been deleted on purpose, and silently
  * recreating it would hide that. It is an explicit operation, and this is it.
+ *
+ * <p>Reached through the API server's service proxy rather than a port-forward: a forward is
+ * pinned to one pod, and the scenario that kills maas-agent instances kills that very pod.
  */
 public class MaasAgent {
 
     private static final Logger log = LoggerFactory.getLogger(MaasAgent.class);
 
-    private final OkHttpClient http = new OkHttpClient.Builder()
-            .connectTimeout(10, TimeUnit.SECONDS)
-            .readTimeout(120, TimeUnit.SECONDS)
-            .build();
+    private static final ObjectMapper MAPPER = new ObjectMapper()
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
-    private final HttpUrl baseUrl;
-
-    public MaasAgent(URL baseUrl) {
-        this.baseUrl = HttpUrl.get(baseUrl.toString());
+    /** One topic in the reconciliation report; {@code status} is added, exists, error or not_found. */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private record SyncReport(String name, String status, String errMsg) {
     }
 
-    /** Recreates on the broker every topic the namespace has registered but the broker has lost. */
-    public void recoverTopics(String namespace) {
-        HttpUrl url = baseUrl.newBuilder()
-                .addPathSegments("api/v2/kafka/recovery")
-                .addPathSegment(namespace)
-                .build();
-        Request request = new Request.Builder().url(url)
-                .post(RequestBody.create(new byte[0], null))
-                .build();
-        try (Response response = http.newCall(request).execute()) {
-            String body = response.body() == null ? "" : response.body().string();
-            if (!response.isSuccessful()) {
-                throw new IllegalStateException("POST " + url + " returned " + response.code() + ": " + body);
-            }
-            log.info("MaaS topic reconciliation for {}: {}", namespace, body);
-        } catch (IOException e) {
-            throw new IllegalStateException("POST " + url + " failed: " + e, e);
+    private final KubernetesClient client;
+    private final String namespace;
+    private final String service;
+
+    public MaasAgent(KubernetesClient client, String namespace, String service) {
+        this.client = client;
+        this.namespace = namespace;
+        this.service = service;
+    }
+
+    /**
+     * Recreates on the broker every topic the namespace has registered but the broker has lost.
+     * The call answers 200 with a per-topic report, so a topic that could not be recreated has to
+     * be read out of the body — otherwise it resurfaces later as an unexplained MAAS-0600.
+     */
+    public void recoverTopics() {
+        String path = String.format("/api/v1/namespaces/%s/services/%s:8080/proxy/api/v2/kafka/recovery/%s",
+                namespace, service, namespace);
+        String body;
+        try {
+            body = client.raw(path, "POST", null);
+        } catch (RuntimeException e) {
+            throw new IllegalStateException("POST " + path + " failed: " + e, e);
+        }
+
+        List<SyncReport> failed = parse(body).stream()
+                .filter(report -> "error".equals(report.status()))
+                .toList();
+        if (!failed.isEmpty()) {
+            throw new IllegalStateException("MaaS could not reconcile " + failed.size()
+                    + " topic(s) of namespace " + namespace + ": " + failed);
+        }
+        log.info("MaaS topic reconciliation for {}: {}", namespace, body);
+    }
+
+    private static List<SyncReport> parse(String body) {
+        if (body == null || body.isBlank()) {
+            throw new IllegalStateException("MaaS returned an empty reconciliation report");
+        }
+        try {
+            return MAPPER.readValue(body, new TypeReference<>() {
+            });
+        } catch (Exception e) {
+            throw new IllegalStateException("unreadable reconciliation report: " + body, e);
         }
     }
 }
