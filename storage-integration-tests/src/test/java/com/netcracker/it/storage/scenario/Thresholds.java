@@ -41,7 +41,7 @@ public record Thresholds(
      * an election, so the client should be back on the next call.
      */
     public static Thresholds maasAgent() {
-        return new Thresholds(Duration.ofSeconds(45), Duration.ofSeconds(45), 0.25, 5);
+        return new Thresholds(Duration.ofSeconds(45), Duration.ofSeconds(70), 0.25, 5);
     }
 
     /**
