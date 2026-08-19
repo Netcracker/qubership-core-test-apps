@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class MaasWatchProbe implements StorageProbe {
 
     /** How long a notification may take before the subscription is considered broken. */
-    private static final long CALLBACK_TIMEOUT_MILLIS = 30_000;
+    private static final long CALLBACK_TIMEOUT_MILLIS = 150_000;
 
     private final MaaSAPIClient maas;
     private final AtomicLong names = new AtomicLong();

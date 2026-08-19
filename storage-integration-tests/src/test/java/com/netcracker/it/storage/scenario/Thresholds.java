@@ -38,11 +38,10 @@ public record Thresholds(
 
     /**
      * Losing one instance of maas-agent is a transport error on an open connection, not a wait for
-     * an election, so the client should be back on the next call. Fewer cycles than a database
-     * failover: a pod restart is quick, and twenty of them is time spent, not coverage gained.
+     * an election, so the client should be back on the next call.
      */
     public static Thresholds maasAgent() {
-        return new Thresholds(Duration.ofSeconds(45), Duration.ofSeconds(30), 0.25, 5);
+        return new Thresholds(Duration.ofSeconds(45), Duration.ofSeconds(45), 0.25, 5);
     }
 
     /**

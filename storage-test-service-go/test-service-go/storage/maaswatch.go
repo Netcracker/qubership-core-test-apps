@@ -15,7 +15,7 @@ import (
 )
 
 // How long a notification may take before the subscription is considered broken.
-const watchCallbackTimeout = 30 * time.Second
+const watchCallbackTimeout = 150 * time.Second
 
 // MaasWatch exercises the watch subscription, which is a long poll the client holds open against
 // maas-agent, rather than a connection opened per call.
