@@ -1,0 +1,16 @@
+---
+kind: Service
+apiVersion: v1
+metadata:
+    name: '{{ .Values.DEPLOYMENT_RESOURCE_NAME }}'
+    annotations:
+        netcracker.cloud/start.stage: '0'
+    labels:
+        app.kubernetes.io/part-of: 'storage-test-app'
+spec:
+    ports:
+    -   name: web
+        port: 8080
+        targetPort: 8080
+    selector:
+        name: '{{ .Values.DEPLOYMENT_RESOURCE_NAME }}'

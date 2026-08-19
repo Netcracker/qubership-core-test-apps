@@ -64,6 +64,18 @@ inputs:
     description: 'Mesh type for test services — Core or Istio'
     required: false
     default: 'Core'
+  patroni-replicas:
+    description: >
+      Number of Patroni nodes. One is enough for tests that only use the database; a leader change
+      needs at least two.
+    required: false
+    default: '1'
+  rabbit-instances:
+    description: >
+      RabbitMQ releases MaaS installs and registers, space separated. Empty skips RabbitMQ, which is
+      the default because only the storage suite obtains a vhost.
+    required: false
+    default: ''
 
 runs:
   using: composite
@@ -106,6 +118,8 @@ runs:
         MAKE_ARGS="INSTALL_MAAS=${{ inputs.install-maas }} CORE_CONFIG_MAAS_ENABLED=${{ inputs.install-maas }}" 
         MAKE_ARGS="$MAKE_ARGS INSTALL_ISTIO=${{ inputs.install-istio }} SERVICE_MESH_TYPE=${{ inputs.mesh-type }}"
         MAKE_ARGS="$MAKE_ARGS TEST_BRANCH=${{ inputs.test-branch }}"
+        MAKE_ARGS="$MAKE_ARGS PATRONI_REPLICAS_NUMBER=${{ inputs.patroni-replicas }}"
+        RABBIT_INSTANCES="${{ inputs.rabbit-instances }}"
         FACADE_OPERATOR_TAG="${{ inputs.facade-operator-tag }}"
         INGRESS_GATEWAY_TAG="${{ inputs.ingress-gateway-tag }}"
         CONTROL_PLANE_TAG="${{ inputs.control-plane-tag }}"
@@ -145,5 +159,9 @@ runs:
         fi
         if [ -n "$CORE_MESH_CONFIG_REPO_BRANCH" ]; then
           MAKE_ARGS="$MAKE_ARGS CORE_MESH_CONFIG_REPO_BRANCH=$CORE_MESH_CONFIG_REPO_BRANCH"
+        fi
+        # left unset when empty: an empty assignment would still override the bootstrap default
+        if [ -n "$RABBIT_INSTANCES" ]; then
+          MAKE_ARGS="$MAKE_ARGS RABBIT_INSTANCES=$RABBIT_INSTANCES"
         fi
         make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/ install

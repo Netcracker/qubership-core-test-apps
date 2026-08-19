@@ -1,0 +1,10 @@
+apiVersion: v2
+appVersion: "1.0"
+description: Test application that exercises the Go MaaS client libraries during storage leader failover
+name: storage-test-service-go
+# The effective version will be computed during Helm generation
+version: 0.0.1
+dependencies:
+  - name: coretpl
+    version: "0.2.3"
+    repository: "https://netcracker.github.io/qubership-core-bootstrap/"

@@ -1,0 +1,11 @@
+{
+    "components" : [
+      {
+        "name": "qubership-core-storage-test-service-spring",
+        "file": "./storage-test-service-spring/Dockerfile",
+        "context": "./artifacts/storage-test-service-spring/",
+        "download-artifact": true
+      }
+    ],
+    "platforms" : "linux/amd64"
+  }
