@@ -260,6 +260,11 @@ on:
         default: ''
         type: string
 
+env:
+  # Test code, helm charts, install scripts and local composite actions are taken from this branch,
+  # not from the ref the run was started on. Set to '' to go back to the triggering ref.
+  TEST_APPS_BRANCH: fix/integration-tests
+
 jobs:
   integration-tests:
     runs-on: ubuntu-latest
@@ -267,6 +272,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ env.TEST_APPS_BRANCH }}
 
       - name: Document workflow input values
         shell: bash
@@ -276,6 +283,7 @@ jobs:
             echo ""
             echo "| Input | Value |"
             echo "| --- | --- |"
+            echo "| test-apps-branch (pinned) | \`${{ env.TEST_APPS_BRANCH || github.ref_name }}\` |"
             echo "| core-bootstrap-branch | \`${{ inputs.core-bootstrap-branch || 'main' }}\` |"
             echo "| test-branch | \`${{ inputs.test-branch || 'main' }}\` |"
             echo "| install-maas | \`${{ (inputs.install-maas && 'true') || 'false' }}\` |"
@@ -300,6 +308,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
           echo "::group::Workflow input values"
+          echo "test-apps-branch=${{ env.TEST_APPS_BRANCH || github.ref_name }}"
           echo "core-bootstrap-branch=${{ inputs.core-bootstrap-branch || 'main' }}"
           echo "test-branch=${{ inputs.test-branch || 'main' }}"
           echo "install-maas=${{ (inputs.install-maas && 'true') || 'false' }}"
