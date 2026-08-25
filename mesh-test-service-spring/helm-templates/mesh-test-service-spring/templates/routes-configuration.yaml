@@ -51,9 +51,6 @@ spec:
           - destination:
               cluster: "{{ .Values.SERVICE }}"
               endpoint: http://{{ .Values.DEPLOYMENT_RESOURCE_NAME }}:8080
-              circuitBreaker:
-                threshold:
-                  maxConnections: 2
             rules:
               - match:
                   prefix: /api/v1/mesh-test-service-spring/hello
@@ -123,9 +120,6 @@ spec:
           - destination:
               cluster: "{{ .Values.SERVICE }}"
               endpoint: http://{{ .Values.DEPLOYMENT_RESOURCE_NAME }}:8080
-              circuitBreaker:
-                threshold:
-                  maxConnections: 2
             rules:
               - match:
                   prefix: /api/v1/mesh-test-service-spring/sleep
@@ -290,4 +284,41 @@ spec:
                 allowed: true
                 prefixRewrite: /api/v1/sleep
                 timeout: 10000
-{{- end }}                  
+{{- end }}
+{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}
+---
+apiVersion: core.netcracker.com/v1
+kind: Mesh
+subKind: RouteConfiguration
+metadata:
+  name: sleep-route-with-connection-limit-composite
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
+    app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
+spec:
+  gateways: [ "mesh-test-app-gateway"]
+  listenerPort: 8080
+  virtualServices:
+    - name: "{{ .Values.SERVICE }}"
+      hosts: ["{{ .Values.SERVICE }}"]
+      routeConfiguration:
+        version: "{{ .Values.DEPLOYMENT_VERSION }}"
+        routes:
+          # Dedicated cluster: circuit breaker settings live on the cluster, and control-plane drops them
+          # as soon as the same cluster is registered again without a circuitBreaker section (declarative
+          # routes, timeout routes, or the service's own route registration on startup). A cluster name
+          # used by this route only keeps the limit stable for the whole test run.
+          - destination:
+              cluster: "{{ .Values.SERVICE }}-connection-limited"
+              endpoint: http://{{ .Values.DEPLOYMENT_RESOURCE_NAME }}:8080
+              circuitBreaker:
+                threshold:
+                  maxConnections: 2
+            rules:
+              - match:
+                  prefix: /api/v1/mesh-test-service-spring/connection-limit/sleep
+                allowed: true
+                prefixRewrite: /api/v1/sleep
+{{- end }}

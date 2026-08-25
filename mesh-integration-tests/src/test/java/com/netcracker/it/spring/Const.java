@@ -109,6 +109,14 @@ public class Const {
     public static final String EXPECTED_EMAIL_PROPERTY = "EXPECTED_EMAIL";
     public static final String EXPECTED_EMAIL_VALUE = getPropOrEnvWithDefault(EXPECTED_EMAIL_PROPERTY,  "test@email.com");
 
+    public static final String SERVICE_MESH_TYPE_PROPERTY = "SERVICE_MESH_TYPE";
+    public static final String SERVICE_MESH_TYPE_VALUE = getPropOrEnvWithDefault(SERVICE_MESH_TYPE_PROPERTY, "Core");
+
+    /** Test services are installed either in Core mesh or in Istio mesh mode, some features exist in Core mesh only. */
+    public static boolean isIstioMesh() {
+        return "Istio".equalsIgnoreCase(SERVICE_MESH_TYPE_VALUE);
+    }
+
     private static String getPropOrEnv(String name) {
         String value = System.getProperty(name);
         if (value == null) {
