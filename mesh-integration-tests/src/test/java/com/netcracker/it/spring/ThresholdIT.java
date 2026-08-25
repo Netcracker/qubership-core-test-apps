@@ -34,8 +34,8 @@ class ThresholdIT {
 	@PortForward(serviceName = @Value(SERVICE_NAME), cloud = @Cloud(namespace = @Value(prop = ORIGIN_NAMESPACE_ENV_NAME)))
     private static URL springCompositeGWServerUrl;
 
-	@PortForward(serviceName = @Value(QUARKUS_SERVICE_NAME), cloud = @Cloud(namespace = @Value(prop = ORIGIN_NAMESPACE_ENV_NAME)))
-    private static URL quarkusCompositeGWServerUrl;
+	@PortForward(serviceName = @Value(PUBLIC_GW_SERVICE_NAME), cloud = @Cloud(namespace = @Value(prop = ORIGIN_NAMESPACE_ENV_NAME)))
+    private static URL publicGWServerUrl;
 
     @PortForward(serviceName = @Value("egress-gateway"), cloud = @Cloud(namespace = @Value(prop = ORIGIN_NAMESPACE_ENV_NAME)))
     private URL egressGatewayUrl;
@@ -64,10 +64,19 @@ class ThresholdIT {
     private static final String CONNECTION_LIMITED_SLEEP_PATH =
             "api/v1/mesh-test-service-spring/connection-limit/sleep?seconds=" + SLEEP_DURATION_SECONDS_STRING;
 
+    /**
+     * The quarkus composite service is reached from inside the mesh, through the spring service: an address
+     * forwarded from outside the cluster skips the mesh proxies in Istio mesh mode and the composite route is
+     * never applied there.
+     */
+    private static final String QUARKUS_SLEEP_VIA_SPRING_PROXY =
+            "api/v1/mesh-test-service-spring/spring/proxy?url=" + QUARKUS_SERVICE_NAME
+                    + ":8080/api/v1/mesh-test-service-quarkus/sleep?seconds=" + SLEEP_DURATION_SECONDS_STRING;
+
     @BeforeAll
     void init() {
         assertNotNull(springCompositeGWServerUrl);
-        assertNotNull(quarkusCompositeGWServerUrl);
+        assertNotNull(publicGWServerUrl);
         assertNotNull(egressGatewayUrl);
     }
 
@@ -82,7 +91,7 @@ class ThresholdIT {
     @Test
     void testLoadEnvoyWithAverageConfig() throws Exception {
         //load envoy with average concurrency and without limit
-        loadEnvoy(quarkusCompositeGWServerUrl.toString() + "api/v1/mesh-test-service-quarkus/sleep?seconds=" + SLEEP_DURATION_SECONDS_STRING, false);
+        loadEnvoy(publicGWServerUrl.toString() + QUARKUS_SLEEP_VIA_SPRING_PROXY, false);
     }
 
     @Test

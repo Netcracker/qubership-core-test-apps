@@ -287,7 +287,7 @@ jobs:
             echo "| --- | --- |"
             echo "| test-apps-branch (pinned) | \`${{ env.TEST_APPS_BRANCH || github.ref_name }}\` |"
             echo "| core-bootstrap-branch | \`${{ inputs.core-bootstrap-branch || 'main' }}\` |"
-            echo "| test-branch | \`${{ inputs.test-branch || env.TEST_APPS_BRANCH || 'main' }}\` |"
+            echo "| test-branch | \`${{ (inputs.test-branch != 'main' && inputs.test-branch) || env.TEST_APPS_BRANCH || 'main' }}\` |"
             echo "| install-maas | \`${{ (inputs.install-maas && 'true') || 'false' }}\` |"
             echo "| install-istio | \`${{ (inputs.install-istio && 'true') || 'false' }}\` |"
             echo "| istio-repo-branch | \`${{ inputs.istio-repo-branch || 'main' }}\` |"
@@ -312,7 +312,7 @@ jobs:
           echo "::group::Workflow input values"
           echo "test-apps-branch=${{ env.TEST_APPS_BRANCH || github.ref_name }}"
           echo "core-bootstrap-branch=${{ inputs.core-bootstrap-branch || 'main' }}"
-          echo "test-branch=${{ inputs.test-branch || env.TEST_APPS_BRANCH || 'main' }}"
+          echo "test-branch=${{ (inputs.test-branch != 'main' && inputs.test-branch) || env.TEST_APPS_BRANCH || 'main' }}"
           echo "install-maas=${{ (inputs.install-maas && 'true') || 'false' }}"
           echo "install-istio=${{ (inputs.install-istio && 'true') || 'false' }}"
           echo "istio-repo-branch=${{ inputs.istio-repo-branch || 'main' }}"
@@ -443,7 +443,7 @@ jobs:
         with:
           repository: Netcracker/qubership-core-paas-mediation
           # falls back to the pinned dev branch, and the action falls back to main where it does not exist
-          branch: ${{ inputs.test-branch || env.TEST_APPS_BRANCH || 'main' }}
+          branch: ${{ (inputs.test-branch != 'main' && inputs.test-branch) || env.TEST_APPS_BRANCH || 'main' }}
           path: ${{ inputs.test-usecase != '' && format('repos/paas-mediation-{0}', inputs.test-usecase) || 'repos/paas-mediation' }}
           test-folder: integration-tests
           test-service-name: paas-mediation-tests
@@ -459,7 +459,7 @@ jobs:
         with:
           repository: Netcracker/qubership-core-control-plane
           # falls back to the pinned dev branch, and the action falls back to main where it does not exist
-          branch: ${{ inputs.test-branch || env.TEST_APPS_BRANCH || 'main' }}
+          branch: ${{ (inputs.test-branch != 'main' && inputs.test-branch) || env.TEST_APPS_BRANCH || 'main' }}
           path: ${{ inputs.test-usecase != '' && format('repos/control-plane-{0}', inputs.test-usecase) || 'repos/control-plane' }}
           test-folder: integration-tests
           test-service-name: control-plane-tests
@@ -474,7 +474,7 @@ jobs:
         with:
           repository: Netcracker/qubership-core-site-management
           # falls back to the pinned dev branch, and the action falls back to main where it does not exist
-          branch: ${{ inputs.test-branch || env.TEST_APPS_BRANCH || 'main' }}
+          branch: ${{ (inputs.test-branch != 'main' && inputs.test-branch) || env.TEST_APPS_BRANCH || 'main' }}
           path: ${{ inputs.test-usecase != '' && format('repos/site-management-{0}', inputs.test-usecase) || 'repos/site-management' }}
           test-folder: integration-tests
           test-service-name: site-management-tests
@@ -489,7 +489,7 @@ jobs:
         with:
           repository: Netcracker/qubership-core-maas-agent
           # falls back to the pinned dev branch, and the action falls back to main where it does not exist
-          branch: ${{ inputs.test-branch || env.TEST_APPS_BRANCH || 'main' }}
+          branch: ${{ (inputs.test-branch != 'main' && inputs.test-branch) || env.TEST_APPS_BRANCH || 'main' }}
           path: ${{ inputs.test-usecase != '' && format('repos/maas-agent-{0}', inputs.test-usecase) || 'repos/maas-agent' }}
           test-folder: integration-tests
           test-service-name: maas-agent-tests
