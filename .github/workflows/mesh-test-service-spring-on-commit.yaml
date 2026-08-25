@@ -1,6 +1,8 @@
 name: Mesh-test-service-spring build
 
 on:
+  # lets the image be rebuilt for a dev branch that changed nothing under the service directory
+  workflow_dispatch:
   push:
     paths:
       - 'mesh-test-service-spring/**'
