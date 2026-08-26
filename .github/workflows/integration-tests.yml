@@ -260,6 +260,13 @@ on:
         default: ''
         type: string
 
+env:
+  # Test code, helm charts, install scripts and local composite actions are taken from this branch,
+  # not from the ref the run was started on. Set to '' to go back to the triggering ref.
+  TEST_APPS_BRANCH: fix/integration-tests
+  # images built from TEST_APPS_BRANCH; an explicit tag input still wins over it
+  TEST_APPS_IMAGE_TAG: fix-integration-tests-snapshot
+
 jobs:
   integration-tests:
     runs-on: ubuntu-latest
@@ -267,6 +274,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ env.TEST_APPS_BRANCH }}
 
       - name: Document workflow input values
         shell: bash
@@ -276,8 +285,9 @@ jobs:
             echo ""
             echo "| Input | Value |"
             echo "| --- | --- |"
+            echo "| test-apps-branch (pinned) | \`${{ env.TEST_APPS_BRANCH || github.ref_name }}\` |"
             echo "| core-bootstrap-branch | \`${{ inputs.core-bootstrap-branch || 'main' }}\` |"
-            echo "| test-branch | \`${{ inputs.test-branch || 'main' }}\` |"
+            echo "| test-branch | \`${{ (inputs.test-branch != 'main' && inputs.test-branch) || env.TEST_APPS_BRANCH || 'main' }}\` |"
             echo "| install-maas | \`${{ (inputs.install-maas && 'true') || 'false' }}\` |"
             echo "| install-istio | \`${{ (inputs.install-istio && 'true') || 'false' }}\` |"
             echo "| istio-repo-branch | \`${{ inputs.istio-repo-branch || 'main' }}\` |"
@@ -291,17 +301,18 @@ jobs:
             echo "| core-operator-tag | \`${{ inputs.core-operator-tag || 'latest' }}\` |"
             echo "| config-server-tag | \`${{ inputs.config-server-tag || 'latest' }}\` |"
             echo "| site-management-tag | \`${{ inputs.site-management-tag || 'latest' }}\` |"
-            echo "| mesh-test-spring-tag | \`${{ inputs.mesh-test-spring-tag || 'latest' }}\` |"
-            echo "| mesh-test-quarkus-tag | \`${{ inputs.mesh-test-quarkus-tag || 'latest' }}\` |"
-            echo "| mesh-test-go-tag | \`${{ inputs.mesh-test-go-tag || 'latest' }}\` |"
+            echo "| mesh-test-spring-tag | \`${{ (inputs.mesh-test-spring-tag != 'latest' && inputs.mesh-test-spring-tag) || env.TEST_APPS_IMAGE_TAG || 'latest' }}\` |"
+            echo "| mesh-test-quarkus-tag | \`${{ (inputs.mesh-test-quarkus-tag != 'latest' && inputs.mesh-test-quarkus-tag) || env.TEST_APPS_IMAGE_TAG || 'latest' }}\` |"
+            echo "| mesh-test-go-tag | \`${{ (inputs.mesh-test-go-tag != 'latest' && inputs.mesh-test-go-tag) || env.TEST_APPS_IMAGE_TAG || 'latest' }}\` |"
             echo "| mesh-type | \`${{ inputs.mesh-type || 'Core' }}\` |"
             echo "| test-usecase | \`${{ inputs.test-usecase || '' }}\` |"
             echo "| run-tests-for | \`${{ inputs.run-tests-for || 'all' }}\` |"
           } >> "$GITHUB_STEP_SUMMARY"
 
           echo "::group::Workflow input values"
+          echo "test-apps-branch=${{ env.TEST_APPS_BRANCH || github.ref_name }}"
           echo "core-bootstrap-branch=${{ inputs.core-bootstrap-branch || 'main' }}"
-          echo "test-branch=${{ inputs.test-branch || 'main' }}"
+          echo "test-branch=${{ (inputs.test-branch != 'main' && inputs.test-branch) || env.TEST_APPS_BRANCH || 'main' }}"
           echo "install-maas=${{ (inputs.install-maas && 'true') || 'false' }}"
           echo "install-istio=${{ (inputs.install-istio && 'true') || 'false' }}"
           echo "istio-repo-branch=${{ inputs.istio-repo-branch || 'main' }}"
@@ -315,9 +326,9 @@ jobs:
           echo "core-operator-tag=${{ inputs.core-operator-tag || 'latest' }}"
           echo "config-server-tag=${{ inputs.config-server-tag || 'latest' }}"
           echo "site-management-tag=${{ inputs.site-management-tag || 'latest' }}"
-          echo "mesh-test-spring-tag=${{ inputs.mesh-test-spring-tag || 'latest' }}"
-          echo "mesh-test-quarkus-tag=${{ inputs.mesh-test-quarkus-tag || 'latest' }}"
-          echo "mesh-test-go-tag=${{ inputs.mesh-test-go-tag || 'latest' }}"
+          echo "mesh-test-spring-tag=${{ (inputs.mesh-test-spring-tag != 'latest' && inputs.mesh-test-spring-tag) || env.TEST_APPS_IMAGE_TAG || 'latest' }}"
+          echo "mesh-test-quarkus-tag=${{ (inputs.mesh-test-quarkus-tag != 'latest' && inputs.mesh-test-quarkus-tag) || env.TEST_APPS_IMAGE_TAG || 'latest' }}"
+          echo "mesh-test-go-tag=${{ (inputs.mesh-test-go-tag != 'latest' && inputs.mesh-test-go-tag) || env.TEST_APPS_IMAGE_TAG || 'latest' }}"
           echo "mesh-type=${{ inputs.mesh-type || 'Core' }}"
           echo "test-usecase=${{ inputs.test-usecase || '' }}"
           echo "run-tests-for=${{ inputs.run-tests-for || 'all' }}"
@@ -414,9 +425,9 @@ jobs:
         uses: ./.github/actions/run-mesh-tests
         with:
           mesh-type: ${{ inputs.mesh-type || 'Core' }}
-          spring-tag: ${{ inputs.mesh-test-spring-tag || 'latest' }}
-          quarkus-tag: ${{ inputs.mesh-test-quarkus-tag || 'latest' }}
-          go-tag: ${{ inputs.mesh-test-go-tag || 'latest' }}
+          spring-tag: ${{ (inputs.mesh-test-spring-tag != 'latest' && inputs.mesh-test-spring-tag) || env.TEST_APPS_IMAGE_TAG || 'latest' }}
+          quarkus-tag: ${{ (inputs.mesh-test-quarkus-tag != 'latest' && inputs.mesh-test-quarkus-tag) || env.TEST_APPS_IMAGE_TAG || 'latest' }}
+          go-tag: ${{ (inputs.mesh-test-go-tag != 'latest' && inputs.mesh-test-go-tag) || env.TEST_APPS_IMAGE_TAG || 'latest' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Name mesh tests result with inputs.test-usecase
@@ -431,7 +442,8 @@ jobs:
         uses: ./.github/actions/run-integrations-tests
         with:
           repository: Netcracker/qubership-core-paas-mediation
-          branch: ${{ inputs.test-branch || 'main' }}
+          # falls back to the pinned dev branch, and the action falls back to main where it does not exist
+          branch: ${{ (inputs.test-branch != 'main' && inputs.test-branch) || env.TEST_APPS_BRANCH || 'main' }}
           path: ${{ inputs.test-usecase != '' && format('repos/paas-mediation-{0}', inputs.test-usecase) || 'repos/paas-mediation' }}
           test-folder: integration-tests
           test-service-name: paas-mediation-tests
@@ -446,7 +458,8 @@ jobs:
         uses: ./.github/actions/run-integrations-tests
         with:
           repository: Netcracker/qubership-core-control-plane
-          branch: ${{ inputs.test-branch || 'main' }}
+          # falls back to the pinned dev branch, and the action falls back to main where it does not exist
+          branch: ${{ (inputs.test-branch != 'main' && inputs.test-branch) || env.TEST_APPS_BRANCH || 'main' }}
           path: ${{ inputs.test-usecase != '' && format('repos/control-plane-{0}', inputs.test-usecase) || 'repos/control-plane' }}
           test-folder: integration-tests
           test-service-name: control-plane-tests
@@ -460,7 +473,8 @@ jobs:
         uses: ./.github/actions/run-integrations-tests
         with:
           repository: Netcracker/qubership-core-site-management
-          branch: ${{ inputs.test-branch || 'main' }}
+          # falls back to the pinned dev branch, and the action falls back to main where it does not exist
+          branch: ${{ (inputs.test-branch != 'main' && inputs.test-branch) || env.TEST_APPS_BRANCH || 'main' }}
           path: ${{ inputs.test-usecase != '' && format('repos/site-management-{0}', inputs.test-usecase) || 'repos/site-management' }}
           test-folder: integration-tests
           test-service-name: site-management-tests
@@ -474,7 +488,8 @@ jobs:
         uses: ./.github/actions/run-integrations-tests
         with:
           repository: Netcracker/qubership-core-maas-agent
-          branch: ${{ inputs.test-branch || 'main' }}
+          # falls back to the pinned dev branch, and the action falls back to main where it does not exist
+          branch: ${{ (inputs.test-branch != 'main' && inputs.test-branch) || env.TEST_APPS_BRANCH || 'main' }}
           path: ${{ inputs.test-usecase != '' && format('repos/maas-agent-{0}', inputs.test-usecase) || 'repos/maas-agent' }}
           test-folder: integration-tests
           test-service-name: maas-agent-tests

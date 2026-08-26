@@ -12,6 +12,12 @@ concurrency:
   group: "integration-tests-report"
   cancel-in-progress: true
 
+env:
+  # Report content and the called integration tests run from this branch, and results are NOT published
+  # to GitHub Pages while it is set, so the dashboard keeps main results only.
+  # Set to '' to go back to the triggering ref and publish again.
+  TEST_APPS_BRANCH: fix/integration-tests
+
 jobs:
   run-tests-core-mesh:
     uses: ./.github/workflows/integration-tests.yml
@@ -43,12 +49,13 @@ jobs:
   update-report:
     needs: [run-tests-core-mesh, run-tests-istio-mesh-fallback-mode, run-tests-istio-mesh-migrated-mode]
     runs-on: ubuntu-latest
-    environment:
-      name: pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      publish: ${{ steps.publish_decision.outputs.publish }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ env.TEST_APPS_BRANCH }}
 
       - name: Download Surefire reports artifact
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
@@ -128,14 +135,43 @@ jobs:
           
           cp integration-tests-report/report-template.html report/index.html
 
+      - name: Decide whether the report may be published
+        id: publish_decision
+        shell: bash
+        run: |
+          # runs against a pinned dev branch stay off the public dashboard
+          if [ -z "${{ env.TEST_APPS_BRANCH }}" ]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "Report built from branch '${{ env.TEST_APPS_BRANCH }}', publishing to GitHub Pages is skipped" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload report as artifact (dev branch run, not published)
+        if: ${{ env.TEST_APPS_BRANCH != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: integration-tests-report
+          path: './report'
+
       - name: Setup Pages
+        if: ${{ env.TEST_APPS_BRANCH == '' }}
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
 
       - name: Upload artifact for Pages
+        if: ${{ env.TEST_APPS_BRANCH == '' }}
         uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
           path: './report'
 
+  publish-report:
+    needs: update-report
+    if: ${{ needs.update-report.outputs.publish == 'true' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

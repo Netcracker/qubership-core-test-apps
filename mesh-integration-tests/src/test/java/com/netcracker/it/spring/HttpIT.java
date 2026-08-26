@@ -35,9 +35,6 @@ public class HttpIT {
     @PortForward(serviceName = @Value(INTERNAL_GW_SERVICE_NAME))
     private static URL internalGWServerUrl;
 
-    @PortForward(serviceName = @Value(SERVICE_NAME))
-    private static URL compositeGWServerUrl;
-
     @PortForward(serviceName = @Value(EGRESS_GW_SERVICE_NAME))
     private static URL egressGWServerUrl;
 
@@ -84,8 +81,11 @@ public class HttpIT {
 
 	@Test
 	public void testRouteRegisteredInCompositeGWWIthRoutingByHost() throws IOException {
+		// request goes through the service itself, so routing by host is done inside the mesh:
+		// a port-forward to the composite service address skips the mesh proxies in Istio mesh mode
 		Request request = new Request.Builder()
-				.url(compositeGWServerUrl+ "api/v1/mesh-test-service-spring/declarative_hello")
+				.url(publicGWServerUrl + "api/v1/mesh-test-service-spring/spring/proxy?url="
+						+ SERVICE_NAME + ":8080/api/v1/mesh-test-service-spring/declarative_hello")
 				.get()
 				.build();
 		try (Response response = okHttpClient.newCall(request).execute()) {

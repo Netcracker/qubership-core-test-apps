@@ -35,6 +35,8 @@ runs:
       env:
         GITHUB_ACTOR: ${{ github.actor }}
         GITHUB_TOKEN: ${{ inputs.github-token }}
+        # forked surefire JVMs inherit it, tests skip Core-mesh-only scenarios when it is Istio
+        SERVICE_MESH_TYPE: ${{ inputs.mesh-type }}
       run: |
         INSTALL_CMD="./mesh-test-install/mesh-test-apps.sh install ${{ inputs.namespace }} ${{ inputs.mesh-type }}"
         SPRING_TAG="${{ inputs.spring-tag }}"
