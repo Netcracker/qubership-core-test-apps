@@ -59,6 +59,8 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         CHECKOUT_PATH: ${{ inputs.path }}
         TEST_FOLDER: ${{ inputs.test-folder }}
+        # forked surefire JVMs inherit it, tests adapt to what the mesh type changes for them
+        SERVICE_MESH_TYPE: ${{ inputs.mesh-type }}
       run: |
         ./run-it/run-integration-tests.sh \
           --exec-mode "${{ inputs.exec-mode }}" \
