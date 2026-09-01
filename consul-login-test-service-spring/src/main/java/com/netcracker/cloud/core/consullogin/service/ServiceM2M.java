@@ -1,0 +1,25 @@
+package com.netcracker.cloud.core.consullogin.service;
+
+import com.netcracker.cloud.security.core.auth.DummyM2MManager;
+import com.netcracker.cloud.security.core.auth.M2MManager;
+
+/**
+ * Chooses which stand-in for the customer security library the service uses.
+ *
+ * <p>{@link DummyM2MManager} is the default: its token is rejected by Consul, so the m2m way reaches the login and
+ * fails, which is what most scenarios want to observe. With {@code CONSUL_LOGIN_M2M_PROJECTED=true} the m2m way succeeds
+ * instead, which is what the fallback and the recheck of the kubernetes way need in order to be observed at all.
+ */
+final class ServiceM2M {
+
+    private ServiceM2M() {
+    }
+
+    static M2MManager standIn() {
+        return projectedTokenRequested() ? new ProjectedTokenM2MManager() : new DummyM2MManager();
+    }
+
+    static boolean projectedTokenRequested() {
+        return Boolean.parseBoolean(System.getenv("CONSUL_LOGIN_M2M_PROJECTED"));
+    }
+}

@@ -1,0 +1,34 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: ${MICROSERVICE_NAME:consul-login-test-service-spring}
+  config:
+    import: ${SPRING_CONFIG_IMPORT:optional:consul:}
+  cloud:
+    consul:
+      host: ${CONSUL_HOST:consul-consul-server.consul}
+      port: ${CONSUL_PORT:8500}
+      config:
+        enabled: ${CONSUL_ENABLED:true}
+        prefix: config/${CLOUD_NAMESPACE:consul-login-test}
+        m2m:
+          enabled: ${CONSUL_M2M_ENABLED:true}
+        login:
+          mode: ${CONSUL_LOGIN_MODE:kubernetes}
+          auth-method: ${CONSUL_LOGIN_AUTH_METHOD:consul-login-test-service}
+          audience: ${CONSUL_LOGIN_AUDIENCE:netcracker}
+          fallback-recheck-interval: ${CONSUL_LOGIN_RECHECK:5h}
+
+cloud:
+  microservice:
+    name: ${MICROSERVICE_NAME:consul-login-test-service-spring}
+    namespace: ${CLOUD_NAMESPACE:consul-login-test}
+
+service:
+  transport: resttemplate
+
+logging:
+  level:
+    com.netcracker.cloud.consul: DEBUG
