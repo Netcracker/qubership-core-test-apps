@@ -1,0 +1,11 @@
+{
+    "components" : [
+      {
+        "name": "qubership-core-consul-login-test-service-spring",
+        "file": "./consul-login-test-service-spring/Dockerfile",
+        "context": "./artifacts/consul-login-test-service-spring/",
+        "download-artifact": true
+      }
+    ],
+    "platforms" : "linux/amd64"
+  }
