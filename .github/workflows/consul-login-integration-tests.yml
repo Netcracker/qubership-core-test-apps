@@ -1,0 +1,47 @@
+name: Run Consul login integration tests
+run-name: >-
+  [ACL=${{ (inputs.consul-acls && 'yes') || 'no' }}]
+  [tests=${{ inputs.run-tests-for || 'consul-login' }}]
+
+on:
+  workflow_dispatch:
+    inputs:
+      core-bootstrap-branch:
+        description: 'Branch of core-bootstrap repo'
+        required: false
+        default: 'main'
+        type: string
+      test-branch:
+        description: 'Branch to use in core services & test repositories. If branch not found in specific repo, checkout will fallback to main'
+        required: false
+        default: 'main'
+        type: string
+      kind-config:
+        description: 'Path to a kind cluster config file; empty uses the default kind cluster'
+        required: false
+        default: '.github/kind/cluster-netcracker-audience.yaml'
+        type: string
+      consul-acls:
+        description: 'Enable the Consul ACL system'
+        required: false
+        default: true
+        type: boolean
+      run-tests-for:
+        description: 'Integration tests to run: all, none, or comma-separated test names (mesh-tests,paas-mediation,control-plane,site-management,maas-agent,consul-login)'
+        required: false
+        default: 'consul-login'
+        type: string
+
+jobs:
+  run-tests-consul-login:
+    uses: ./.github/workflows/integration-tests.yml
+    with:
+      core-bootstrap-branch: ${{ inputs.core-bootstrap-branch }}
+      test-branch: ${{ inputs.test-branch }}
+      kind-config: ${{ inputs.kind-config }}
+      consul-acls: ${{ inputs.consul-acls }}
+      install-istio: false
+      install-maas: false
+      mesh-type: 'Core'
+      test-usecase: 'consul-login'
+      run-tests-for: ${{ inputs.run-tests-for }}
