@@ -6,8 +6,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.fabric8.kubernetes.api.model.Namespace;
 import io.fabric8.kubernetes.api.model.NamespaceBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
-import io.fabric8.kubernetes.api.model.Secret;
-import io.fabric8.kubernetes.api.model.SecretBuilder;
 import io.fabric8.kubernetes.api.model.ServiceAccount;
 import io.fabric8.kubernetes.api.model.ServiceAccountBuilder;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
@@ -27,8 +25,6 @@ import org.awaitility.Awaitility;
 
 import java.io.IOException;
 import java.time.Duration;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -53,8 +49,6 @@ class SpringServiceKubernetesLoginIT {
     private static final String KV_PREFIX = "config/" + NAMESPACE + "/";
     private static final String MARKER_KEY = KV_PREFIX + "application/service.marker";
     private static final String MARKER_VALUE = "marker-read-with-the-issued-token";
-    private static final String PULL_SECRET = "ghcr-pull";
-    private static final String REGISTRY = "ghcr.io";
 
     private static final ObjectMapper JSON = new ObjectMapper();
 
@@ -176,8 +170,6 @@ class SpringServiceKubernetesLoginIT {
                 .build();
         kubernetes.serviceAccounts().inNamespace(NAMESPACE).resource(serviceAccount).create();
 
-        createPullSecret();
-
         Map<String, String> labels = Map.of("app", SERVICE);
         Deployment deployment = new DeploymentBuilder()
                 .withNewMetadata().withName(SERVICE).withNamespace(NAMESPACE).withLabels(labels).endMetadata()
@@ -188,7 +180,6 @@ class SpringServiceKubernetesLoginIT {
                 .withNewMetadata().withLabels(labels).endMetadata()
                 .withNewSpec()
                 .withServiceAccountName(SERVICE)
-                .addNewImagePullSecret().withName(PULL_SECRET).endImagePullSecret()
                 .addNewContainer()
                 .withName(SERVICE)
                 .withImage(IMAGE)
@@ -224,29 +215,6 @@ class SpringServiceKubernetesLoginIT {
         kubernetes.apps().deployments().inNamespace(NAMESPACE).resource(deployment).create();
         kubernetes.apps().deployments().inNamespace(NAMESPACE).withName(SERVICE)
                 .waitUntilReady(5, TimeUnit.MINUTES);
-    }
-
-    /**
-     * The image of the service is published to a private package, so the cluster needs the same credentials the
-     * runner already holds. Without them the pod never leaves ImagePullBackOff.
-     */
-    private static void createPullSecret() {
-        String actor = System.getenv("GITHUB_ACTOR");
-        String token = System.getenv("GITHUB_TOKEN");
-        if (actor == null || actor.isBlank() || token == null || token.isBlank()) {
-            throw new IllegalStateException("GITHUB_ACTOR and GITHUB_TOKEN are required to pull " + IMAGE);
-        }
-        String auth = Base64.getEncoder()
-                .encodeToString((actor + ":" + token).getBytes(StandardCharsets.UTF_8));
-        String dockerConfig = "{\"auths\":{\"" + REGISTRY + "\":{\"auth\":\"" + auth + "\"}}}";
-
-        Secret pullSecret = new SecretBuilder()
-                .withNewMetadata().withName(PULL_SECRET).withNamespace(NAMESPACE).endMetadata()
-                .withType("kubernetes.io/dockerconfigjson")
-                .addToData(".dockerconfigjson", Base64.getEncoder()
-                        .encodeToString(dockerConfig.getBytes(StandardCharsets.UTF_8)))
-                .build();
-        kubernetes.secrets().inNamespace(NAMESPACE).resource(pullSecret).create();
     }
 
     private static LocalPortForward forwardServicePort() {
