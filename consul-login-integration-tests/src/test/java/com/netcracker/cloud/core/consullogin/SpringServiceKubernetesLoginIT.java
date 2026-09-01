@@ -42,7 +42,7 @@ class SpringServiceKubernetesLoginIT {
     private static final String SERVICE = "consul-login-test-service-spring";
     private static final String IMAGE = System.getProperty("consul.login.test.service.image",
             "ghcr.io/netcracker/qubership-core-consul-login-test-service-spring"
-                    + ":feat-consul-login-integration-tests");
+                    + ":feat-consul-login-integration-tests-snapshot");
 
     private static final String AUTH_METHOD = "consul-login-test-service";
     private static final String POLICY = "consul-login-test-service-read";
