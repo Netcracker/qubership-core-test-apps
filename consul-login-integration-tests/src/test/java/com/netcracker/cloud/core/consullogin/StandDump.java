@@ -2,6 +2,8 @@ package com.netcracker.cloud.core.consullogin;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.fabric8.kubernetes.api.model.ContainerStatus;
+import io.fabric8.kubernetes.api.model.Event;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.client.KubernetesClient;
 
@@ -55,14 +57,43 @@ final class StandDump {
             System.out.println("-- pods in " + namespace + ": unavailable, " + e.getMessage());
             return;
         }
+        printEvents(kubernetes, namespace);
         for (Pod pod : pods) {
             String name = pod.getMetadata().getName();
             System.out.println("-- pod " + namespace + "/" + name + " phase=" + pod.getStatus().getPhase());
+            printContainerStatuses(pod);
             try {
                 System.out.println(kubernetes.pods().inNamespace(namespace).withName(name).tailingLines(200).getLog());
             } catch (RuntimeException e) {
                 System.out.println("   logs unavailable: " + e.getMessage());
             }
+        }
+    }
+
+    private static void printContainerStatuses(Pod pod) {
+        List<ContainerStatus> statuses = pod.getStatus().getContainerStatuses();
+        if (statuses == null) {
+            return;
+        }
+        for (ContainerStatus status : statuses) {
+            if (status.getState() == null || status.getState().getWaiting() == null) {
+                continue;
+            }
+            System.out.println("   container " + status.getName()
+                    + " waiting: " + status.getState().getWaiting().getReason()
+                    + " — " + status.getState().getWaiting().getMessage());
+        }
+    }
+
+    private static void printEvents(KubernetesClient kubernetes, String namespace) {
+        try {
+            List<Event> events = kubernetes.v1().events().inNamespace(namespace).list().getItems();
+            System.out.println("-- events in " + namespace + ":");
+            for (Event event : events) {
+                System.out.println("   " + event.getType() + " " + event.getReason() + " " + event.getMessage());
+            }
+        } catch (RuntimeException e) {
+            System.out.println("-- events in " + namespace + ": unavailable, " + e.getMessage());
         }
     }
 
