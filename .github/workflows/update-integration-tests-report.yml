@@ -40,6 +40,17 @@ jobs:
       test-usecase: 'istio-migrated'
       run-tests-for: 'all'            
       
+  run-tests-consul-login:
+    uses: ./.github/workflows/integration-tests.yml
+    with:
+      install-istio: false
+      install-maas: false
+      mesh-type: 'Core'
+      test-usecase: 'consul-login'
+      run-tests-for: 'consul-login'
+      kind-config: '.github/kind/cluster-netcracker-audience.yaml'
+      consul-acls: true
+
   update-report:
     needs: [run-tests-core-mesh, run-tests-istio-mesh-fallback-mode, run-tests-istio-mesh-migrated-mode]
     runs-on: ubuntu-latest
