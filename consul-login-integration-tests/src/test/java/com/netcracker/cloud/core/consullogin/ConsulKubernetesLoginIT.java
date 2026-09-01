@@ -171,7 +171,7 @@ class ConsulKubernetesLoginIT {
         ObjectNode body = JSON.createObjectNode()
                 .put("AuthMethod", AUTH_METHOD)
                 .put("Description", "Consul login probe: probe namespace to the probe role")
-                .put("Selector", "serviceaccount.namespace==" + PROBE_NAMESPACE)
+                .put("Selector", "serviceaccount.namespace==\"" + PROBE_NAMESPACE + "\"")
                 .put("BindType", "role")
                 .put("BindName", ROLE);
         ConsulClient.Response response = consul.put("/v1/acl/binding-rule", body.toString())
