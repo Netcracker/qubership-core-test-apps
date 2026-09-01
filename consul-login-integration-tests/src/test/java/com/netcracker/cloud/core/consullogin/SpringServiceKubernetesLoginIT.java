@@ -23,7 +23,10 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.LifecycleMethodExecutionExceptionHandler;
 import org.junit.jupiter.api.extension.TestWatcher;
 
+import org.awaitility.Awaitility;
+
 import java.io.IOException;
+import java.time.Duration;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Map;
@@ -80,9 +83,7 @@ class SpringServiceKubernetesLoginIT {
     @Test
     @DisplayName("The service reports a Consul token of its own and the property it read")
     void serviceLogsInAndReadsItsProperties() {
-        ConsulClient service = new ConsulClient("http://localhost:" + servicePortForward.getLocalPort(), null);
-        ConsulClient.Response response = service.get("/login-status").requireSuccess("reading the login status");
-        JsonNode status = readJson(response.body());
+        JsonNode status = awaitLoginStatus();
 
         assertEquals("kubernetes", status.path("loginMode").asText(), "login mode");
         assertTrue(status.path("tokenPresent").asBoolean(), "the service holds a Consul token");
@@ -109,6 +110,22 @@ class SpringServiceKubernetesLoginIT {
         if (kubernetes != null) {
             kubernetes.close();
         }
+    }
+
+    /**
+     * The container is running long before Spring is listening, and the boot itself includes the Consul login,
+     * so the status is polled instead of being read once.
+     */
+    private static JsonNode awaitLoginStatus() {
+        ConsulClient service = new ConsulClient("http://localhost:" + servicePortForward.getLocalPort(), null);
+        return Awaitility.await("the service answers on /login-status")
+                .atMost(Duration.ofMinutes(3))
+                .pollInterval(Duration.ofSeconds(3))
+                .ignoreExceptions()
+                .until(() -> {
+                    ConsulClient.Response response = service.get("/login-status");
+                    return response.isSuccessful() ? readJson(response.body()) : null;
+                }, status -> status != null);
     }
 
     private static void createPolicy() {
