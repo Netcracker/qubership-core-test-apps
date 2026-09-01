@@ -1,4 +1,4 @@
-FROM ghcr.io/netcracker/qubership-java-base:21-alpine-2.3.7@sha256:0703cab49931a129f16f39e11d108a4c15e9455a32508fc3f6690ae719aa826d
+FROM ghcr.io/netcracker/qubership-java-base:21-alpine-2.4.1@sha256:3292f3d70adf9862e4c4a1d1d9a8a820543a31d14a48212c95d9194d2f1e626f
 LABEL maintainer="qubership"
 
 COPY --chown=10001:0 target/mesh-test-service-spring-*.jar /app/mesh-test-service-spring.jar
