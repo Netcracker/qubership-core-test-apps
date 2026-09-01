@@ -1,0 +1,48 @@
+server:
+  address: 0.0.0.0
+  port: 8080
+
+cloud:
+  microservice:
+    name: ${MICROSERVICE_NAME:storage-test-service-spring}
+    namespace: ${CLOUD_NAMESPACE:unknown}
+    bg_version: ${DEPLOYMENT_VERSION:v1}
+
+spring:
+  application:
+    name: storage-test-service-spring
+  cloud:
+    consul:
+      config:
+        prefixes: config/${CLOUD_NAMESPACE:unknown}
+        enabled: ${CONSUL_ENABLED:false}
+        m2m:
+          enabled: false
+  # optional: the application must start without Consul, which is how it runs locally
+  config:
+    import: optional:consul:${CONSUL_URL:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+# The pool is deliberately small and quick to give up: a failover test must observe a bounded
+# failure, and a pool that waits minutes for a connection hides exactly what is being measured.
+dbaas:
+  api:
+    datasource:
+      postgresql:
+        maximumPoolSize: 5
+        connectionTimeout: 5000
+        validationTimeout: 2000
+
+logging:
+  level:
+    com.netcracker.cloud.storagetestservice: INFO
+    com.netcracker.cloud.dbaas: INFO

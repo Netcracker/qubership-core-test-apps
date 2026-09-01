@@ -1,0 +1,26 @@
+SERVICE: storage-test-service-go
+# Read by the coretpl library chart, which names its hook resources after it.
+SERVICE_NAME: 'storage-test-service-go'
+APPLICATION_NAME: 'storage-test-app'
+DEPLOYMENT_RESOURCE_NAME: storage-test-service-go
+DEPLOYMENT_VERSION: v1
+DEPLOYMENT_SESSION_ID:
+CR_SYNCHRONIZER_IMAGE: "ghcr.io/netcracker/cr-synchronizer:latest@sha256:0d1ee974fe64e843f75546af08ffe9fff718f6b3c8b64779010508be2cb12343"
+RESOURCE_POLLING_TIMEOUT: 60
+IMAGE_REPOSITORY: 'ghcr.io/netcracker/qubership-core-storage-test-service-go'
+TAG: latest
+REPLICAS: 1
+RC_REVISIONS: 3
+PAAS_PLATFORM: KUBERNETES
+CLOUD_TOPOLOGY_KEY: kubernetes.io/hostname
+INTERNAL_TLS_ENABLED: false
+
+CPU_REQUEST: 100m
+CPU_LIMIT: 500m
+MEMORY_LIMIT: 256Mi
+
+# Address of the MaaS agent the client talks to. The default matches the local-dev install.
+MAAS_AGENT_URL: http://maas-agent:8080
+
+CONSUL_ENABLED: "true"
+CONSUL_URL: http://consul-consul-server.consul.svc.cluster.local:8500

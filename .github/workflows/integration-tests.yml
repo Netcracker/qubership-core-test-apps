@@ -123,7 +123,7 @@ on:
         required: false
         description: Append to `integration-tests` name - to distiguish results in different mesh modes
       run-tests-for:
-        description: 'Integration tests to run: all, none, or comma-separated test names (mesh-tests,paas-mediation,control-plane,site-management,maas-agent)'
+        description: 'Integration tests to run: all, none, or comma-separated test names (mesh-tests,storage-tests,paas-mediation,control-plane,site-management,maas-agent). storage-tests is opt-in and not included in all'
         required: false
         default: 'all'
         type: string
@@ -250,7 +250,7 @@ on:
         required: false
         description: Append to `integration-tests` name - to distiguish results in different mesh modes
       run-tests-for:
-        description: 'Integration tests to run: all, none, or comma-separated test names (mesh-tests,paas-mediation,control-plane,site-management,maas-agent)'
+        description: 'Integration tests to run: all, none, or comma-separated test names (mesh-tests,storage-tests,paas-mediation,control-plane,site-management,maas-agent). storage-tests is opt-in and not included in all'
         required: false
         default: 'all'
         type: string
@@ -341,6 +341,9 @@ jobs:
           site-management-tag: ${{ inputs.site-management-tag || 'latest' }}
           test-branch: ${{ inputs.test-branch || 'main' }}
           mesh-type: ${{ inputs.mesh-type || 'Core' }}
+          # a leader change needs a second node, and only the storage suite induces one
+          patroni-replicas: ${{ contains(inputs.run-tests-for, 'storage-tests') && '2' || '1' }}
+          rabbit-instances: ${{ contains(inputs.run-tests-for, 'storage-tests') && 'rabbitmq-1' || '' }}
 
       - name: preserve-cpu-resources-workaround
         if: ${{ inputs.do-resources-workaround }}
@@ -358,6 +361,7 @@ jobs:
           normalized="$(echo "$selected" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
 
           mesh_tests=false
+          storage_tests=false
           paas_mediation=false
           control_plane=false
           site_management=false
@@ -371,12 +375,17 @@ jobs:
             control_plane=true
             site_management=true
             maas_agent=true
+            # storage tests are opt-in: they repeatedly kill the Patroni leader, which is not
+            # something the rest of the suite should have to run alongside
           else
             IFS=',' read -ra services <<< "$normalized"
             for service in "${services[@]}"; do
               case "$service" in
                 mesh-tests|mesh_tests)
                   mesh_tests=true
+                  ;;
+                storage-tests|storage_tests)
+                  storage_tests=true
                   ;;
                 paas-mediation|paas_mediation)
                   paas_mediation=true
@@ -394,7 +403,7 @@ jobs:
                   ;;
                 *)
                   echo "::error::Unknown integration test service: $service"
-                  echo "::error::Allowed values: all, none, mesh-tests, paas-mediation, control-plane, site-management, maas-agent"
+                  echo "::error::Allowed values: all, none, mesh-tests, storage-tests, paas-mediation, control-plane, site-management, maas-agent"
                   exit 1
                   ;;
               esac
@@ -402,6 +411,7 @@ jobs:
           fi
 
           echo "mesh_tests=$mesh_tests" >> "$GITHUB_OUTPUT"
+          echo "storage_tests=$storage_tests" >> "$GITHUB_OUTPUT"
           echo "paas_mediation=$paas_mediation" >> "$GITHUB_OUTPUT"
           echo "control_plane=$control_plane" >> "$GITHUB_OUTPUT"
           echo "site_management=$site_management" >> "$GITHUB_OUTPUT"
@@ -423,6 +433,17 @@ jobs:
         if: ${{ steps.integrations_tests_selection.outputs.mesh_tests == 'true' && inputs.test-usecase }}
         run: |
           mv mesh-integration-tests "mesh-tests-${{ inputs.test-usecase }}"
+
+      - name: Run storage failover integration tests
+        id: storage_tests
+        if: ${{ steps.integrations_tests_selection.outputs.storage_tests == 'true' }}
+        continue-on-error: true
+        uses: ./.github/actions/run-storage-tests
+        with:
+          # free the resources only when the run asked for it; otherwise the service stays up and
+          # the cluster-state step at the end of this workflow picks it up
+          cleanup: ${{ inputs.do-resources-workaround || 'false' }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run paas-mediation integration tests
         id: paas_tests
@@ -506,17 +527,22 @@ jobs:
           path: artifacts/*
 
       - name: Collect Istio debug info
-        if: ${{ inputs.install-istio && (failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure') }}
+        if: ${{ inputs.install-istio && (failure() || steps.mesh_tests.outcome == 'failure' || steps.storage_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure') }}
         uses: ./.github/actions/collect-istio-debug-info
         with:
           artifact-suffix: ${{ inputs.test-usecase != '' && format('-{0}', inputs.test-usecase) || '' }}
 
       - name: Collect Kubernetes diagnostics
-        if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure' }}
+        if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.storage_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure' }}
         env:
           COLLECT_LOGS_FOR: ${{ inputs.collect-logs-for || '' }}
+          STORAGE_TESTS: ${{ steps.integrations_tests_selection.outputs.storage_tests }}
         run: |
           set +e
+          if [ "$STORAGE_TESTS" = "true" ]; then
+            STORAGE_SELECTORS='app.kubernetes.io/part-of=storage-test-app,name=maas-agent,name=maas-service'
+            COLLECT_LOGS_FOR="${COLLECT_LOGS_FOR:+$COLLECT_LOGS_FOR,}$STORAGE_SELECTORS"
+          fi
 
           echo "==== Collecting cluster state ===="
 
@@ -605,9 +631,15 @@ jobs:
             }
             
             echo "==== Collecting unhealthy pod logs ===="
+            # kubectl jsonpath has no boolean operators; Succeeded is filtered out afterwards
             kubectl get pods -A \
-              -o jsonpath='{range .items[?(@.status.phase!="Running" && @.status.phase!="Succeeded")]}{.metadata.namespace} {.metadata.name} {.status.phase}{"\n"}{end}' \
-              > /tmp/unhealthy-pods.txt || true
+              -o jsonpath='{range .items[?(@.status.phase!="Running")]}{.metadata.namespace} {.metadata.name} {.status.phase}{"\n"}{end}' \
+              | grep -v ' Succeeded$' > /tmp/unhealthy-pods.txt || true
+
+            kubectl get pods -A \
+              -o jsonpath='{range .items[?(@.status.containerStatuses[*].ready==false)]}{.metadata.namespace} {.metadata.name} {.status.phase}{"\n"}{end}' \
+              >> /tmp/unhealthy-pods.txt || true
+            sort -u -o /tmp/unhealthy-pods.txt /tmp/unhealthy-pods.txt || true
             
             collect_pod_logs /tmp/unhealthy-pods.txt "No unhealthy pods found"
             
@@ -637,7 +669,7 @@ jobs:
           } > pods-logs.txt 2>&1
       
       - name: Upload Kubernetes diagnostics
-        if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure' }}
+        if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.storage_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: kind-k8s-debug${{ inputs.test-usecase != '' && format('-{0}', inputs.test-usecase) || '' }}
