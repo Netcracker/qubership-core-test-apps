@@ -10,6 +10,7 @@ import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.api.model.ServiceAccount;
 import io.fabric8.kubernetes.api.model.ServiceAccountBuilder;
+import io.fabric8.kubernetes.client.Config;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientBuilder;
 import io.fabric8.kubernetes.client.LocalPortForward;
@@ -58,7 +59,7 @@ class ConsulKubernetesLoginIT {
 
     @BeforeAll
     static void prepareStand() {
-        kubernetes = new KubernetesClientBuilder().build();
+        kubernetes = newKubernetesClient();
         consulPortForward = forwardConsulPort();
         consul = new ConsulClient("http://localhost:" + consulPortForward.getLocalPort(), readBootstrapToken());
 
@@ -100,6 +101,17 @@ class ConsulKubernetesLoginIT {
             kubernetes.namespaces().withName(PROBE_NAMESPACE).delete();
         }
         closeQuietly();
+    }
+
+    private static KubernetesClient newKubernetesClient() {
+        Config config = Config.autoConfigure(null);
+        config.setTrustCerts(true);
+        config.setDisableHostnameVerification(true);
+        String master = System.getProperty("kubernetes.master");
+        if (master != null && !master.isBlank()) {
+            config.setMasterUrl(master);
+        }
+        return new KubernetesClientBuilder().withConfig(config).build();
     }
 
     private static LocalPortForward forwardConsulPort() {
