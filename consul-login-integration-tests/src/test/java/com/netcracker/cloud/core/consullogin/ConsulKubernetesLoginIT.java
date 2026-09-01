@@ -18,6 +18,10 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.api.extension.LifecycleMethodExecutionExceptionHandler;
+import org.junit.jupiter.api.extension.TestWatcher;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
@@ -28,6 +32,7 @@ import static com.netcracker.cloud.core.consullogin.Stand.CONSUL_IN_CLUSTER_URL;
 import static com.netcracker.cloud.core.consullogin.Stand.TOKEN_MOUNT_PATH;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+@ExtendWith(ConsulKubernetesLoginIT.Dump.class)
 @DisplayName("Consul Kubernetes auth method issues a token to a pod with a netcracker-audience token")
 class ConsulKubernetesLoginIT {
 
@@ -290,6 +295,21 @@ class ConsulKubernetesLoginIT {
         }
         if (kubernetes != null) {
             kubernetes.close();
+        }
+    }
+
+    static final class Dump implements TestWatcher, LifecycleMethodExecutionExceptionHandler {
+
+        @Override
+        public void testFailed(ExtensionContext context, Throwable cause) {
+            StandDump.print(context.getDisplayName(), consul, kubernetes, PROBE_NAMESPACE);
+        }
+
+        @Override
+        public void handleBeforeAllMethodExecutionException(ExtensionContext context, Throwable failure)
+                throws Throwable {
+            StandDump.print("stand preparation", consul, kubernetes, PROBE_NAMESPACE);
+            throw failure;
         }
     }
 }

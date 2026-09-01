@@ -16,6 +16,10 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.api.extension.LifecycleMethodExecutionExceptionHandler;
+import org.junit.jupiter.api.extension.TestWatcher;
 
 import java.io.IOException;
 import java.util.Map;
@@ -26,6 +30,7 @@ import static com.netcracker.cloud.core.consullogin.Stand.TOKEN_MOUNT_PATH;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@ExtendWith(SpringServiceKubernetesLoginIT.Dump.class)
 @DisplayName("The Spring service logs in to Consul with its projected token and reads its properties")
 class SpringServiceKubernetesLoginIT {
 
@@ -240,6 +245,21 @@ class SpringServiceKubernetesLoginIT {
             portForward.close();
         } catch (IOException e) {
             // the stand is being torn down anyway
+        }
+    }
+
+    static final class Dump implements TestWatcher, LifecycleMethodExecutionExceptionHandler {
+
+        @Override
+        public void testFailed(ExtensionContext context, Throwable cause) {
+            StandDump.print(context.getDisplayName(), consul, kubernetes, NAMESPACE);
+        }
+
+        @Override
+        public void handleBeforeAllMethodExecutionException(ExtensionContext context, Throwable failure)
+                throws Throwable {
+            StandDump.print("stand preparation", consul, kubernetes, NAMESPACE);
+            throw failure;
         }
     }
 }
