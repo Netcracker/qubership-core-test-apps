@@ -8,10 +8,8 @@ import io.fabric8.kubernetes.api.model.Namespace;
 import io.fabric8.kubernetes.api.model.NamespaceBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
-import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.api.model.ServiceAccount;
 import io.fabric8.kubernetes.api.model.ServiceAccountBuilder;
-import io.fabric8.kubernetes.client.Config;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientBuilder;
 import io.fabric8.kubernetes.client.LocalPortForward;
@@ -23,26 +21,21 @@ import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
-import java.util.List;
-import java.util.function.Predicate;
 import java.util.concurrent.TimeUnit;
 
+import static com.netcracker.cloud.core.consullogin.Stand.AUDIENCE;
+import static com.netcracker.cloud.core.consullogin.Stand.CONSUL_IN_CLUSTER_URL;
+import static com.netcracker.cloud.core.consullogin.Stand.TOKEN_MOUNT_PATH;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @DisplayName("Consul Kubernetes auth method issues a token to a pod with a netcracker-audience token")
 class ConsulKubernetesLoginIT {
 
-    private static final String CONSUL_NAMESPACE = "consul";
-    private static final String CONSUL_SERVER_POD_PREFIX = "consul-consul-server";
-    private static final String CONSUL_IN_CLUSTER_URL = "http://consul-consul-server.consul.svc:8500";
 
     private static final String PROBE_NAMESPACE = "consul-login-probe";
     private static final String PROBE_SERVICE_ACCOUNT = "consul-login-probe";
     private static final String PROBE_POD = "consul-login-probe";
     private static final String PROBE_IMAGE = "curlimages/curl:8.11.0";
-    private static final String AUDIENCE = "netcracker";
-    private static final String TOKEN_MOUNT_PATH = "/var/run/secrets/tokens/netcracker";
 
     private static final String AUTH_METHOD = "consul-login-probe";
     private static final String POLICY = "consul-login-probe-read";
@@ -62,9 +55,10 @@ class ConsulKubernetesLoginIT {
 
     @BeforeAll
     static void prepareStand() {
-        kubernetes = newKubernetesClient();
-        consulPortForward = forwardConsulPort();
-        consul = new ConsulClient("http://localhost:" + consulPortForward.getLocalPort(), readBootstrapToken());
+        kubernetes = Stand.newKubernetesClient();
+        consulPortForward = Stand.forwardConsulPort(kubernetes);
+        consul = new ConsulClient("http://localhost:" + consulPortForward.getLocalPort(),
+                Stand.readBootstrapToken(kubernetes));
 
         consul.put("/v1/kv/" + KV_KEY, KV_VALUE).requireSuccess("seeding the probe key");
         createPolicy();
@@ -119,44 +113,8 @@ class ConsulKubernetesLoginIT {
         closeQuietly();
     }
 
-    private static KubernetesClient newKubernetesClient() {
-        Config config = Config.autoConfigure(null);
-        config.setTrustCerts(true);
-        config.setDisableHostnameVerification(true);
-        String master = System.getProperty("kubernetes.master");
-        if (master != null && !master.isBlank()) {
-            config.setMasterUrl(master);
-        }
-        return new KubernetesClientBuilder().withConfig(config).build();
-    }
-
-    private static LocalPortForward forwardConsulPort() {
-        Pod server = kubernetes.pods().inNamespace(CONSUL_NAMESPACE).list().getItems().stream()
-                .filter(pod -> pod.getMetadata().getName().startsWith(CONSUL_SERVER_POD_PREFIX))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException(
-                        "no pod with prefix " + CONSUL_SERVER_POD_PREFIX + " in namespace " + CONSUL_NAMESPACE));
-        return kubernetes.pods()
-                .inNamespace(CONSUL_NAMESPACE)
-                .withName(server.getMetadata().getName())
-                .portForward(8500);
-    }
-
-    private static String readBootstrapToken() {
-        Secret secret = findSecret(candidate -> candidate.getMetadata().getName().endsWith("bootstrap-acl-token"),
-                "no bootstrap ACL token secret in namespace " + CONSUL_NAMESPACE);
-        return decode(secret, "token");
-    }
-
-    private static void createAuthMethod() {
-        Secret reviewer = findSecret(candidate -> candidate.getMetadata().getName().endsWith("auth-method")
-                        && "kubernetes.io/service-account-token".equals(candidate.getType()),
-                "no auth method reviewer secret in namespace " + CONSUL_NAMESPACE);
-
-        ObjectNode config = JSON.createObjectNode()
-                .put("Host", "https://kubernetes.default.svc")
-                .put("CACert", decode(reviewer, "ca.crt"))
-                .put("ServiceAccountJWT", decode(reviewer, "token"));
+                private static void createAuthMethod() {
+        ObjectNode config = Stand.authMethodConfig(kubernetes, JSON.createObjectNode());
         ObjectNode body = JSON.createObjectNode()
                 .put("Name", AUTH_METHOD)
                 .put("Type", "kubernetes")
@@ -315,24 +273,7 @@ class ConsulKubernetesLoginIT {
         }
     }
 
-    private static Secret findSecret(Predicate<Secret> matches, String notFoundMessage) {
-        List<Secret> secrets = kubernetes.secrets().inNamespace(CONSUL_NAMESPACE).list().getItems();
-        return secrets.stream()
-                .filter(matches)
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException(notFoundMessage));
-    }
-
-    private static String decode(Secret secret, String key) {
-        String value = secret.getData().get(key);
-        if (value == null) {
-            throw new IllegalStateException(
-                    "secret " + secret.getMetadata().getName() + " has no key " + key);
-        }
-        return new String(Base64.getDecoder().decode(value), StandardCharsets.UTF_8);
-    }
-
-    private static JsonNode readJson(String body) {
+            private static JsonNode readJson(String body) {
         try {
             return JSON.readTree(body);
         } catch (Exception e) {
