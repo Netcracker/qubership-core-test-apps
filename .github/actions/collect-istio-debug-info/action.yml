@@ -33,7 +33,7 @@ runs:
         retention-days: 7
 
     - name: Setup istioctl
-      uses: istio/get-istioctl@main
+      uses: istio/get-istioctl@e908dc03effc9f7043e52b3c1fa06ebab63c6551 # main
 
     - name: Check gateway proxy config
       shell: bash
