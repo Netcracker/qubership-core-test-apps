@@ -127,9 +127,15 @@ class SpringServiceM2MLoginIT {
         }
     }
 
+    /**
+     * {@code NAMESPACE} is set next to {@code CLOUD_NAMESPACE} on purpose: the ConfigData phase accepts either, but
+     * the autoconfiguration of the transport reads only {@code NAMESPACE}, and without it the context fails to start
+     * after a login that already succeeded.
+     */
     private static Map<String, String> serviceEnvironment(KeyPair signingKey) {
         return Map.of(
                 "CLOUD_NAMESPACE", NAMESPACE,
+                "NAMESPACE", NAMESPACE,
                 "MICROSERVICE_NAME", Stand.SERVICE_NAME,
                 "CONSUL_HOST", "consul-consul-server.consul",
                 "CONSUL_LOGIN_MODE", "m2m",
