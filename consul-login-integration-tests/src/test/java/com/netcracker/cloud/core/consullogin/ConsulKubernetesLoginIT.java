@@ -2,6 +2,7 @@ package com.netcracker.cloud.core.consullogin;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.fabric8.kubernetes.api.model.Namespace;
 import io.fabric8.kubernetes.api.model.NamespaceBuilder;
@@ -46,6 +47,8 @@ class ConsulKubernetesLoginIT {
     private static final String AUTH_METHOD = "consul-login-probe";
     private static final String POLICY = "consul-login-probe-read";
     private static final String ROLE = "consul-login-probe-reader";
+    private static final String DENY_POLICY = "consul-login-probe-deny-anonymous";
+    private static final String ANONYMOUS_TOKEN_ID = "00000000-0000-0000-0000-000000000002";
     private static final String KV_PREFIX = "config/consul-login-itest/";
     private static final String KV_KEY = KV_PREFIX + "probe";
     private static final String KV_VALUE = "consul-kubernetes-login-works";
@@ -68,6 +71,7 @@ class ConsulKubernetesLoginIT {
         createRole();
         createAuthMethod();
         bindingRuleId = createBindingRule();
+        denyAnonymousAccess();
         createProbePod();
     }
 
@@ -85,9 +89,20 @@ class ConsulKubernetesLoginIT {
         assertEquals(KV_VALUE, execInProbePod(script));
     }
 
+    @Test
+    @DisplayName("Without a token the probe prefix stays unreadable")
+    void anonymousReadIsRefused() {
+        String script = """
+                curl -sS -o /dev/null -w '%%{http_code}' %s/v1/kv/%s?raw
+                """.formatted(CONSUL_IN_CLUSTER_URL, KV_KEY);
+
+        assertEquals("403", execInProbePod(script));
+    }
+
     @AfterAll
     static void cleanUpStand() {
         if (consul != null) {
+            restoreAnonymousAccess();
             deleteIssuedTokens();
             if (bindingRuleId != null) {
                 consul.delete("/v1/acl/binding-rule/" + bindingRuleId);
@@ -95,6 +110,7 @@ class ConsulKubernetesLoginIT {
             consul.delete("/v1/acl/auth-method/" + AUTH_METHOD);
             deleteByName("/v1/acl/roles", "/v1/acl/role/", ROLE);
             deleteByName("/v1/acl/policies", "/v1/acl/policy/", POLICY);
+            deleteByName("/v1/acl/policies", "/v1/acl/policy/", DENY_POLICY);
             consul.delete("/v1/kv/" + KV_KEY);
         }
         if (kubernetes != null) {
@@ -177,6 +193,39 @@ class ConsulKubernetesLoginIT {
         ConsulClient.Response response = consul.put("/v1/acl/binding-rule", body.toString())
                 .requireSuccess("creating the binding rule");
         return readJson(response.body()).path("ID").asText();
+    }
+
+    private static void denyAnonymousAccess() {
+        ObjectNode body = JSON.createObjectNode()
+                .put("Name", DENY_POLICY)
+                .put("Description", "Consul login probe: the anonymous token cannot reach the probe prefix")
+                .put("Rules", "key_prefix \"" + KV_PREFIX + "\" { policy = \"deny\" }");
+        consul.put("/v1/acl/policy", body.toString()).requireSuccess("creating the deny policy");
+        setDenyPolicyOnAnonymousToken(true);
+    }
+
+    private static void restoreAnonymousAccess() {
+        setDenyPolicyOnAnonymousToken(false);
+    }
+
+    private static void setDenyPolicyOnAnonymousToken(boolean attached) {
+        ConsulClient.Response current = consul.get("/v1/acl/token/" + ANONYMOUS_TOKEN_ID);
+        if (!current.isSuccessful()) {
+            return;
+        }
+        ObjectNode token = (ObjectNode) readJson(current.body());
+        ArrayNode policies = JSON.createArrayNode();
+        for (JsonNode policy : token.path("Policies")) {
+            if (!DENY_POLICY.equals(policy.path("Name").asText())) {
+                policies.add(policy);
+            }
+        }
+        if (attached) {
+            policies.add(JSON.createObjectNode().put("Name", DENY_POLICY));
+        }
+        token.set("Policies", policies);
+        consul.put("/v1/acl/token/" + ANONYMOUS_TOKEN_ID, token.toString())
+                .requireSuccess("updating the anonymous token");
     }
 
     private static void createProbePod() {
