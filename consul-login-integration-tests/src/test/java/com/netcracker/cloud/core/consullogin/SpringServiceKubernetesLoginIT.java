@@ -157,7 +157,7 @@ class SpringServiceKubernetesLoginIT {
         ObjectNode body = JSON.createObjectNode()
                 .put("AuthMethod", AUTH_METHOD)
                 .put("Description", "Consul login test service: service namespace to the service role")
-                .put("Selector", "serviceaccount.namespace==\"no-such-namespace\"")
+                .put("Selector", "serviceaccount.namespace==\"" + NAMESPACE + "\"")
                 .put("BindType", "role")
                 .put("BindName", ROLE);
         ConsulClient.Response response = consul.put("/v1/acl/binding-rule", body.toString())
