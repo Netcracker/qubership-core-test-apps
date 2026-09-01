@@ -26,6 +26,11 @@ on:
         required: false
         default: true
         type: boolean
+      collect-logs-for:
+        description: 'Labels of pods whose logs are collected when the stand fails. Comma-separated label_name=value pairs'
+        required: false
+        default: 'job-name=finalyzer-postinstall-job-core-operator,name=core-operator,app=core-operator'
+        type: string
       run-tests-for:
         description: 'Integration tests to run: all, none, or comma-separated test names (mesh-tests,paas-mediation,control-plane,site-management,maas-agent,consul-login)'
         required: false
@@ -45,3 +50,4 @@ jobs:
       mesh-type: 'Core'
       test-usecase: 'consul-login'
       run-tests-for: ${{ inputs.run-tests-for }}
+      collect-logs-for: ${{ inputs.collect-logs-for }}
