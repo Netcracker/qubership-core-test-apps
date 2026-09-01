@@ -133,7 +133,7 @@ on:
         required: false
         description: Append to `integration-tests` name - to distiguish results in different mesh modes
       run-tests-for:
-        description: 'Integration tests to run: all, none, or comma-separated test names (mesh-tests,paas-mediation,control-plane,site-management,maas-agent)'
+        description: 'Integration tests to run: all, none, or comma-separated test names (mesh-tests,paas-mediation,control-plane,site-management,maas-agent,consul-login)'
         required: false
         default: 'all'
         type: string
@@ -260,7 +260,7 @@ on:
         required: false
         description: Append to `integration-tests` name - to distiguish results in different mesh modes
       run-tests-for:
-        description: 'Integration tests to run: all, none, or comma-separated test names (mesh-tests,paas-mediation,control-plane,site-management,maas-agent)'
+        description: 'Integration tests to run: all, none, or comma-separated test names (mesh-tests,paas-mediation,control-plane,site-management,maas-agent,consul-login)'
         required: false
         default: 'all'
         type: string
@@ -378,6 +378,7 @@ jobs:
           control_plane=false
           site_management=false
           maas_agent=false
+          consul_login=false
 
           if [[ -z "$normalized" || "$normalized" == "false" || "$normalized" == "none" ]]; then
             :
@@ -406,11 +407,14 @@ jobs:
                 maas-agent|maas_agent)
                   maas_agent=true
                   ;;
+                consul-login|consul_login)
+                  consul_login=true
+                  ;;
                 "")
                   ;;
                 *)
                   echo "::error::Unknown integration test service: $service"
-                  echo "::error::Allowed values: all, none, mesh-tests, paas-mediation, control-plane, site-management, maas-agent"
+                  echo "::error::Allowed values: all, none, mesh-tests, paas-mediation, control-plane, site-management, maas-agent, consul-login"
                   exit 1
                   ;;
               esac
@@ -422,6 +426,7 @@ jobs:
           echo "control_plane=$control_plane" >> "$GITHUB_OUTPUT"
           echo "site_management=$site_management" >> "$GITHUB_OUTPUT"
           echo "maas_agent=$maas_agent" >> "$GITHUB_OUTPUT"
+          echo "consul_login=$consul_login" >> "$GITHUB_OUTPUT"
 
       - name: Run mesh integration tests (test apps in ${{ inputs.mesh-type || 'Core' }} mesh mode)
         id: mesh_tests
@@ -496,6 +501,20 @@ jobs:
           test-service-name: maas-agent-tests
           mesh-type: ${{ inputs.mesh-type || 'Core' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}  
+
+      - name: Run consul-login integration tests
+        id: consul_login_tests
+        if: ${{ steps.integrations_tests_selection.outputs.consul_login == 'true' && inputs.consul-acls }}
+        continue-on-error: true
+        uses: ./.github/actions/run-integrations-tests
+        with:
+          repository: Netcracker/qubership-core-test-apps
+          branch: ${{ github.ref_name }}
+          path: repos/consul-login
+          test-folder: consul-login-integration-tests
+          test-service-name: consul-login-tests
+          mesh-type: ${{ inputs.mesh-type || 'Core' }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Aggregate Surefire reports
         run: |
