@@ -3,15 +3,20 @@ package com.netcracker.cloud.core.consullogin;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.LocalPortForward;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.LifecycleMethodExecutionExceptionHandler;
 import org.junit.jupiter.api.extension.TestWatcher;
 
+import java.time.Duration;
 import java.util.Map;
 
 import static com.netcracker.cloud.core.consullogin.Stand.AUDIENCE;
@@ -19,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ExtendWith(SpringServiceKubernetesLoginIT.Dump.class)
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @DisplayName("The Spring service logs in to Consul with its projected token and reads its properties")
 class SpringServiceKubernetesLoginIT {
 
@@ -30,6 +36,10 @@ class SpringServiceKubernetesLoginIT {
     private static final String KV_PREFIX = "config/" + NAMESPACE + "/";
     private static final String MARKER_KEY = KV_PREFIX + "application/service.marker";
     private static final String MARKER_VALUE = "marker-read-with-the-issued-token";
+    private static final String CHANGED_MARKER_VALUE = "marker-changed-after-the-relogin";
+
+    /** The shortest lifetime Consul accepts, so that the scheduled relogin happens inside a test run. */
+    private static final String TOKEN_TTL = "1m";
 
     private static KubernetesClient kubernetes;
     private static LocalPortForward consulPortForward;
@@ -47,7 +57,7 @@ class SpringServiceKubernetesLoginIT {
         consul.put("/v1/kv/" + MARKER_KEY, MARKER_VALUE).requireSuccess("seeding the marker key");
         ConsulAcl.createReadPolicy(consul, POLICY, KV_PREFIX);
         ConsulAcl.createRole(consul, ROLE, POLICY);
-        ConsulAcl.createKubernetesAuthMethod(consul, kubernetes, AUTH_METHOD);
+        ConsulAcl.createKubernetesAuthMethod(consul, kubernetes, AUTH_METHOD, TOKEN_TTL);
         bindingRuleId = ConsulAcl.createBindingRule(consul, AUTH_METHOD,
                 "serviceaccount.namespace==\"" + NAMESPACE + "\"", ROLE);
         Stand.deployService(kubernetes, NAMESPACE, serviceEnvironment(), true);
@@ -55,6 +65,7 @@ class SpringServiceKubernetesLoginIT {
     }
 
     @Test
+    @Order(1)
     @DisplayName("The service reports a Consul token of its own and the property it read")
     void serviceLogsInAndReadsItsProperties() {
         JsonNode status = Stand.awaitLoginStatus(servicePortForward);
@@ -77,6 +88,34 @@ class SpringServiceKubernetesLoginIT {
             consul.delete("/v1/kv/" + KV_PREFIX + "?recurse=true");
         }
         Stand.tearDown(kubernetes, NAMESPACE, servicePortForward, consulPortForward);
+    }
+
+    /**
+     * T3 of the design: the relogin scheduled from {@code ExpirationTime} happens, and the token it brings works —
+     * the service keeps reading, including a value changed after the relogin. It runs on the pod of the scenario
+     * above, because a deployment of its own would prove nothing and cost a pod start.
+     */
+    @Test
+    @Order(2)
+    @DisplayName("The service relogs in when its token expires and reads a value changed since")
+    void serviceRelogsInAndReadsTheChangedValue() {
+        int issuedBefore = ConsulAcl.issuedTokenCount(consul, AUTH_METHOD);
+        consul.put("/v1/kv/" + MARKER_KEY, CHANGED_MARKER_VALUE).requireSuccess("changing the marker key");
+
+        Awaitility.await("the service relogs in through the same auth method")
+                .atMost(Duration.ofMinutes(3))
+                .pollInterval(Duration.ofSeconds(5))
+                .ignoreExceptions()
+                .until(() -> ConsulAcl.issuedTokenCount(consul, AUTH_METHOD) > issuedBefore);
+
+        Awaitility.await("the service serves the changed property")
+                .atMost(Duration.ofMinutes(2))
+                .pollInterval(Duration.ofSeconds(5))
+                .ignoreExceptions()
+                .until(() -> {
+                    JsonNode status = Stand.loginStatus(servicePortForward);
+                    return status != null && CHANGED_MARKER_VALUE.equals(status.path("consulMarker").asText());
+                });
     }
 
     private static Map<String, String> serviceEnvironment() {
