@@ -9,54 +9,38 @@ import com.netcracker.cloud.core.consullogin.stand.StandDump;
 import com.netcracker.cloud.core.consullogin.stand.TestService;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.LocalPortForward;
-import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.MethodOrderer;
-import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
-import org.junit.jupiter.api.TestMethodOrder;
 
-import java.time.Duration;
-import java.time.Instant;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The service is configured to log in with the projected service account token of its pod. It has to report a Consul
- * token of its own and serve the property the test seeded before the pod started.
+ * The same check as on Spring, on the other stack: a Quarkus service configured to log in with the projected service
+ * account token of its pod has to report a Consul token of its own and serve the property the test seeded before the
+ * pod started.
  *
- * <p>That token then expires: Consul caps its lifetime at a minute, so the service has to log in again while it
- * runs, and to keep serving the property afterwards — including a value the test changed in the meantime.
+ * <p>Both stacks carry the same login library, but the configuration around it, the transport and the reader of the
+ * properties are their own, so passing on one says nothing about the other.
  */
-@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-@DisplayName("The Spring service logs in to Consul with its projected token and reads its properties")
-class SpringServiceKubernetesLoginIT {
+@DisplayName("The Quarkus service logs in to Consul with its projected token and reads its properties")
+class QuarkusServiceKubernetesLoginIT {
 
-    private static final TestService SERVICE = TestService.SPRING;
+    private static final TestService SERVICE = TestService.QUARKUS;
 
-    private static final String NAMESPACE = "consul-login-test";
+    private static final String NAMESPACE = "consul-login-test-quarkus";
 
-    private static final String AUTH_METHOD = "consul-login-test-service";
-    private static final String POLICY = "consul-login-test-service-read";
-    private static final String ROLE = "consul-login-test-service-reader";
+    private static final String AUTH_METHOD = "consul-login-test-service-quarkus";
+    private static final String POLICY = "consul-login-test-quarkus-read";
+    private static final String ROLE = "consul-login-test-quarkus-reader";
     private static final String KV_PREFIX = "config/" + NAMESPACE + "/";
     private static final String MARKER_KEY = KV_PREFIX + "application/service.marker";
-    private static final String MARKER_VALUE = "marker-read-with-the-issued-token";
-    private static final String CHANGED_MARKER_VALUE = "marker-changed-after-the-relogin";
-
-    /** The shortest lifetime Consul accepts, so that the scheduled relogin happens inside a test run. */
-    private static final String TOKEN_TTL = "1m";
-
-    /**
-     * A pod logs in twice while it starts, once in the ConfigData phase and once for the application context. Only a
-     * token issued well after those counts as the scheduled relogin.
-     */
-    private static final Duration SETTLED_AFTER = Duration.ofSeconds(30);
+    private static final String MARKER_VALUE = "marker-read-by-quarkus";
 
     private static KubernetesClient kubernetes;
     private static LocalPortForward consulPortForward;
@@ -77,9 +61,10 @@ class SpringServiceKubernetesLoginIT {
         consul.put("/v1/kv/" + MARKER_KEY, MARKER_VALUE).requireSuccess("seeding the marker key");
         ConsulAcl.createReadPolicy(consul, POLICY, KV_PREFIX);
         ConsulAcl.createRole(consul, ROLE, POLICY);
-        ConsulAcl.createKubernetesAuthMethod(consul, kubernetes, AUTH_METHOD, TOKEN_TTL);
+        ConsulAcl.createKubernetesAuthMethod(consul, kubernetes, AUTH_METHOD);
         bindingRuleId = ConsulAcl.createBindingRule(consul, AUTH_METHOD,
                 "serviceaccount.namespace==\"" + NAMESPACE + "\"", ROLE);
+
         SERVICE.deploy(kubernetes, NAMESPACE, serviceEnvironment(), true);
         servicePortForward = SERVICE.forwardPort(kubernetes, NAMESPACE);
     }
@@ -100,7 +85,6 @@ class SpringServiceKubernetesLoginIT {
     }
 
     @Test
-    @Order(1)
     @DisplayName("The service reports a Consul token of its own and the property it read")
     void serviceLogsInAndReadsItsProperties() {
         JsonNode status = TestService.awaitLoginStatus(servicePortForward);
@@ -108,43 +92,17 @@ class SpringServiceKubernetesLoginIT {
         assertEquals("kubernetes", status.path("loginMode").asText(), "login mode");
         assertTrue(status.path("tokenPresent").asBoolean(), "the service holds a Consul token");
         assertEquals(MARKER_VALUE, status.path("consulMarker").asText(), "property read from Consul");
-    }
-
-    /**
-     * Runs on the pod of the check above: the configuration is the same, and a deployment of its own would cost a
-     * pod start without proving anything.
-     */
-    @Test
-    @Order(2)
-    @DisplayName("The service relogs in when its token expires and reads a value changed since")
-    void serviceRelogsInAndReadsTheChangedValue() {
-        Instant issuedBefore = ConsulAcl.latestIssuedAt(consul, AUTH_METHOD);
-        consul.put("/v1/kv/" + MARKER_KEY, CHANGED_MARKER_VALUE).requireSuccess("changing the marker key");
-
-        Awaitility.await("the service relogs in through the same auth method")
-                .atMost(Duration.ofMinutes(3))
-                .pollInterval(Duration.ofSeconds(5))
-                .ignoreExceptions()
-                .until(() -> ConsulAcl.latestIssuedAt(consul, AUTH_METHOD).isAfter(issuedBefore.plus(SETTLED_AFTER)));
-
-        Awaitility.await("the service serves the changed property")
-                .atMost(Duration.ofMinutes(2))
-                .pollInterval(Duration.ofSeconds(5))
-                .ignoreExceptions()
-                .until(() -> {
-                    JsonNode status = TestService.loginStatus(servicePortForward);
-                    return status != null && CHANGED_MARKER_VALUE.equals(status.path("consulMarker").asText());
-                });
+        assertTrue(ConsulAcl.issuedTokenCount(consul, AUTH_METHOD) > 0,
+                "Consul issued a token through the auth method of the service");
     }
 
     private static Map<String, String> serviceEnvironment() {
         return Map.of(
                 "CLOUD_NAMESPACE", NAMESPACE,
                 "MICROSERVICE_NAME", SERVICE.serviceName(),
-                "CONSUL_HOST", "consul-consul-server.consul",
+                "CONSUL_URL", Cluster.CONSUL_IN_CLUSTER_URL + "/",
                 "CONSUL_LOGIN_MODE", "kubernetes",
                 "CONSUL_LOGIN_AUTH_METHOD", AUTH_METHOD,
                 "CONSUL_LOGIN_AUDIENCE", ProjectedToken.AUDIENCE);
     }
-
 }

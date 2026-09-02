@@ -1,0 +1,11 @@
+{
+    "components" : [
+      {
+        "name": "qubership-core-consul-login-test-service-quarkus",
+        "file": "./consul-login-test-service-quarkus/Dockerfile",
+        "context": "./artifacts/consul-login-test-service-quarkus/",
+        "download-artifact": true
+      }
+    ],
+    "platforms" : "linux/amd64"
+  }
