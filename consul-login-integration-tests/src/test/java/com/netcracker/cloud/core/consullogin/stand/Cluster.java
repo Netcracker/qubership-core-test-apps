@@ -1,6 +1,5 @@
 package com.netcracker.cloud.core.consullogin.stand;
 
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.client.Config;
@@ -16,7 +15,7 @@ import java.util.function.Predicate;
 
 /**
  * The cluster a scenario runs against, and the Consul installed in it: a client, a tunnel to the Consul API, and the
- * two secrets that Consul installation leaves behind.
+ * bootstrap token that Consul installation leaves behind.
  *
  * <p>The tests run outside the cluster while the services under test run inside it, which is why every scenario works
  * through a port forward rather than through a published address.
@@ -65,21 +64,6 @@ public final class Cluster {
                 candidate -> candidate.getMetadata().getName().endsWith("bootstrap-acl-token"),
                 "no bootstrap ACL token secret in namespace " + CONSUL_NAMESPACE);
         return decode(secret, "token");
-    }
-
-    /**
-     * Adds to an auth method config what Consul needs to review the service account tokens of this cluster: the
-     * address of the API server, its certificate, and the token of the reviewer account.
-     */
-    public static ObjectNode authMethodConfig(KubernetesClient kubernetes, ObjectNode config) {
-        Secret reviewer = findSecret(kubernetes,
-                candidate -> candidate.getMetadata().getName().endsWith("auth-method")
-                        && "kubernetes.io/service-account-token".equals(candidate.getType()),
-                "no auth method reviewer secret in namespace " + CONSUL_NAMESPACE);
-        return config
-                .put("Host", "https://kubernetes.default.svc")
-                .put("CACert", decode(reviewer, "ca.crt"))
-                .put("ServiceAccountJWT", decode(reviewer, "token"));
     }
 
     /** Removes what a scenario left in the cluster and closes what it opened, in an order that survives failures. */

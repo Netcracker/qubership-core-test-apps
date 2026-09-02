@@ -2,6 +2,7 @@ package com.netcracker.cloud.core.consullogin.stand;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.fabric8.kubernetes.client.KubernetesClient;
 
@@ -50,33 +51,47 @@ public final class ConsulAcl {
         createKubernetesAuthMethod(consul, kubernetes, name, null);
     }
 
+    /**
+     * The auth method of the kubernetes way. Its type is {@code jwt}: Consul checks the signature of a projected token
+     * against the published keys of the cluster instead of reviewing the token at the API server. A scenario therefore
+     * needs neither a reviewer account nor the audience of its pods in {@code --api-audiences} of the API server.
+     *
+     * <p>The namespace of the pod comes from the nested claim Kubernetes puts it in, which a binding rule then reads as
+     * {@code value.namespace}. {@code maxTokenTtl} may be null; Consul refuses anything below a minute.
+     */
     public static void createKubernetesAuthMethod(ConsulClient consul, KubernetesClient kubernetes, String name,
                                                   String maxTokenTtl) {
-        ObjectNode body = JSON.createObjectNode()
-                .put("Name", name)
-                .put("Type", "kubernetes")
-                .put("Description", "Consul login tests: Kubernetes auth method");
-        if (maxTokenTtl != null) {
-            body.put("MaxTokenTTL", maxTokenTtl);
-        }
-        body.set("Config", Cluster.authMethodConfig(kubernetes, JSON.createObjectNode()));
-        consul.put("/v1/acl/auth-method", body.toString()).requireSuccess("creating the auth method " + name);
+        ClusterSigningKey signingKey = ClusterSigningKey.read(kubernetes);
+        ObjectNode config = JSON.createObjectNode().put("BoundIssuer", signingKey.issuer());
+        ArrayNode validationKeys = config.putArray("JWTValidationPubKeys");
+        signingKey.publicKeysPem().forEach(validationKeys::add);
+        config.putArray("BoundAudiences").add(ProjectedToken.AUDIENCE);
+        config.putObject("ClaimMappings").put("/kubernetes.io/namespace", "namespace");
+
+        createAuthMethod(consul, name, "Consul login tests: auth method of the kubernetes way", config, maxTokenTtl);
     }
 
     /**
-     * The jwt auth method of the m2m way. {@code maxTokenTtl} may be null; Consul refuses anything below a minute.
+     * The auth method of the m2m way, also of type {@code jwt}: the stand-in signs its own tokens, and Consul validates
+     * them against the public half of the key generated for the run. {@code maxTokenTtl} may be null; Consul refuses
+     * anything below a minute.
      */
-    public static void createJwtAuthMethod(ConsulClient consul, String name, String publicKeyPem, String issuer,
+    public static void createM2MAuthMethod(ConsulClient consul, String name, String publicKeyPem, String issuer,
                                            String audience, String maxTokenTtl) {
         ObjectNode config = JSON.createObjectNode().put("BoundIssuer", issuer);
         config.putArray("JWTValidationPubKeys").add(publicKeyPem);
         config.putArray("BoundAudiences").add(audience);
         config.putObject("ClaimMappings").put("sub", "sub");
 
+        createAuthMethod(consul, name, "Consul login tests: auth method of the m2m way", config, maxTokenTtl);
+    }
+
+    private static void createAuthMethod(ConsulClient consul, String name, String description, ObjectNode config,
+                                         String maxTokenTtl) {
         ObjectNode body = JSON.createObjectNode()
                 .put("Name", name)
                 .put("Type", "jwt")
-                .put("Description", "Consul login tests: jwt auth method of the m2m way");
+                .put("Description", description);
         if (maxTokenTtl != null) {
             body.put("MaxTokenTTL", maxTokenTtl);
         }

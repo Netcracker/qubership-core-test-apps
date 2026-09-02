@@ -38,7 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * <p>The login is done with plain curl from inside the pod, so nothing here goes through the library under test and a
  * failure tells a broken stand from a broken library.
  */
-@DisplayName("Consul Kubernetes auth method issues a token to a pod with a netcracker-audience token")
+@DisplayName("Consul issues a token to a pod that presents its projected token")
 class ConsulKubernetesLoginIT {
 
     private static final String PROBE_NAMESPACE = "consul-login-probe";
@@ -77,7 +77,7 @@ class ConsulKubernetesLoginIT {
         ConsulAcl.createRole(consul, ROLE, POLICY);
         ConsulAcl.createKubernetesAuthMethod(consul, kubernetes, AUTH_METHOD);
         bindingRuleId = ConsulAcl.createBindingRule(consul, AUTH_METHOD,
-                "serviceaccount.namespace==\"" + PROBE_NAMESPACE + "\"", ROLE);
+                "value.namespace==\"" + PROBE_NAMESPACE + "\"", ROLE);
         denyAnonymousAccess();
         createProbePod();
     }

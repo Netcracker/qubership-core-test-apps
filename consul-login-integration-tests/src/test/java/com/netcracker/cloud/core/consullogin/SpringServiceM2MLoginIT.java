@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Checks that a Spring service still logs in the way services did before the Kubernetes auth method existed: it asks
+ * Checks that a Spring service still logs in the way services did before the kubernetes way existed: it asks
  * its security library for a token, Consul validates that token with a jwt auth method named after the namespace of
  * the service, and the service ends up holding a Consul token of its own and serving a property seeded by the test.
  *
@@ -62,7 +62,7 @@ class SpringServiceM2MLoginIT {
         consul.put("/v1/kv/" + MARKER_KEY, MARKER_VALUE).requireSuccess("seeding the marker key");
         ConsulAcl.createReadPolicy(consul, POLICY, KV_PREFIX);
         ConsulAcl.createRole(consul, ROLE, POLICY);
-        ConsulAcl.createJwtAuthMethod(consul, NAMESPACE, signingKey.publicKeyPem(),
+        ConsulAcl.createM2MAuthMethod(consul, NAMESPACE, signingKey.publicKeyPem(),
                 SigningKey.ISSUER, SigningKey.AUDIENCE, null);
         bindingRuleId = ConsulAcl.createBindingRule(consul, NAMESPACE,
                 "value.sub==\"" + SERVICE.serviceName() + "\"", ROLE);
