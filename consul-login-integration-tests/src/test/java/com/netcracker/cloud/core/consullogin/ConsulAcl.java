@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.fabric8.kubernetes.client.KubernetesClient;
 
+import java.time.Instant;
+
 /**
  * The ACL objects every scenario builds around itself: a policy over its own prefix, a role that grants it, an auth
  * method of the way under test, and a binding rule. Kept in one place so that a scenario reads as what differs.
@@ -93,6 +95,30 @@ final class ConsulAcl {
             count++;
         }
         return count;
+    }
+
+    /**
+     * When an auth method issued its newest token, by the clock of Consul itself. A scenario that waits for a relogin
+     * compares against this rather than against a count: the two logins a pod makes while it starts would satisfy a
+     * count on their own.
+     */
+    static Instant latestIssuedAt(ConsulClient consul, String authMethod) {
+        ConsulClient.Response response = consul.get("/v1/acl/tokens?authmethod=" + authMethod);
+        if (!response.isSuccessful()) {
+            return Instant.EPOCH;
+        }
+        Instant latest = Instant.EPOCH;
+        for (JsonNode token : Stand.readJson(response.body())) {
+            String createdAt = token.path("CreateTime").asText();
+            if (createdAt.isEmpty()) {
+                continue;
+            }
+            Instant created = Instant.parse(createdAt);
+            if (created.isAfter(latest)) {
+                latest = created;
+            }
+        }
+        return latest;
     }
 
     static void deleteIssuedTokens(ConsulClient consul, String authMethod) {
