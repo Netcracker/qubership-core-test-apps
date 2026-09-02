@@ -52,7 +52,7 @@ jobs:
       consul-acls: true
 
   update-report:
-    needs: [run-tests-core-mesh, run-tests-istio-mesh-fallback-mode, run-tests-istio-mesh-migrated-mode]
+    needs: [run-tests-core-mesh, run-tests-istio-mesh-fallback-mode, run-tests-istio-mesh-migrated-mode, run-tests-consul-login]
     runs-on: ubuntu-latest
     environment:
       name: pages
