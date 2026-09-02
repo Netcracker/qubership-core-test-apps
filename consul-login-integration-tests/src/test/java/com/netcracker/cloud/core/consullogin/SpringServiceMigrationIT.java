@@ -1,6 +1,13 @@
 package com.netcracker.cloud.core.consullogin;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.netcracker.cloud.core.consullogin.stand.Cluster;
+import com.netcracker.cloud.core.consullogin.stand.ConsulAcl;
+import com.netcracker.cloud.core.consullogin.stand.ConsulClient;
+import com.netcracker.cloud.core.consullogin.stand.ProjectedToken;
+import com.netcracker.cloud.core.consullogin.stand.SigningKey;
+import com.netcracker.cloud.core.consullogin.stand.StandDump;
+import com.netcracker.cloud.core.consullogin.stand.TestService;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.LocalPortForward;
 import org.awaitility.Awaitility;
@@ -8,10 +15,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.api.extension.ExtensionContext;
-import org.junit.jupiter.api.extension.LifecycleMethodExecutionExceptionHandler;
-import org.junit.jupiter.api.extension.TestWatcher;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.time.Duration;
 import java.util.LinkedHashMap;
@@ -28,7 +32,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>The way the pod took is read from Consul, which records the auth method every token came from, rather than
  * from the log of the service: the log line is written for a human, and parsing it in a test is brittle.
  */
-@ExtendWith(SpringServiceMigrationIT.Dump.class)
 @DisplayName("The Spring service migrates from the m2m way to the kubernetes way without a restart")
 class SpringServiceMigrationIT {
 
@@ -57,14 +60,17 @@ class SpringServiceMigrationIT {
     private static String m2mBindingRuleId;
     private static String kubernetesBindingRuleId;
 
+    @RegisterExtension
+    static final StandDump standDump = StandDump.onFailure(() -> consul, () -> kubernetes, NAMESPACE);
+
     @BeforeAll
     static void prepareStand() {
         SigningKey signingKey = SigningKey.generate();
 
-        kubernetes = Stand.newKubernetesClient();
-        consulPortForward = Stand.forwardConsulPort(kubernetes);
+        kubernetes = Cluster.newClient();
+        consulPortForward = Cluster.forwardConsulPort(kubernetes);
         consul = new ConsulClient("http://localhost:" + consulPortForward.getLocalPort(),
-                Stand.readBootstrapToken(kubernetes));
+                Cluster.readBootstrapToken(kubernetes));
 
         consul.put("/v1/kv/" + MARKER_KEY, MARKER_VALUE).requireSuccess("seeding the marker key");
         ConsulAcl.createReadPolicy(consul, POLICY, KV_PREFIX);
@@ -72,16 +78,16 @@ class SpringServiceMigrationIT {
         ConsulAcl.createJwtAuthMethod(consul, NAMESPACE, signingKey.publicKeyPem(),
                 SigningKey.ISSUER, SigningKey.AUDIENCE, M2M_TOKEN_TTL);
         m2mBindingRuleId = ConsulAcl.createBindingRule(consul, NAMESPACE,
-                "value.sub==\"" + Stand.SERVICE_NAME + "\"", ROLE);
+                "value.sub==\"" + TestService.NAME + "\"", ROLE);
 
-        Stand.deployService(kubernetes, NAMESPACE, serviceEnvironment(signingKey), true);
-        servicePortForward = Stand.forwardServicePort(kubernetes, NAMESPACE);
+        TestService.deploy(kubernetes, NAMESPACE, serviceEnvironment(signingKey), true);
+        servicePortForward = TestService.forwardPort(kubernetes, NAMESPACE);
     }
 
     @Test
     @DisplayName("It serves properties over m2m first and moves to the kubernetes way when its auth method appears")
     void serviceMovesToTheKubernetesWay() {
-        JsonNode status = Stand.awaitLoginStatus(servicePortForward);
+        JsonNode status = TestService.awaitLoginStatus(servicePortForward);
 
         assertEquals("kubernetes-with-m2m-fallback", status.path("loginMode").asText(), "login mode");
         assertEquals(MARKER_VALUE, status.path("consulMarker").asText(), "property read over the m2m way");
@@ -99,7 +105,7 @@ class SpringServiceMigrationIT {
                 .ignoreExceptions()
                 .until(() -> ConsulAcl.issuedTokenCount(consul, KUBERNETES_AUTH_METHOD) > 0);
 
-        assertEquals(MARKER_VALUE, Stand.awaitLoginStatus(servicePortForward).path("consulMarker").asText(),
+        assertEquals(MARKER_VALUE, TestService.awaitLoginStatus(servicePortForward).path("consulMarker").asText(),
                 "the property still arrives after the migration");
     }
 
@@ -116,7 +122,7 @@ class SpringServiceMigrationIT {
             ConsulAcl.deletePolicy(consul, POLICY);
             consul.delete("/v1/kv/" + KV_PREFIX + "?recurse=true");
         }
-        Stand.tearDown(kubernetes, NAMESPACE, servicePortForward, consulPortForward);
+        Cluster.tearDown(kubernetes, NAMESPACE, servicePortForward, consulPortForward);
     }
 
     private static void deleteBindingRule(String id) {
@@ -129,31 +135,16 @@ class SpringServiceMigrationIT {
         Map<String, String> environment = new LinkedHashMap<>();
         environment.put("CLOUD_NAMESPACE", NAMESPACE);
         environment.put("NAMESPACE", NAMESPACE);
-        environment.put("MICROSERVICE_NAME", Stand.SERVICE_NAME);
+        environment.put("MICROSERVICE_NAME", TestService.NAME);
         environment.put("CONSUL_HOST", "consul-consul-server.consul");
         environment.put("CONSUL_LOGIN_MODE", "kubernetes-with-m2m-fallback");
         environment.put("CONSUL_LOGIN_AUTH_METHOD", KUBERNETES_AUTH_METHOD);
-        environment.put("CONSUL_LOGIN_AUDIENCE", Stand.AUDIENCE);
+        environment.put("CONSUL_LOGIN_AUDIENCE", ProjectedToken.AUDIENCE);
         environment.put("CONSUL_LOGIN_RECHECK", RECHECK_INTERVAL);
         environment.put("CONSUL_LOGIN_M2M_PRIVATE_KEY", signingKey.privateKeyBase64());
         environment.put("CONSUL_LOGIN_M2M_ISSUER", SigningKey.ISSUER);
         environment.put("CONSUL_LOGIN_M2M_AUDIENCE", SigningKey.AUDIENCE);
-        environment.put("CONSUL_LOGIN_M2M_SUBJECT", Stand.SERVICE_NAME);
+        environment.put("CONSUL_LOGIN_M2M_SUBJECT", TestService.NAME);
         return environment;
-    }
-
-    static final class Dump implements TestWatcher, LifecycleMethodExecutionExceptionHandler {
-
-        @Override
-        public void testFailed(ExtensionContext context, Throwable cause) {
-            StandDump.print(context.getDisplayName(), consul, kubernetes, NAMESPACE);
-        }
-
-        @Override
-        public void handleBeforeAllMethodExecutionException(ExtensionContext context, Throwable failure)
-                throws Throwable {
-            StandDump.print("stand preparation", consul, kubernetes, NAMESPACE);
-            throw failure;
-        }
     }
 }

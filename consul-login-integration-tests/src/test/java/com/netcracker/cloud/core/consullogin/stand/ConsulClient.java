@@ -1,4 +1,7 @@
-package com.netcracker.cloud.core.consullogin;
+package com.netcracker.cloud.core.consullogin.stand;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.net.URI;
@@ -7,7 +10,13 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 
-final class ConsulClient {
+/**
+ * Talks to the Consul HTTP API with the token it was built with, if any. Responses carry the status and the body, and
+ * a failure is reported by status alone: bodies of ACL calls contain tokens, and test output is not a place for them.
+ */
+public final class ConsulClient {
+
+    private static final ObjectMapper JSON = new ObjectMapper();
 
     private final HttpClient http = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
@@ -16,20 +25,20 @@ final class ConsulClient {
     private final String baseUrl;
     private final String token;
 
-    ConsulClient(String baseUrl, String token) {
+    public ConsulClient(String baseUrl, String token) {
         this.baseUrl = baseUrl;
         this.token = token;
     }
 
-    Response get(String path) {
+    public Response get(String path) {
         return send(request(path).GET());
     }
 
-    Response put(String path, String body) {
+    public Response put(String path, String body) {
         return send(request(path).PUT(HttpRequest.BodyPublishers.ofString(body)));
     }
 
-    Response delete(String path) {
+    public Response delete(String path) {
         return send(request(path).DELETE());
     }
 
@@ -54,17 +63,25 @@ final class ConsulClient {
         }
     }
 
-    record Response(int status, String body) {
+    public record Response(int status, String body) {
 
-        boolean isSuccessful() {
+        public boolean isSuccessful() {
             return status >= 200 && status < 300;
         }
 
-        Response requireSuccess(String action) {
+        public Response requireSuccess(String action) {
             if (!isSuccessful()) {
                 throw new IllegalStateException(action + " failed with HTTP " + status);
             }
             return this;
+        }
+
+        public JsonNode json() {
+            try {
+                return JSON.readTree(body);
+            } catch (IOException e) {
+                throw new IllegalStateException("unexpected response body", e);
+            }
         }
     }
 }

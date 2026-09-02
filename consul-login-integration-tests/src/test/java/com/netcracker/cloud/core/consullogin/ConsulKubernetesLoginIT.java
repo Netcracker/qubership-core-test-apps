@@ -4,6 +4,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.netcracker.cloud.core.consullogin.stand.Cluster;
+import com.netcracker.cloud.core.consullogin.stand.ConsulAcl;
+import com.netcracker.cloud.core.consullogin.stand.ConsulClient;
+import com.netcracker.cloud.core.consullogin.stand.ProjectedToken;
+import com.netcracker.cloud.core.consullogin.stand.StandDump;
 import io.fabric8.kubernetes.api.model.Namespace;
 import io.fabric8.kubernetes.api.model.NamespaceBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
@@ -11,28 +16,20 @@ import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.api.model.ServiceAccount;
 import io.fabric8.kubernetes.api.model.ServiceAccountBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.fabric8.kubernetes.client.KubernetesClientBuilder;
 import io.fabric8.kubernetes.client.LocalPortForward;
 import io.fabric8.kubernetes.client.dsl.ExecWatch;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.api.extension.ExtensionContext;
-import org.junit.jupiter.api.extension.LifecycleMethodExecutionExceptionHandler;
-import org.junit.jupiter.api.extension.TestWatcher;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 
-import static com.netcracker.cloud.core.consullogin.Stand.AUDIENCE;
-import static com.netcracker.cloud.core.consullogin.Stand.CONSUL_IN_CLUSTER_URL;
-import static com.netcracker.cloud.core.consullogin.Stand.TOKEN_MOUNT_PATH;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@ExtendWith(ConsulKubernetesLoginIT.Dump.class)
 /**
  * Checks the stand rather than the library: a pod that carries a projected service account token of the netcracker
  * audience logs in through a Kubernetes auth method with plain curl, reads a key the test seeded with the token
@@ -42,7 +39,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  */
 @DisplayName("Consul Kubernetes auth method issues a token to a pod with a netcracker-audience token")
 class ConsulKubernetesLoginIT {
-
 
     private static final String PROBE_NAMESPACE = "consul-login-probe";
     private static final String PROBE_SERVICE_ACCOUNT = "consul-login-probe";
@@ -65,18 +61,22 @@ class ConsulKubernetesLoginIT {
     private static ConsulClient consul;
     private static String bindingRuleId;
 
+    @RegisterExtension
+    static final StandDump standDump = StandDump.onFailure(() -> consul, () -> kubernetes, PROBE_NAMESPACE);
+
     @BeforeAll
     static void prepareStand() {
-        kubernetes = Stand.newKubernetesClient();
-        consulPortForward = Stand.forwardConsulPort(kubernetes);
+        kubernetes = Cluster.newClient();
+        consulPortForward = Cluster.forwardConsulPort(kubernetes);
         consul = new ConsulClient("http://localhost:" + consulPortForward.getLocalPort(),
-                Stand.readBootstrapToken(kubernetes));
+                Cluster.readBootstrapToken(kubernetes));
 
         consul.put("/v1/kv/" + KV_KEY, KV_VALUE).requireSuccess("seeding the probe key");
-        createPolicy();
-        createRole();
-        createAuthMethod();
-        bindingRuleId = createBindingRule();
+        ConsulAcl.createReadPolicy(consul, POLICY, KV_PREFIX);
+        ConsulAcl.createRole(consul, ROLE, POLICY);
+        ConsulAcl.createKubernetesAuthMethod(consul, kubernetes, AUTH_METHOD);
+        bindingRuleId = ConsulAcl.createBindingRule(consul, AUTH_METHOD,
+                "serviceaccount.namespace==\"" + PROBE_NAMESPACE + "\"", ROLE);
         denyAnonymousAccess();
         createProbePod();
     }
@@ -90,7 +90,8 @@ class ConsulKubernetesLoginIT {
                 secret=$(curl -sS -X POST -d '{"AuthMethod":"%s","BearerToken":"'"$bearer"'"}' %s/v1/acl/login | tr ',' '\\n' | grep '"SecretID"' | cut -d'"' -f4)
                 if [ -z "$secret" ]; then echo LOGIN_FAILED; exit 1; fi
                 curl -sS -H "X-Consul-Token: $secret" %s/v1/kv/%s?raw
-                """.formatted(TOKEN_MOUNT_PATH, AUTH_METHOD, CONSUL_IN_CLUSTER_URL, CONSUL_IN_CLUSTER_URL, KV_KEY);
+                """.formatted(ProjectedToken.MOUNT_PATH, AUTH_METHOD,
+                Cluster.CONSUL_IN_CLUSTER_URL, Cluster.CONSUL_IN_CLUSTER_URL, KV_KEY);
 
         assertEquals(KV_VALUE, execInProbePod(script));
     }
@@ -100,7 +101,7 @@ class ConsulKubernetesLoginIT {
     void anonymousReadIsRefused() {
         String script = """
                 curl -sS -o /dev/null -w '%%{http_code}' %s/v1/kv/%s?raw
-                """.formatted(CONSUL_IN_CLUSTER_URL, KV_KEY);
+                """.formatted(Cluster.CONSUL_IN_CLUSTER_URL, KV_KEY);
 
         assertEquals("403", execInProbePod(script));
     }
@@ -109,14 +110,14 @@ class ConsulKubernetesLoginIT {
     static void cleanUpStand() {
         if (consul != null) {
             restoreAnonymousAccess();
-            deleteIssuedTokens();
+            ConsulAcl.deleteIssuedTokens(consul, AUTH_METHOD);
             if (bindingRuleId != null) {
                 consul.delete("/v1/acl/binding-rule/" + bindingRuleId);
             }
             consul.delete("/v1/acl/auth-method/" + AUTH_METHOD);
-            deleteByName("/v1/acl/roles", "/v1/acl/role/", ROLE);
-            deleteByName("/v1/acl/policies", "/v1/acl/policy/", POLICY);
-            deleteByName("/v1/acl/policies", "/v1/acl/policy/", DENY_POLICY);
+            ConsulAcl.deleteRole(consul, ROLE);
+            ConsulAcl.deletePolicy(consul, POLICY);
+            ConsulAcl.deletePolicy(consul, DENY_POLICY);
             consul.delete("/v1/kv/" + KV_KEY);
         }
         if (kubernetes != null) {
@@ -125,52 +126,8 @@ class ConsulKubernetesLoginIT {
         closeQuietly();
     }
 
-                private static void createAuthMethod() {
-        ObjectNode config = Stand.authMethodConfig(kubernetes, JSON.createObjectNode());
-        ObjectNode body = JSON.createObjectNode()
-                .put("Name", AUTH_METHOD)
-                .put("Type", "kubernetes")
-                .put("Description", "Consul login probe: Kubernetes auth method");
-        body.set("Config", config);
-
-        consul.put("/v1/acl/auth-method", body.toString()).requireSuccess("creating the auth method");
-    }
-
-    private static void createPolicy() {
-        ObjectNode body = JSON.createObjectNode()
-                .put("Name", POLICY)
-                .put("Description", "Consul login probe: read access to the probe prefix")
-                .put("Rules", "key_prefix \"" + KV_PREFIX + "\" { policy = \"read\" }");
-        consul.put("/v1/acl/policy", body.toString()).requireSuccess("creating the policy");
-    }
-
-    private static void createRole() {
-        ObjectNode policy = JSON.createObjectNode().put("Name", POLICY);
-        ObjectNode body = JSON.createObjectNode()
-                .put("Name", ROLE)
-                .put("Description", "Consul login probe: role granting the probe policy");
-        body.putArray("Policies").add(policy);
-        consul.put("/v1/acl/role", body.toString()).requireSuccess("creating the role");
-    }
-
-    private static String createBindingRule() {
-        ObjectNode body = JSON.createObjectNode()
-                .put("AuthMethod", AUTH_METHOD)
-                .put("Description", "Consul login probe: probe namespace to the probe role")
-                .put("Selector", "serviceaccount.namespace==\"" + PROBE_NAMESPACE + "\"")
-                .put("BindType", "role")
-                .put("BindName", ROLE);
-        ConsulClient.Response response = consul.put("/v1/acl/binding-rule", body.toString())
-                .requireSuccess("creating the binding rule");
-        return readJson(response.body()).path("ID").asText();
-    }
-
     private static void denyAnonymousAccess() {
-        ObjectNode body = JSON.createObjectNode()
-                .put("Name", DENY_POLICY)
-                .put("Description", "Consul login probe: the anonymous token cannot reach the probe prefix")
-                .put("Rules", "key_prefix \"" + KV_PREFIX + "\" { policy = \"deny\" }");
-        consul.put("/v1/acl/policy", body.toString()).requireSuccess("creating the deny policy");
+        ConsulAcl.createDenyPolicy(consul, DENY_POLICY, KV_PREFIX);
         setDenyPolicyOnAnonymousToken(true);
     }
 
@@ -183,7 +140,7 @@ class ConsulKubernetesLoginIT {
         if (!current.isSuccessful()) {
             return;
         }
-        ObjectNode token = (ObjectNode) readJson(current.body());
+        ObjectNode token = (ObjectNode) current.json();
         ArrayNode policies = JSON.createArrayNode();
         for (JsonNode policy : token.path("Policies")) {
             if (!DENY_POLICY.equals(policy.path("Name").asText())) {
@@ -217,24 +174,9 @@ class ConsulKubernetesLoginIT {
                 .withName("probe")
                 .withImage(PROBE_IMAGE)
                 .withCommand("sleep", "infinity")
-                .addNewVolumeMount()
-                .withName("netcracker-token")
-                .withMountPath(TOKEN_MOUNT_PATH)
-                .withReadOnly(true)
-                .endVolumeMount()
+                .addToVolumeMounts(ProjectedToken.mount())
                 .endContainer()
-                .addNewVolume()
-                .withName("netcracker-token")
-                .withNewProjected()
-                .addNewSource()
-                .withNewServiceAccountToken()
-                .withAudience(AUDIENCE)
-                .withExpirationSeconds(3600L)
-                .withPath("token")
-                .endServiceAccountToken()
-                .endSource()
-                .endProjected()
-                .endVolume()
+                .addToVolumes(ProjectedToken.volume())
                 .endSpec()
                 .build();
         kubernetes.pods().inNamespace(PROBE_NAMESPACE).resource(pod).create();
@@ -263,36 +205,6 @@ class ConsulKubernetesLoginIT {
         return out.toString(StandardCharsets.UTF_8).trim();
     }
 
-    private static void deleteIssuedTokens() {
-        ConsulClient.Response response = consul.get("/v1/acl/tokens?authmethod=" + AUTH_METHOD);
-        if (!response.isSuccessful()) {
-            return;
-        }
-        for (JsonNode token : readJson(response.body())) {
-            consul.delete("/v1/acl/token/" + token.path("AccessorID").asText());
-        }
-    }
-
-    private static void deleteByName(String listPath, String deletePath, String name) {
-        ConsulClient.Response response = consul.get(listPath);
-        if (!response.isSuccessful()) {
-            return;
-        }
-        for (JsonNode item : readJson(response.body())) {
-            if (name.equals(item.path("Name").asText())) {
-                consul.delete(deletePath + item.path("ID").asText());
-            }
-        }
-    }
-
-            private static JsonNode readJson(String body) {
-        try {
-            return JSON.readTree(body);
-        } catch (Exception e) {
-            throw new IllegalStateException("cannot parse a Consul response as JSON", e);
-        }
-    }
-
     private static void closeQuietly() {
         if (consulPortForward != null) {
             try {
@@ -302,21 +214,6 @@ class ConsulKubernetesLoginIT {
         }
         if (kubernetes != null) {
             kubernetes.close();
-        }
-    }
-
-    static final class Dump implements TestWatcher, LifecycleMethodExecutionExceptionHandler {
-
-        @Override
-        public void testFailed(ExtensionContext context, Throwable cause) {
-            StandDump.print(context.getDisplayName(), consul, kubernetes, PROBE_NAMESPACE);
-        }
-
-        @Override
-        public void handleBeforeAllMethodExecutionException(ExtensionContext context, Throwable failure)
-                throws Throwable {
-            StandDump.print("stand preparation", consul, kubernetes, PROBE_NAMESPACE);
-            throw failure;
         }
     }
 }

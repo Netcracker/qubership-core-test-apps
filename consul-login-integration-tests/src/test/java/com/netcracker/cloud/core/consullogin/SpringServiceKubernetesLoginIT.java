@@ -1,6 +1,12 @@
 package com.netcracker.cloud.core.consullogin;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.netcracker.cloud.core.consullogin.stand.Cluster;
+import com.netcracker.cloud.core.consullogin.stand.ConsulAcl;
+import com.netcracker.cloud.core.consullogin.stand.ConsulClient;
+import com.netcracker.cloud.core.consullogin.stand.ProjectedToken;
+import com.netcracker.cloud.core.consullogin.stand.StandDump;
+import com.netcracker.cloud.core.consullogin.stand.TestService;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.LocalPortForward;
 import org.awaitility.Awaitility;
@@ -10,17 +16,13 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.TestMethodOrder;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.api.extension.ExtensionContext;
-import org.junit.jupiter.api.extension.LifecycleMethodExecutionExceptionHandler;
-import org.junit.jupiter.api.extension.TestWatcher;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 
-import static com.netcracker.cloud.core.consullogin.Stand.AUDIENCE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -31,7 +33,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>That token then expires: Consul caps its lifetime at a minute, so the service has to log in again while it
  * runs, and to keep serving the property afterwards — including a value the test changed in the meantime.
  */
-@ExtendWith(SpringServiceKubernetesLoginIT.Dump.class)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @DisplayName("The Spring service logs in to Consul with its projected token and reads its properties")
 class SpringServiceKubernetesLoginIT {
@@ -61,12 +62,15 @@ class SpringServiceKubernetesLoginIT {
     private static ConsulClient consul;
     private static String bindingRuleId;
 
+    @RegisterExtension
+    static final StandDump standDump = StandDump.onFailure(() -> consul, () -> kubernetes, NAMESPACE);
+
     @BeforeAll
     static void prepareStand() {
-        kubernetes = Stand.newKubernetesClient();
-        consulPortForward = Stand.forwardConsulPort(kubernetes);
+        kubernetes = Cluster.newClient();
+        consulPortForward = Cluster.forwardConsulPort(kubernetes);
         consul = new ConsulClient("http://localhost:" + consulPortForward.getLocalPort(),
-                Stand.readBootstrapToken(kubernetes));
+                Cluster.readBootstrapToken(kubernetes));
 
         consul.put("/v1/kv/" + MARKER_KEY, MARKER_VALUE).requireSuccess("seeding the marker key");
         ConsulAcl.createReadPolicy(consul, POLICY, KV_PREFIX);
@@ -74,19 +78,8 @@ class SpringServiceKubernetesLoginIT {
         ConsulAcl.createKubernetesAuthMethod(consul, kubernetes, AUTH_METHOD, TOKEN_TTL);
         bindingRuleId = ConsulAcl.createBindingRule(consul, AUTH_METHOD,
                 "serviceaccount.namespace==\"" + NAMESPACE + "\"", ROLE);
-        Stand.deployService(kubernetes, NAMESPACE, serviceEnvironment(), true);
-        servicePortForward = Stand.forwardServicePort(kubernetes, NAMESPACE);
-    }
-
-    @Test
-    @Order(1)
-    @DisplayName("The service reports a Consul token of its own and the property it read")
-    void serviceLogsInAndReadsItsProperties() {
-        JsonNode status = Stand.awaitLoginStatus(servicePortForward);
-
-        assertEquals("kubernetes", status.path("loginMode").asText(), "login mode");
-        assertTrue(status.path("tokenPresent").asBoolean(), "the service holds a Consul token");
-        assertEquals(MARKER_VALUE, status.path("consulMarker").asText(), "property read from Consul");
+        TestService.deploy(kubernetes, NAMESPACE, serviceEnvironment(), true);
+        servicePortForward = TestService.forwardPort(kubernetes, NAMESPACE);
     }
 
     @AfterAll
@@ -101,7 +94,18 @@ class SpringServiceKubernetesLoginIT {
             ConsulAcl.deletePolicy(consul, POLICY);
             consul.delete("/v1/kv/" + KV_PREFIX + "?recurse=true");
         }
-        Stand.tearDown(kubernetes, NAMESPACE, servicePortForward, consulPortForward);
+        Cluster.tearDown(kubernetes, NAMESPACE, servicePortForward, consulPortForward);
+    }
+
+    @Test
+    @Order(1)
+    @DisplayName("The service reports a Consul token of its own and the property it read")
+    void serviceLogsInAndReadsItsProperties() {
+        JsonNode status = TestService.awaitLoginStatus(servicePortForward);
+
+        assertEquals("kubernetes", status.path("loginMode").asText(), "login mode");
+        assertTrue(status.path("tokenPresent").asBoolean(), "the service holds a Consul token");
+        assertEquals(MARKER_VALUE, status.path("consulMarker").asText(), "property read from Consul");
     }
 
     /**
@@ -126,7 +130,7 @@ class SpringServiceKubernetesLoginIT {
                 .pollInterval(Duration.ofSeconds(5))
                 .ignoreExceptions()
                 .until(() -> {
-                    JsonNode status = Stand.loginStatus(servicePortForward);
+                    JsonNode status = TestService.loginStatus(servicePortForward);
                     return status != null && CHANGED_MARKER_VALUE.equals(status.path("consulMarker").asText());
                 });
     }
@@ -134,25 +138,11 @@ class SpringServiceKubernetesLoginIT {
     private static Map<String, String> serviceEnvironment() {
         return Map.of(
                 "CLOUD_NAMESPACE", NAMESPACE,
-                "MICROSERVICE_NAME", Stand.SERVICE_NAME,
+                "MICROSERVICE_NAME", TestService.NAME,
                 "CONSUL_HOST", "consul-consul-server.consul",
                 "CONSUL_LOGIN_MODE", "kubernetes",
                 "CONSUL_LOGIN_AUTH_METHOD", AUTH_METHOD,
-                "CONSUL_LOGIN_AUDIENCE", AUDIENCE);
+                "CONSUL_LOGIN_AUDIENCE", ProjectedToken.AUDIENCE);
     }
 
-                                static final class Dump implements TestWatcher, LifecycleMethodExecutionExceptionHandler {
-
-        @Override
-        public void testFailed(ExtensionContext context, Throwable cause) {
-            StandDump.print(context.getDisplayName(), consul, kubernetes, NAMESPACE);
-        }
-
-        @Override
-        public void handleBeforeAllMethodExecutionException(ExtensionContext context, Throwable failure)
-                throws Throwable {
-            StandDump.print("stand preparation", consul, kubernetes, NAMESPACE);
-            throw failure;
-        }
-    }
 }
