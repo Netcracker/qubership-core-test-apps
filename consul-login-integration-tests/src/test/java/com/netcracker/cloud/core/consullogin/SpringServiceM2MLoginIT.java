@@ -1,16 +1,19 @@
 package com.netcracker.cloud.core.consullogin;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.netcracker.cloud.core.consullogin.stand.Cluster;
+import com.netcracker.cloud.core.consullogin.stand.ConsulAcl;
+import com.netcracker.cloud.core.consullogin.stand.ConsulClient;
+import com.netcracker.cloud.core.consullogin.stand.SigningKey;
+import com.netcracker.cloud.core.consullogin.stand.StandDump;
+import com.netcracker.cloud.core.consullogin.stand.TestService;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.LocalPortForward;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.api.extension.ExtensionContext;
-import org.junit.jupiter.api.extension.LifecycleMethodExecutionExceptionHandler;
-import org.junit.jupiter.api.extension.TestWatcher;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.util.Map;
 
@@ -26,7 +29,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>The security library is stood in for by a signer of a key the test generates, so what this covers is the
  * exchange and the code around it, not the token of a real Identity Provider.
  */
-@ExtendWith(SpringServiceM2MLoginIT.Dump.class)
 @DisplayName("The Spring service logs in to Consul the old way and reads its properties")
 class SpringServiceM2MLoginIT {
 
@@ -44,14 +46,17 @@ class SpringServiceM2MLoginIT {
     private static ConsulClient consul;
     private static String bindingRuleId;
 
+    @RegisterExtension
+    static final StandDump standDump = StandDump.onFailure(() -> consul, () -> kubernetes, NAMESPACE);
+
     @BeforeAll
     static void prepareStand() {
         SigningKey signingKey = SigningKey.generate();
 
-        kubernetes = Stand.newKubernetesClient();
-        consulPortForward = Stand.forwardConsulPort(kubernetes);
+        kubernetes = Cluster.newClient();
+        consulPortForward = Cluster.forwardConsulPort(kubernetes);
         consul = new ConsulClient("http://localhost:" + consulPortForward.getLocalPort(),
-                Stand.readBootstrapToken(kubernetes));
+                Cluster.readBootstrapToken(kubernetes));
 
         consul.put("/v1/kv/" + MARKER_KEY, MARKER_VALUE).requireSuccess("seeding the marker key");
         ConsulAcl.createReadPolicy(consul, POLICY, KV_PREFIX);
@@ -59,16 +64,16 @@ class SpringServiceM2MLoginIT {
         ConsulAcl.createJwtAuthMethod(consul, NAMESPACE, signingKey.publicKeyPem(),
                 SigningKey.ISSUER, SigningKey.AUDIENCE, null);
         bindingRuleId = ConsulAcl.createBindingRule(consul, NAMESPACE,
-                "value.sub==\"" + Stand.SERVICE_NAME + "\"", ROLE);
+                "value.sub==\"" + TestService.NAME + "\"", ROLE);
 
-        Stand.deployService(kubernetes, NAMESPACE, serviceEnvironment(signingKey), false);
-        servicePortForward = Stand.forwardServicePort(kubernetes, NAMESPACE);
+        TestService.deploy(kubernetes, NAMESPACE, serviceEnvironment(signingKey), false);
+        servicePortForward = TestService.forwardPort(kubernetes, NAMESPACE);
     }
 
     @Test
     @DisplayName("The service holds a token issued to its own JWT and serves the property it read")
     void serviceLogsInWithItsOwnJwt() {
-        JsonNode status = Stand.awaitLoginStatus(servicePortForward);
+        JsonNode status = TestService.awaitLoginStatus(servicePortForward);
 
         assertEquals("m2m", status.path("loginMode").asText(), "login mode");
         assertTrue(status.path("tokenPresent").asBoolean(), "the service holds a Consul token");
@@ -89,7 +94,7 @@ class SpringServiceM2MLoginIT {
             ConsulAcl.deletePolicy(consul, POLICY);
             consul.delete("/v1/kv/" + KV_PREFIX + "?recurse=true");
         }
-        Stand.tearDown(kubernetes, NAMESPACE, servicePortForward, consulPortForward);
+        Cluster.tearDown(kubernetes, NAMESPACE, servicePortForward, consulPortForward);
     }
 
     /**
@@ -101,27 +106,12 @@ class SpringServiceM2MLoginIT {
         return Map.of(
                 "CLOUD_NAMESPACE", NAMESPACE,
                 "NAMESPACE", NAMESPACE,
-                "MICROSERVICE_NAME", Stand.SERVICE_NAME,
+                "MICROSERVICE_NAME", TestService.NAME,
                 "CONSUL_HOST", "consul-consul-server.consul",
                 "CONSUL_LOGIN_MODE", "m2m",
                 "CONSUL_LOGIN_M2M_PRIVATE_KEY", signingKey.privateKeyBase64(),
                 "CONSUL_LOGIN_M2M_ISSUER", SigningKey.ISSUER,
                 "CONSUL_LOGIN_M2M_AUDIENCE", SigningKey.AUDIENCE,
-                "CONSUL_LOGIN_M2M_SUBJECT", Stand.SERVICE_NAME);
-    }
-
-    static final class Dump implements TestWatcher, LifecycleMethodExecutionExceptionHandler {
-
-        @Override
-        public void testFailed(ExtensionContext context, Throwable cause) {
-            StandDump.print(context.getDisplayName(), consul, kubernetes, NAMESPACE);
-        }
-
-        @Override
-        public void handleBeforeAllMethodExecutionException(ExtensionContext context, Throwable failure)
-                throws Throwable {
-            StandDump.print("stand preparation", consul, kubernetes, NAMESPACE);
-            throw failure;
-        }
+                "CONSUL_LOGIN_M2M_SUBJECT", TestService.NAME);
     }
 }

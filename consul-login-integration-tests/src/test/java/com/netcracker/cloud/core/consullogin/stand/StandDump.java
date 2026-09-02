@@ -1,30 +1,65 @@
-package com.netcracker.cloud.core.consullogin;
+package com.netcracker.cloud.core.consullogin.stand;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.fabric8.kubernetes.api.model.ContainerStatus;
 import io.fabric8.kubernetes.api.model.Event;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.api.extension.LifecycleMethodExecutionExceptionHandler;
+import org.junit.jupiter.api.extension.TestWatcher;
 
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
- * Prints what the stand looked like when a test failed, so that the reason can be read off the run instead of
+ * Prints what the stand looked like when a scenario failed, so that the reason can be read off the run instead of
  * being guessed at and reproduced. Secrets stay out: tokens are listed by accessor, never by secret.
+ *
+ * <p>A scenario registers it over its own stand, and it prints on a failed test as well as on a failed preparation,
+ * which is where most of what can break lives:
+ *
+ * <pre>{@code
+ * @RegisterExtension
+ * static final StandDump standDump = StandDump.onFailure(() -> consul, () -> kubernetes, NAMESPACE);
+ * }</pre>
+ *
+ * <p>The stand is read through suppliers because a scenario builds it in its own preparation, after the extension is
+ * registered.
  */
-final class StandDump {
+public final class StandDump implements TestWatcher, LifecycleMethodExecutionExceptionHandler {
 
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private final Supplier<ConsulClient> consul;
+    private final Supplier<KubernetesClient> kubernetes;
+    private final String namespace;
 
-    private StandDump() {
+    private StandDump(Supplier<ConsulClient> consul, Supplier<KubernetesClient> kubernetes, String namespace) {
+        this.consul = consul;
+        this.kubernetes = kubernetes;
+        this.namespace = namespace;
     }
 
-    static void print(String title, ConsulClient consul, KubernetesClient kubernetes, String namespace) {
+    public static StandDump onFailure(Supplier<ConsulClient> consul, Supplier<KubernetesClient> kubernetes,
+                                      String namespace) {
+        return new StandDump(consul, kubernetes, namespace);
+    }
+
+    @Override
+    public void testFailed(ExtensionContext context, Throwable cause) {
+        print(context.getDisplayName());
+    }
+
+    @Override
+    public void handleBeforeAllMethodExecutionException(ExtensionContext context, Throwable failure) throws Throwable {
+        print("stand preparation");
+        throw failure;
+    }
+
+    private void print(String title) {
         System.out.println();
         System.out.println("==== Consul login stand dump: " + title + " ====");
-        printConsulState(consul);
-        printPods(kubernetes, namespace);
+        printConsulState(consul.get());
+        printPods(kubernetes.get(), namespace);
         System.out.println("==== end of dump ====");
         System.out.println();
     }
@@ -104,8 +139,8 @@ final class StandDump {
         }
         JsonNode items;
         try {
-            items = JSON.readTree(response.body());
-        } catch (Exception e) {
+            items = response.json();
+        } catch (RuntimeException e) {
             System.out.println("-- " + title + ": unexpected response body");
             return;
         }

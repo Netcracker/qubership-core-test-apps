@@ -5,9 +5,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Publishes the same stand-in for the application context. The autoconfiguration of the transport modules falls back
- * to {@code DummyM2MManager} only when no bean is present, so this one wins and the m2m way works in every entry
- * point, not just in the ConfigData phase.
+ * Publishes the same stand-in for the application context, next to what {@link M2MManagerBootstrapper} registers for
+ * the ConfigData phase. The autoconfiguration of the transport builds the {@code TokenStorage} the service serves its
+ * status from, and it falls back to {@code DummyM2MManager} when no bean is present, so without this one the m2m way
+ * would reach Consul with a token it rejects.
  */
 @Configuration
 public class ServiceM2MConfiguration {
