@@ -17,6 +17,7 @@ import org.junit.jupiter.api.extension.LifecycleMethodExecutionExceptionHandler;
 import org.junit.jupiter.api.extension.TestWatcher;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Map;
 
 import static com.netcracker.cloud.core.consullogin.Stand.AUDIENCE;
@@ -40,6 +41,12 @@ class SpringServiceKubernetesLoginIT {
 
     /** The shortest lifetime Consul accepts, so that the scheduled relogin happens inside a test run. */
     private static final String TOKEN_TTL = "1m";
+
+    /**
+     * A pod logs in twice while it starts, once in the ConfigData phase and once for the application context. Only a
+     * token issued well after those counts as the scheduled relogin.
+     */
+    private static final Duration SETTLED_AFTER = Duration.ofSeconds(30);
 
     private static KubernetesClient kubernetes;
     private static LocalPortForward consulPortForward;
@@ -99,14 +106,14 @@ class SpringServiceKubernetesLoginIT {
     @Order(2)
     @DisplayName("The service relogs in when its token expires and reads a value changed since")
     void serviceRelogsInAndReadsTheChangedValue() {
-        int issuedBefore = ConsulAcl.issuedTokenCount(consul, AUTH_METHOD);
+        Instant issuedBefore = ConsulAcl.latestIssuedAt(consul, AUTH_METHOD);
         consul.put("/v1/kv/" + MARKER_KEY, CHANGED_MARKER_VALUE).requireSuccess("changing the marker key");
 
         Awaitility.await("the service relogs in through the same auth method")
                 .atMost(Duration.ofMinutes(3))
                 .pollInterval(Duration.ofSeconds(5))
                 .ignoreExceptions()
-                .until(() -> ConsulAcl.issuedTokenCount(consul, AUTH_METHOD) > issuedBefore);
+                .until(() -> ConsulAcl.latestIssuedAt(consul, AUTH_METHOD).isAfter(issuedBefore.plus(SETTLED_AFTER)));
 
         Awaitility.await("the service serves the changed property")
                 .atMost(Duration.ofMinutes(2))
