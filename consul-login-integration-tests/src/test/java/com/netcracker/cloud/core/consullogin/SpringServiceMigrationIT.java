@@ -35,6 +35,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @DisplayName("The Spring service migrates from the m2m way to the kubernetes way without a restart")
 class SpringServiceMigrationIT {
 
+    private static final TestService SERVICE = TestService.SPRING;
+
     private static final String NAMESPACE = "consul-login-test-migration";
     private static final String KUBERNETES_AUTH_METHOD = "consul-login-test-migration-kubernetes";
 
@@ -78,10 +80,10 @@ class SpringServiceMigrationIT {
         ConsulAcl.createJwtAuthMethod(consul, NAMESPACE, signingKey.publicKeyPem(),
                 SigningKey.ISSUER, SigningKey.AUDIENCE, M2M_TOKEN_TTL);
         m2mBindingRuleId = ConsulAcl.createBindingRule(consul, NAMESPACE,
-                "value.sub==\"" + TestService.NAME + "\"", ROLE);
+                "value.sub==\"" + SERVICE.serviceName() + "\"", ROLE);
 
-        TestService.deploy(kubernetes, NAMESPACE, serviceEnvironment(signingKey), true);
-        servicePortForward = TestService.forwardPort(kubernetes, NAMESPACE);
+        SERVICE.deploy(kubernetes, NAMESPACE, serviceEnvironment(signingKey), true);
+        servicePortForward = SERVICE.forwardPort(kubernetes, NAMESPACE);
     }
 
     @Test
@@ -135,7 +137,7 @@ class SpringServiceMigrationIT {
         Map<String, String> environment = new LinkedHashMap<>();
         environment.put("CLOUD_NAMESPACE", NAMESPACE);
         environment.put("NAMESPACE", NAMESPACE);
-        environment.put("MICROSERVICE_NAME", TestService.NAME);
+        environment.put("MICROSERVICE_NAME", SERVICE.serviceName());
         environment.put("CONSUL_HOST", "consul-consul-server.consul");
         environment.put("CONSUL_LOGIN_MODE", "kubernetes-with-m2m-fallback");
         environment.put("CONSUL_LOGIN_AUTH_METHOD", KUBERNETES_AUTH_METHOD);
@@ -144,7 +146,7 @@ class SpringServiceMigrationIT {
         environment.put("CONSUL_LOGIN_M2M_PRIVATE_KEY", signingKey.privateKeyBase64());
         environment.put("CONSUL_LOGIN_M2M_ISSUER", SigningKey.ISSUER);
         environment.put("CONSUL_LOGIN_M2M_AUDIENCE", SigningKey.AUDIENCE);
-        environment.put("CONSUL_LOGIN_M2M_SUBJECT", TestService.NAME);
+        environment.put("CONSUL_LOGIN_M2M_SUBJECT", SERVICE.serviceName());
         return environment;
     }
 }

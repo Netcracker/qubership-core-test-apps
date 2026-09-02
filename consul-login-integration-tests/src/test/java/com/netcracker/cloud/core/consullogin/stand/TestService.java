@@ -17,76 +17,87 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
- * The service under test on the stand: a namespace, a service account and a deployment per scenario, and the status
- * endpoint a scenario reads the result of a login through.
+ * The service under test on the stand, one per stack: a namespace, a service account and a deployment per scenario,
+ * and the status endpoint a scenario reads the result of a login through. The two stacks carry the same library
+ * through different wiring, so a scenario names the one it runs on and is otherwise written once.
  *
  * <p>These objects are created here rather than declared in a helm chart because a scenario decides them while it
  * runs: its own namespace, its own environment for the login way under test, a signing key generated for the run, and
  * the projected token only where the way reads it. One scenario also has to bring the pod up before the ACL objects it
  * later moves to exist, which no install step outside the test can arrange.
  */
-public final class TestService {
+public enum TestService {
 
-    public static final String NAME = "consul-login-test-service-spring";
+    SPRING("consul-login-test-service-spring"),
+    QUARKUS("consul-login-test-service-quarkus");
 
-    /**
-     * The image built from {@code consul-login-test-service-spring} in this repository. Override it with
-     * {@code -Dconsul.login.test.service.image} to run the scenarios against a build of your own.
-     */
-    public static final String IMAGE = System.getProperty("consul.login.test.service.image",
-            "ghcr.io/netcracker/qubership-core-consul-login-test-service-spring"
-                    + ":feat-consul-login-integration-tests-snapshot");
-
+    private static final String DEFAULT_TAG = "feat-consul-login-integration-tests-snapshot";
     private static final int PORT = 8080;
 
-    private TestService() {
+    private final String name;
+
+    TestService(String name) {
+        this.name = name;
+    }
+
+    /** The name the service knows itself by: its deployment, its service account, and its subject in a token. */
+    public String serviceName() {
+        return name;
+    }
+
+    /**
+     * The image built from the module of the same name in this repository. Override it with
+     * {@code -Dconsul.login.test.service.<stack>.image} to run the scenarios against a build of your own.
+     */
+    public String image() {
+        return System.getProperty("consul.login.test.service." + name().toLowerCase() + ".image",
+                "ghcr.io/netcracker/qubership-core-" + name + ":" + DEFAULT_TAG);
     }
 
     /**
      * Deploys the service in a namespace of its own and waits for the deployment to become ready. The projected token
      * is mounted only for the ways that read it, so a scenario that does not need it also proves it is not needed.
      */
-    public static void deploy(KubernetesClient kubernetes, String namespace, Map<String, String> environment,
-                              boolean withProjectedToken) {
+    public void deploy(KubernetesClient kubernetes, String namespace, Map<String, String> environment,
+                       boolean withProjectedToken) {
         Namespace target = new NamespaceBuilder()
                 .withNewMetadata().withName(namespace).endMetadata()
                 .build();
         kubernetes.namespaces().resource(target).create();
 
         ServiceAccount serviceAccount = new ServiceAccountBuilder()
-                .withNewMetadata().withName(NAME).withNamespace(namespace).endMetadata()
+                .withNewMetadata().withName(name).withNamespace(namespace).endMetadata()
                 .build();
         kubernetes.serviceAccounts().inNamespace(namespace).resource(serviceAccount).create();
 
         Deployment deployment = deployment(namespace, environment, withProjectedToken);
         kubernetes.apps().deployments().inNamespace(namespace).resource(deployment).create();
-        kubernetes.apps().deployments().inNamespace(namespace).withName(NAME)
+        kubernetes.apps().deployments().inNamespace(namespace).withName(name)
                 .waitUntilReady(5, TimeUnit.MINUTES);
     }
 
-    private static Deployment deployment(String namespace, Map<String, String> environment,
-                                         boolean withProjectedToken) {
-        Map<String, String> labels = Map.of("app", NAME);
+    private Deployment deployment(String namespace, Map<String, String> environment, boolean withProjectedToken) {
+        Map<String, String> labels = Map.of("app", name);
         DeploymentBuilder builder = new DeploymentBuilder()
-                .withNewMetadata().withName(NAME).withNamespace(namespace).withLabels(labels).endMetadata()
+                .withNewMetadata().withName(name).withNamespace(namespace).withLabels(labels).endMetadata()
                 .withNewSpec()
                 .withReplicas(1)
                 .withNewSelector().withMatchLabels(labels).endSelector()
                 .withNewTemplate()
                 .withNewMetadata().withLabels(labels).endMetadata()
                 .withNewSpec()
-                .withServiceAccountName(NAME)
+                .withServiceAccountName(name)
                 .addNewContainer()
-                .withName(NAME)
-                .withImage(IMAGE)
+                .withName(name)
+                .withImage(image())
                 .addNewPort().withContainerPort(PORT).endPort()
                 .endContainer()
                 .endSpec()
                 .endTemplate()
                 .endSpec();
-        environment.forEach((name, value) -> builder
+        environment.forEach((variable, value) -> builder
                 .editSpec().editTemplate().editSpec().editFirstContainer()
-                .addNewEnv().withName(name).withValue(value).endEnv()
+                .addNewEnv().withName(variable).withValue(value).endEnv()
                 .endContainer().endSpec().endTemplate().endSpec());
         if (withProjectedToken) {
             builder.editSpec().editTemplate().editSpec()
@@ -99,10 +110,10 @@ public final class TestService {
         return builder.build();
     }
 
-    public static LocalPortForward forwardPort(KubernetesClient kubernetes, String namespace) {
-        Pod pod = kubernetes.pods().inNamespace(namespace).withLabel("app", NAME).list().getItems().stream()
+    public LocalPortForward forwardPort(KubernetesClient kubernetes, String namespace) {
+        Pod pod = kubernetes.pods().inNamespace(namespace).withLabel("app", name).list().getItems().stream()
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException("no pod of " + NAME + " in namespace " + namespace));
+                .orElseThrow(() -> new IllegalStateException("no pod of " + name + " in namespace " + namespace));
         return kubernetes.pods().inNamespace(namespace).withName(pod.getMetadata().getName()).portForward(PORT);
     }
 
