@@ -48,7 +48,7 @@ jobs:
       mesh-type: 'Core'
       test-usecase: 'consul-login'
       run-tests-for: 'consul-login'
-      kind-config: '.github/kind/cluster-netcracker-audience.yaml'
+      kind-config: '.github/kind/cluster-consul-login.yaml'
       consul-acls: true
 
   update-report:

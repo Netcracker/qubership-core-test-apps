@@ -6,8 +6,9 @@ import io.fabric8.kubernetes.api.model.VolumeMount;
 import io.fabric8.kubernetes.api.model.VolumeMountBuilder;
 
 /**
- * The projected service account token a pod presents to a Kubernetes auth method. Its audience is the one the API
- * server of the stand was started with, and Consul accepts no other.
+ * The projected service account token a pod presents to the auth method of the kubernetes way. Its audience is the one
+ * that auth method binds itself to, and Consul accepts no other. The API server issues a token for any audience asked
+ * of it, so this one needs no place in {@code --api-audiences}.
  */
 public final class ProjectedToken {
 

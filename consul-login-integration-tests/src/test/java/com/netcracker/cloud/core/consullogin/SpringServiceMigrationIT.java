@@ -26,9 +26,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Checks the migration between the two ways, in the order a service will meet it: a Spring service that already
- * carries the new library starts while its Kubernetes auth method does not exist yet. It has to serve its properties
- * anyway, over the old way, and to move to the Kubernetes auth method on its own once the test creates that method —
- * on the next login it schedules, without a restart.
+ * carries the new library starts while the auth method of the kubernetes way does not exist yet. It has to serve its
+ * properties anyway, over the old way, and to move to the kubernetes way on its own once the test creates that method,
+ * on the next login it schedules and without a restart.
  *
  * <p>The way a pod took is read from Consul, which records the auth method every token came from, rather than from
  * the log of the service: the log line is written for a human, and parsing it in a test is brittle.
@@ -78,7 +78,7 @@ class SpringServiceMigrationIT {
         consul.put("/v1/kv/" + MARKER_KEY, MARKER_VALUE).requireSuccess("seeding the marker key");
         ConsulAcl.createReadPolicy(consul, POLICY, KV_PREFIX);
         ConsulAcl.createRole(consul, ROLE, POLICY);
-        ConsulAcl.createJwtAuthMethod(consul, NAMESPACE, signingKey.publicKeyPem(),
+        ConsulAcl.createM2MAuthMethod(consul, NAMESPACE, signingKey.publicKeyPem(),
                 SigningKey.ISSUER, SigningKey.AUDIENCE, M2M_TOKEN_TTL);
         m2mBindingRuleId = ConsulAcl.createBindingRule(consul, NAMESPACE,
                 "value.sub==\"" + SERVICE.serviceName() + "\"", ROLE);
@@ -100,7 +100,7 @@ class SpringServiceMigrationIT {
 
         ConsulAcl.createKubernetesAuthMethod(consul, kubernetes, KUBERNETES_AUTH_METHOD);
         kubernetesBindingRuleId = ConsulAcl.createBindingRule(consul, KUBERNETES_AUTH_METHOD,
-                "serviceaccount.namespace==\"" + NAMESPACE + "\"", ROLE);
+                "value.namespace==\"" + NAMESPACE + "\"", ROLE);
 
         Awaitility.await("the pod relogs in through the kubernetes auth method")
                 .atMost(MIGRATION_BUDGET)

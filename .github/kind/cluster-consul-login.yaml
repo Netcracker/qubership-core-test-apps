@@ -6,7 +6,6 @@ kubeadmConfigPatches:
     kind: ClusterConfiguration
     apiServer:
       extraArgs:
-        api-audiences: "https://kubernetes.default.svc.cluster.local,netcracker"
         service-account-lookup: "true"
 nodes:
   - role: control-plane

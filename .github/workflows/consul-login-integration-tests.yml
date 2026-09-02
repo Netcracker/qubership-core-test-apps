@@ -19,7 +19,7 @@ on:
       kind-config:
         description: 'Path to a kind cluster config file; empty uses the default kind cluster'
         required: false
-        default: '.github/kind/cluster-netcracker-audience.yaml'
+        default: '.github/kind/cluster-consul-login.yaml'
         type: string
       consul-acls:
         description: 'Enable the Consul ACL system'

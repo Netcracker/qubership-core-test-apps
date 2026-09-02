@@ -63,7 +63,7 @@ class QuarkusServiceKubernetesLoginIT {
         ConsulAcl.createRole(consul, ROLE, POLICY);
         ConsulAcl.createKubernetesAuthMethod(consul, kubernetes, AUTH_METHOD);
         bindingRuleId = ConsulAcl.createBindingRule(consul, AUTH_METHOD,
-                "serviceaccount.namespace==\"" + NAMESPACE + "\"", ROLE);
+                "value.namespace==\"" + NAMESPACE + "\"", ROLE);
 
         SERVICE.deploy(kubernetes, NAMESPACE, serviceEnvironment(), true);
         servicePortForward = SERVICE.forwardPort(kubernetes, NAMESPACE);
