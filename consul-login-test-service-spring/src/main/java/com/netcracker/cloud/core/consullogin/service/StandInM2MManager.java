@@ -1,5 +1,6 @@
 package com.netcracker.cloud.core.consullogin.service;
 
+import com.netcracker.cloud.security.core.auth.DummyM2MManager;
 import com.netcracker.cloud.security.core.auth.M2MManager;
 import com.netcracker.cloud.security.core.auth.Token;
 
@@ -13,14 +14,18 @@ import java.time.Instant;
 import java.util.Base64;
 
 /**
- * Signs its own JWT instead of asking an Identity Provider for one, so that the m2m way can be exercised on a stand
- * that has no provider. Consul is configured with the matching public key, and the claims are the ones its jwt auth
- * method validates.
+ * Stands in for the customer security library that real services pull in. Spring reaches it twice, through the
+ * bootstrap registry of the ConfigData phase and through a bean of the application context, and both hand out an
+ * instance of this class.
+ *
+ * <p>With a signing key in {@code CONSUL_LOGIN_M2M_PRIVATE_KEY} it signs its own JWT, which is the old way end to end
+ * on a stand that has no Identity Provider; Consul is configured with the matching public key. Without a key it hands
+ * out the dummy token, which Consul rejects — that is what the scenarios of the new way want to observe.
  *
  * <p>{@code nbf} is mandatory: without it Consul rejects the login with a validation error that says nothing about
  * the caller.
  */
-public class StaticJwtM2MManager implements M2MManager {
+public class StandInM2MManager implements M2MManager {
 
     static final String PRIVATE_KEY = "CONSUL_LOGIN_M2M_PRIVATE_KEY";
     private static final String ISSUER = "CONSUL_LOGIN_M2M_ISSUER";
@@ -32,11 +37,21 @@ public class StaticJwtM2MManager implements M2MManager {
 
     private static final Base64.Encoder BASE64_URL = Base64.getUrlEncoder().withoutPadding();
 
+    private final M2MManager fallback = new DummyM2MManager();
+
     @Override
     public Token getToken() {
+        if (!signingKeyProvided()) {
+            return fallback.getToken();
+        }
         Instant issuedAt = Instant.now();
         Instant expiresAt = issuedAt.plus(LIFETIME);
         return new Token("Bearer", jwt(issuedAt, expiresAt), issuedAt, expiresAt);
+    }
+
+    private static boolean signingKeyProvided() {
+        String key = System.getenv(PRIVATE_KEY);
+        return key != null && !key.isBlank();
     }
 
     private String jwt(Instant issuedAt, Instant expiresAt) {

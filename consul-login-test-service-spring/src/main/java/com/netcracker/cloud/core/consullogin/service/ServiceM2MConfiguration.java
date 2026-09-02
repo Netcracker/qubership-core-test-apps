@@ -15,6 +15,6 @@ public class ServiceM2MConfiguration {
 
     @Bean
     public M2MManager m2mManager() {
-        return ServiceM2M.standIn();
+        return new StandInM2MManager();
     }
 }
