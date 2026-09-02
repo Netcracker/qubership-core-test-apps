@@ -26,9 +26,6 @@ cloud:
     name: ${MICROSERVICE_NAME:consul-login-test-service-spring}
     namespace: ${CLOUD_NAMESPACE:consul-login-test}
 
-service:
-  transport: resttemplate
-
 logging:
   level:
     com.netcracker.cloud.consul: DEBUG

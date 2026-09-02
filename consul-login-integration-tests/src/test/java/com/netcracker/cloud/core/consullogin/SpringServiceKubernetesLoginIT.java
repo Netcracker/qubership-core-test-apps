@@ -24,6 +24,13 @@ import static com.netcracker.cloud.core.consullogin.Stand.AUDIENCE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * The service is configured to log in with the projected service account token of its pod. It has to report a Consul
+ * token of its own and serve the property the test seeded before the pod started.
+ *
+ * <p>That token then expires: Consul caps its lifetime at a minute, so the service has to log in again while it
+ * runs, and to keep serving the property afterwards — including a value the test changed in the meantime.
+ */
 @ExtendWith(SpringServiceKubernetesLoginIT.Dump.class)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @DisplayName("The Spring service logs in to Consul with its projected token and reads its properties")
@@ -98,9 +105,8 @@ class SpringServiceKubernetesLoginIT {
     }
 
     /**
-     * T3 of the design: the relogin scheduled from {@code ExpirationTime} happens, and the token it brings works —
-     * the service keeps reading, including a value changed after the relogin. It runs on the pod of the scenario
-     * above, because a deployment of its own would prove nothing and cost a pod start.
+     * Runs on the pod of the check above: the configuration is the same, and a deployment of its own would cost a
+     * pod start without proving anything.
      */
     @Test
     @Order(2)

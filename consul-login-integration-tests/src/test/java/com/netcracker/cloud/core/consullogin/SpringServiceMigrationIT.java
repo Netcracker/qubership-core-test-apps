@@ -21,22 +21,22 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * T2 of the design: the migration ratchet. The pod already carries the new library while its Kubernetes auth method
- * is still missing, so it serves properties over the m2m way; once the auth method appears, the scheduled relogin
- * moves it over without a restart, and it never goes back.
+ * A service that already carries the new library starts while its Kubernetes auth method does not exist yet. It has
+ * to serve its properties anyway, over the old way, and to move to the Kubernetes auth method on its own once that
+ * method appears — on the next login it schedules, without a restart.
  *
- * <p>The way the pod took is read from Consul rather than from its log: the log line is written for a human, and
- * parsing it in a test is brittle.
+ * <p>The way the pod took is read from Consul, which records the auth method every token came from, rather than
+ * from the log of the service: the log line is written for a human, and parsing it in a test is brittle.
  */
-@ExtendWith(SpringServiceMigrationRatchetIT.Dump.class)
+@ExtendWith(SpringServiceMigrationIT.Dump.class)
 @DisplayName("The Spring service migrates from the m2m way to the kubernetes way without a restart")
-class SpringServiceMigrationRatchetIT {
+class SpringServiceMigrationIT {
 
-    private static final String NAMESPACE = "consul-login-test-ratchet";
-    private static final String KUBERNETES_AUTH_METHOD = "consul-login-test-ratchet-kubernetes";
+    private static final String NAMESPACE = "consul-login-test-migration";
+    private static final String KUBERNETES_AUTH_METHOD = "consul-login-test-migration-kubernetes";
 
-    private static final String POLICY = "consul-login-test-ratchet-read";
-    private static final String ROLE = "consul-login-test-ratchet-reader";
+    private static final String POLICY = "consul-login-test-migration-read";
+    private static final String ROLE = "consul-login-test-migration-reader";
     private static final String KV_PREFIX = "config/" + NAMESPACE + "/";
     private static final String MARKER_KEY = KV_PREFIX + "application/service.marker";
     private static final String MARKER_VALUE = "marker-read-across-the-migration";

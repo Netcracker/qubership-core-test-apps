@@ -18,12 +18,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * T4 of the design: the m2m way end to end. The service runs in the {@code m2m} mode, its stand-in for the customer
- * security library signs a JWT, and Consul validates it with a jwt auth method named after the namespace — the name
- * the m2m way logs in to.
+ * The service is configured to log in the way services did before the Kubernetes auth method existed: it asks its
+ * security library for a token and presents that token to Consul, which validates it with a jwt auth method named
+ * after the namespace of the service. It has to end up holding a Consul token of its own and serving the property
+ * the test seeded.
  *
- * <p>Compatibility with a real Identity Provider is out of reach here: the token is ours, not the provider's. What
- * this covers is our code and the exchange itself, and the migration lane the fallback mode falls back to.
+ * <p>The security library is stood in for by a signer of a key the test generates, so what this covers is the
+ * exchange and the code around it, not the token of a real Identity Provider.
  */
 @ExtendWith(SpringServiceM2MLoginIT.Dump.class)
 @DisplayName("The Spring service logs in to Consul the old way and reads its properties")
