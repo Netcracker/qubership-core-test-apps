@@ -1,8 +1,6 @@
 package com.netcracker.cloud.core.consullogin;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.LocalPortForward;
 import org.junit.jupiter.api.AfterAll;
@@ -14,7 +12,6 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.LifecycleMethodExecutionExceptionHandler;
 import org.junit.jupiter.api.extension.TestWatcher;
 
-import java.io.IOException;
 import java.util.Map;
 
 import static com.netcracker.cloud.core.consullogin.Stand.AUDIENCE;
@@ -34,8 +31,6 @@ class SpringServiceKubernetesLoginIT {
     private static final String MARKER_KEY = KV_PREFIX + "application/service.marker";
     private static final String MARKER_VALUE = "marker-read-with-the-issued-token";
 
-    private static final ObjectMapper JSON = new ObjectMapper();
-
     private static KubernetesClient kubernetes;
     private static LocalPortForward consulPortForward;
     private static LocalPortForward servicePortForward;
@@ -50,10 +45,11 @@ class SpringServiceKubernetesLoginIT {
                 Stand.readBootstrapToken(kubernetes));
 
         consul.put("/v1/kv/" + MARKER_KEY, MARKER_VALUE).requireSuccess("seeding the marker key");
-        createPolicy();
-        createRole();
-        createAuthMethod();
-        bindingRuleId = createBindingRule();
+        ConsulAcl.createReadPolicy(consul, POLICY, KV_PREFIX);
+        ConsulAcl.createRole(consul, ROLE, POLICY);
+        ConsulAcl.createKubernetesAuthMethod(consul, kubernetes, AUTH_METHOD);
+        bindingRuleId = ConsulAcl.createBindingRule(consul, AUTH_METHOD,
+                "serviceaccount.namespace==\"" + NAMESPACE + "\"", ROLE);
         Stand.deployService(kubernetes, NAMESPACE, serviceEnvironment(), true);
         servicePortForward = Stand.forwardServicePort(kubernetes, NAMESPACE);
     }
@@ -71,23 +67,16 @@ class SpringServiceKubernetesLoginIT {
     @AfterAll
     static void cleanUpStand() {
         if (consul != null) {
-            deleteIssuedTokens();
+            ConsulAcl.deleteIssuedTokens(consul, AUTH_METHOD);
             if (bindingRuleId != null) {
                 consul.delete("/v1/acl/binding-rule/" + bindingRuleId);
             }
             consul.delete("/v1/acl/auth-method/" + AUTH_METHOD);
-            deleteByName("/v1/acl/roles", "/v1/acl/role/", ROLE);
-            deleteByName("/v1/acl/policies", "/v1/acl/policy/", POLICY);
+            ConsulAcl.deleteRole(consul, ROLE);
+            ConsulAcl.deletePolicy(consul, POLICY);
             consul.delete("/v1/kv/" + KV_PREFIX + "?recurse=true");
         }
-        if (kubernetes != null) {
-            kubernetes.namespaces().withName(NAMESPACE).delete();
-        }
-        closeQuietly(servicePortForward);
-        closeQuietly(consulPortForward);
-        if (kubernetes != null) {
-            kubernetes.close();
-        }
+        Stand.tearDown(kubernetes, NAMESPACE, servicePortForward, consulPortForward);
     }
 
     private static Map<String, String> serviceEnvironment() {
@@ -100,77 +89,7 @@ class SpringServiceKubernetesLoginIT {
                 "CONSUL_LOGIN_AUDIENCE", AUDIENCE);
     }
 
-    private static void createPolicy() {
-        ObjectNode body = JSON.createObjectNode()
-                .put("Name", POLICY)
-                .put("Description", "Consul login test service: read access to its own prefix")
-                .put("Rules", "key_prefix \"" + KV_PREFIX + "\" { policy = \"read\" }");
-        consul.put("/v1/acl/policy", body.toString()).requireSuccess("creating the policy");
-    }
-
-    private static void createRole() {
-        ObjectNode body = JSON.createObjectNode()
-                .put("Name", ROLE)
-                .put("Description", "Consul login test service: role granting the service policy");
-        body.putArray("Policies").add(JSON.createObjectNode().put("Name", POLICY));
-        consul.put("/v1/acl/role", body.toString()).requireSuccess("creating the role");
-    }
-
-    private static void createAuthMethod() {
-        ObjectNode body = JSON.createObjectNode()
-                .put("Name", AUTH_METHOD)
-                .put("Type", "kubernetes")
-                .put("Description", "Consul login test service: Kubernetes auth method");
-        body.set("Config", Stand.authMethodConfig(kubernetes, JSON.createObjectNode()));
-        consul.put("/v1/acl/auth-method", body.toString()).requireSuccess("creating the auth method");
-    }
-
-    private static String createBindingRule() {
-        ObjectNode body = JSON.createObjectNode()
-                .put("AuthMethod", AUTH_METHOD)
-                .put("Description", "Consul login test service: service namespace to the service role")
-                .put("Selector", "serviceaccount.namespace==\"" + NAMESPACE + "\"")
-                .put("BindType", "role")
-                .put("BindName", ROLE);
-        ConsulClient.Response response = consul.put("/v1/acl/binding-rule", body.toString())
-                .requireSuccess("creating the binding rule");
-        return Stand.readJson(response.body()).path("ID").asText();
-    }
-
-            private static void deleteIssuedTokens() {
-        ConsulClient.Response response = consul.get("/v1/acl/tokens?authmethod=" + AUTH_METHOD);
-        if (!response.isSuccessful()) {
-            return;
-        }
-        for (JsonNode token : Stand.readJson(response.body())) {
-            consul.delete("/v1/acl/token/" + token.path("AccessorID").asText());
-        }
-    }
-
-    private static void deleteByName(String listPath, String deletePath, String name) {
-        ConsulClient.Response response = consul.get(listPath);
-        if (!response.isSuccessful()) {
-            return;
-        }
-        for (JsonNode item : Stand.readJson(response.body())) {
-            if (name.equals(item.path("Name").asText())) {
-                consul.delete(deletePath + item.path("ID").asText());
-            }
-        }
-    }
-
-        private static void closeQuietly(LocalPortForward portForward) {
-        if (portForward == null) {
-            return;
-        }
-        try {
-            portForward.close();
-        } catch (IOException e) {
-            // the stand is being torn down anyway
-        }
-    }
-
-    static final class Dump implements TestWatcher, LifecycleMethodExecutionExceptionHandler {
+                                static final class Dump implements TestWatcher, LifecycleMethodExecutionExceptionHandler {
 
         @Override
         public void testFailed(ExtensionContext context, Throwable cause) {

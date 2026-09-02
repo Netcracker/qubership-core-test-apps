@@ -179,6 +179,26 @@ final class Stand {
         }
     }
 
+    /** Removes what a scenario left in the cluster and closes what it opened, in an order that survives failures. */
+    static void tearDown(KubernetesClient kubernetes, String namespace, LocalPortForward... portForwards) {
+        if (kubernetes != null && namespace != null) {
+            kubernetes.namespaces().withName(namespace).delete();
+        }
+        for (LocalPortForward portForward : portForwards) {
+            if (portForward == null) {
+                continue;
+            }
+            try {
+                portForward.close();
+            } catch (IOException e) {
+                // the stand is being torn down anyway
+            }
+        }
+        if (kubernetes != null) {
+            kubernetes.close();
+        }
+    }
+
     static Secret findSecret(KubernetesClient kubernetes, Predicate<Secret> matches, String notFoundMessage) {
         List<Secret> secrets = kubernetes.secrets().inNamespace(CONSUL_NAMESPACE).list().getItems();
         return secrets.stream()

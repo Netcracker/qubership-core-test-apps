@@ -1,0 +1,159 @@
+package com.netcracker.cloud.core.consullogin;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.LocalPortForward;
+import org.awaitility.Awaitility;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.api.extension.LifecycleMethodExecutionExceptionHandler;
+import org.junit.jupiter.api.extension.TestWatcher;
+
+import java.time.Duration;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/**
+ * T2 of the design: the migration ratchet. The pod already carries the new library while its Kubernetes auth method
+ * is still missing, so it serves properties over the m2m way; once the auth method appears, the scheduled relogin
+ * moves it over without a restart, and it never goes back.
+ *
+ * <p>The way the pod took is read from Consul rather than from its log: the log line is written for a human, and
+ * parsing it in a test is brittle.
+ */
+@ExtendWith(SpringServiceMigrationRatchetIT.Dump.class)
+@DisplayName("The Spring service migrates from the m2m way to the kubernetes way without a restart")
+class SpringServiceMigrationRatchetIT {
+
+    private static final String NAMESPACE = "consul-login-test-ratchet";
+    private static final String KUBERNETES_AUTH_METHOD = "consul-login-test-ratchet-kubernetes";
+
+    private static final String POLICY = "consul-login-test-ratchet-read";
+    private static final String ROLE = "consul-login-test-ratchet-reader";
+    private static final String KV_PREFIX = "config/" + NAMESPACE + "/";
+    private static final String MARKER_KEY = KV_PREFIX + "application/service.marker";
+    private static final String MARKER_VALUE = "marker-read-across-the-migration";
+
+    /**
+     * A minute is the shortest lifetime Consul accepts, and the relogin it schedules is what carries the recheck of
+     * the kubernetes way. The recheck interval is shorter still, so the first relogin after the auth method appears
+     * already probes.
+     */
+    private static final String M2M_TOKEN_TTL = "1m";
+    private static final String RECHECK_INTERVAL = "20s";
+    private static final Duration MIGRATION_BUDGET = Duration.ofMinutes(4);
+
+    private static KubernetesClient kubernetes;
+    private static LocalPortForward consulPortForward;
+    private static LocalPortForward servicePortForward;
+    private static ConsulClient consul;
+    private static String m2mBindingRuleId;
+    private static String kubernetesBindingRuleId;
+
+    @BeforeAll
+    static void prepareStand() {
+        SigningKey signingKey = SigningKey.generate();
+
+        kubernetes = Stand.newKubernetesClient();
+        consulPortForward = Stand.forwardConsulPort(kubernetes);
+        consul = new ConsulClient("http://localhost:" + consulPortForward.getLocalPort(),
+                Stand.readBootstrapToken(kubernetes));
+
+        consul.put("/v1/kv/" + MARKER_KEY, MARKER_VALUE).requireSuccess("seeding the marker key");
+        ConsulAcl.createReadPolicy(consul, POLICY, KV_PREFIX);
+        ConsulAcl.createRole(consul, ROLE, POLICY);
+        ConsulAcl.createJwtAuthMethod(consul, NAMESPACE, signingKey.publicKeyPem(),
+                SigningKey.ISSUER, SigningKey.AUDIENCE, M2M_TOKEN_TTL);
+        m2mBindingRuleId = ConsulAcl.createBindingRule(consul, NAMESPACE,
+                "value.sub==\"" + Stand.SERVICE_NAME + "\"", ROLE);
+
+        Stand.deployService(kubernetes, NAMESPACE, serviceEnvironment(signingKey), true);
+        servicePortForward = Stand.forwardServicePort(kubernetes, NAMESPACE);
+    }
+
+    @Test
+    @DisplayName("It serves properties over m2m first and moves to the kubernetes way when its auth method appears")
+    void serviceMovesToTheKubernetesWay() {
+        JsonNode status = Stand.awaitLoginStatus(servicePortForward);
+
+        assertEquals("kubernetes-with-m2m-fallback", status.path("loginMode").asText(), "login mode");
+        assertEquals(MARKER_VALUE, status.path("consulMarker").asText(), "property read over the m2m way");
+        assertTrue(ConsulAcl.issuedTokenCount(consul, NAMESPACE) > 0, "the m2m way carried the pod");
+        assertEquals(0, ConsulAcl.issuedTokenCount(consul, KUBERNETES_AUTH_METHOD),
+                "the kubernetes way has issued nothing while its auth method was missing");
+
+        ConsulAcl.createKubernetesAuthMethod(consul, kubernetes, KUBERNETES_AUTH_METHOD);
+        kubernetesBindingRuleId = ConsulAcl.createBindingRule(consul, KUBERNETES_AUTH_METHOD,
+                "serviceaccount.namespace==\"" + NAMESPACE + "\"", ROLE);
+
+        Awaitility.await("the pod relogs in through the kubernetes auth method")
+                .atMost(MIGRATION_BUDGET)
+                .pollInterval(Duration.ofSeconds(5))
+                .ignoreExceptions()
+                .until(() -> ConsulAcl.issuedTokenCount(consul, KUBERNETES_AUTH_METHOD) > 0);
+
+        assertEquals(MARKER_VALUE, Stand.awaitLoginStatus(servicePortForward).path("consulMarker").asText(),
+                "the property still arrives after the migration");
+    }
+
+    @AfterAll
+    static void cleanUpStand() {
+        if (consul != null) {
+            ConsulAcl.deleteIssuedTokens(consul, NAMESPACE);
+            ConsulAcl.deleteIssuedTokens(consul, KUBERNETES_AUTH_METHOD);
+            deleteBindingRule(kubernetesBindingRuleId);
+            deleteBindingRule(m2mBindingRuleId);
+            consul.delete("/v1/acl/auth-method/" + KUBERNETES_AUTH_METHOD);
+            consul.delete("/v1/acl/auth-method/" + NAMESPACE);
+            ConsulAcl.deleteRole(consul, ROLE);
+            ConsulAcl.deletePolicy(consul, POLICY);
+            consul.delete("/v1/kv/" + KV_PREFIX + "?recurse=true");
+        }
+        Stand.tearDown(kubernetes, NAMESPACE, servicePortForward, consulPortForward);
+    }
+
+    private static void deleteBindingRule(String id) {
+        if (id != null) {
+            consul.delete("/v1/acl/binding-rule/" + id);
+        }
+    }
+
+    private static Map<String, String> serviceEnvironment(SigningKey signingKey) {
+        Map<String, String> environment = new LinkedHashMap<>();
+        environment.put("CLOUD_NAMESPACE", NAMESPACE);
+        environment.put("NAMESPACE", NAMESPACE);
+        environment.put("MICROSERVICE_NAME", Stand.SERVICE_NAME);
+        environment.put("CONSUL_HOST", "consul-consul-server.consul");
+        environment.put("CONSUL_LOGIN_MODE", "kubernetes-with-m2m-fallback");
+        environment.put("CONSUL_LOGIN_AUTH_METHOD", KUBERNETES_AUTH_METHOD);
+        environment.put("CONSUL_LOGIN_AUDIENCE", Stand.AUDIENCE);
+        environment.put("CONSUL_LOGIN_RECHECK", RECHECK_INTERVAL);
+        environment.put("CONSUL_LOGIN_M2M_PRIVATE_KEY", signingKey.privateKeyBase64());
+        environment.put("CONSUL_LOGIN_M2M_ISSUER", SigningKey.ISSUER);
+        environment.put("CONSUL_LOGIN_M2M_AUDIENCE", SigningKey.AUDIENCE);
+        environment.put("CONSUL_LOGIN_M2M_SUBJECT", Stand.SERVICE_NAME);
+        return environment;
+    }
+
+    static final class Dump implements TestWatcher, LifecycleMethodExecutionExceptionHandler {
+
+        @Override
+        public void testFailed(ExtensionContext context, Throwable cause) {
+            StandDump.print(context.getDisplayName(), consul, kubernetes, NAMESPACE);
+        }
+
+        @Override
+        public void handleBeforeAllMethodExecutionException(ExtensionContext context, Throwable failure)
+                throws Throwable {
+            StandDump.print("stand preparation", consul, kubernetes, NAMESPACE);
+            throw failure;
+        }
+    }
+}
