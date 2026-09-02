@@ -160,15 +160,18 @@ final class Stand {
      * login, so the status is polled instead of being read once.
      */
     static JsonNode awaitLoginStatus(LocalPortForward portForward) {
-        ConsulClient service = new ConsulClient("http://localhost:" + portForward.getLocalPort(), null);
         return Awaitility.await("the service answers on /login-status")
                 .atMost(Duration.ofMinutes(3))
                 .pollInterval(Duration.ofSeconds(3))
                 .ignoreExceptions()
-                .until(() -> {
-                    ConsulClient.Response response = service.get("/login-status");
-                    return response.isSuccessful() ? readJson(response.body()) : null;
-                }, status -> status != null);
+                .until(() -> loginStatus(portForward), status -> status != null);
+    }
+
+    /** One read of the status, or null while the service is not answering yet. */
+    static JsonNode loginStatus(LocalPortForward portForward) {
+        ConsulClient service = new ConsulClient("http://localhost:" + portForward.getLocalPort(), null);
+        ConsulClient.Response response = service.get("/login-status");
+        return response.isSuccessful() ? readJson(response.body()) : null;
     }
 
     static JsonNode readJson(String body) {

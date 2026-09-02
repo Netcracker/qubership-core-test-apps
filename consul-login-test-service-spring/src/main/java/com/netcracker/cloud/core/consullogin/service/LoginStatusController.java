@@ -3,6 +3,7 @@ package com.netcracker.cloud.core.consullogin.service;
 import com.netcracker.cloud.consul.provider.common.TokenStorage;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -16,26 +17,30 @@ import java.util.Map;
 public class LoginStatusController {
 
     private final ObjectProvider<TokenStorage> tokenStorage;
+    private final Environment environment;
     private final String transport;
-    private final String consulMarker;
     private final String loginMode;
     private final String authMethod;
     private final String audience;
 
     public LoginStatusController(ObjectProvider<TokenStorage> tokenStorage,
+                                 Environment environment,
                                  @Value("${service.transport:unknown}") String transport,
-                                 @Value("${service.marker:ABSENT}") String consulMarker,
                                  @Value("${spring.cloud.consul.config.login.mode:UNSET}") String loginMode,
                                  @Value("${spring.cloud.consul.config.login.auth-method:UNSET}") String authMethod,
                                  @Value("${spring.cloud.consul.config.login.audience:UNSET}") String audience) {
         this.tokenStorage = tokenStorage;
+        this.environment = environment;
         this.transport = transport;
-        this.consulMarker = consulMarker;
         this.loginMode = loginMode;
         this.authMethod = authMethod;
         this.audience = audience;
     }
 
+    /**
+     * The marker is read from the environment on every call rather than injected once, so that a value changed in
+     * Consul after the pod started is visible here.
+     */
     @GetMapping("/login-status")
     public Map<String, Object> loginStatus() {
         String token = tokenStorage.getIfAvailable() == null ? "" : tokenStorage.getObject().get();
@@ -48,7 +53,7 @@ public class LoginStatusController {
         status.put("tokenStorageBeanPresent", tokenStorage.getIfAvailable() != null);
         status.put("tokenPresent", token != null && !token.isEmpty());
         status.put("tokenFingerprint", fingerprint(token));
-        status.put("consulMarker", consulMarker);
+        status.put("consulMarker", environment.getProperty("service.marker", "ABSENT"));
         return status;
     }
 

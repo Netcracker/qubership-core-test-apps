@@ -33,10 +33,18 @@ final class ConsulAcl {
     }
 
     static void createKubernetesAuthMethod(ConsulClient consul, KubernetesClient kubernetes, String name) {
+        createKubernetesAuthMethod(consul, kubernetes, name, null);
+    }
+
+    static void createKubernetesAuthMethod(ConsulClient consul, KubernetesClient kubernetes, String name,
+                                           String maxTokenTtl) {
         ObjectNode body = JSON.createObjectNode()
                 .put("Name", name)
                 .put("Type", "kubernetes")
                 .put("Description", "Consul login tests: Kubernetes auth method");
+        if (maxTokenTtl != null) {
+            body.put("MaxTokenTTL", maxTokenTtl);
+        }
         body.set("Config", Stand.authMethodConfig(kubernetes, JSON.createObjectNode()));
         consul.put("/v1/acl/auth-method", body.toString()).requireSuccess("creating the auth method " + name);
     }
