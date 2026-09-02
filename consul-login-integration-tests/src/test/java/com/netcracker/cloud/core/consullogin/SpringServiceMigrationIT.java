@@ -25,12 +25,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * A service that already carries the new library starts while its Kubernetes auth method does not exist yet. It has
- * to serve its properties anyway, over the old way, and to move to the Kubernetes auth method on its own once that
- * method appears — on the next login it schedules, without a restart.
+ * Checks the migration between the two ways, in the order a service will meet it: a Spring service that already
+ * carries the new library starts while its Kubernetes auth method does not exist yet. It has to serve its properties
+ * anyway, over the old way, and to move to the Kubernetes auth method on its own once the test creates that method —
+ * on the next login it schedules, without a restart.
  *
- * <p>The way the pod took is read from Consul, which records the auth method every token came from, rather than
- * from the log of the service: the log line is written for a human, and parsing it in a test is brittle.
+ * <p>The way a pod took is read from Consul, which records the auth method every token came from, rather than from
+ * the log of the service: the log line is written for a human, and parsing it in a test is brittle.
  */
 @DisplayName("The Spring service migrates from the m2m way to the kubernetes way without a restart")
 class SpringServiceMigrationIT {

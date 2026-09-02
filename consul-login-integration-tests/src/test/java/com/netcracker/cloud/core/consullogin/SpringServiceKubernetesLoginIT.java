@@ -27,11 +27,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The service is configured to log in with the projected service account token of its pod. It has to report a Consul
- * token of its own and serve the property the test seeded before the pod started.
+ * Checks that a Spring service logs in to Consul with the projected service account token of its pod and reads its
+ * configuration with the token Consul issued: it has to report a token of its own and serve a property seeded before
+ * the pod started.
  *
- * <p>That token then expires: Consul caps its lifetime at a minute, so the service has to log in again while it
- * runs, and to keep serving the property afterwards — including a value the test changed in the meantime.
+ * <p>A second check covers the relogin. The auth method caps the token lifetime at a minute, so the service has to
+ * log in again while it runs and keep serving the property afterwards, including a value changed in the meantime.
+ * Both checks share one pod: the configuration is the same, and a second deployment would cost a pod start without
+ * proving anything.
  */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @DisplayName("The Spring service logs in to Consul with its projected token and reads its properties")
@@ -110,10 +113,6 @@ class SpringServiceKubernetesLoginIT {
         assertEquals(MARKER_VALUE, status.path("consulMarker").asText(), "property read from Consul");
     }
 
-    /**
-     * Runs on the pod of the check above: the configuration is the same, and a deployment of its own would cost a
-     * pod start without proving anything.
-     */
     @Test
     @Order(2)
     @DisplayName("The service relogs in when its token expires and reads a value changed since")
