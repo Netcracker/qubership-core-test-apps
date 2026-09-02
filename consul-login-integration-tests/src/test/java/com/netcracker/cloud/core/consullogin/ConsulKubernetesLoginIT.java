@@ -31,11 +31,12 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * Checks the stand rather than the library: a pod that carries a projected service account token of the netcracker
- * audience logs in through a Kubernetes auth method with plain curl, reads a key the test seeded with the token
- * Consul issued, and is refused that same key when it asks without a token.
+ * Checks that the stand itself supports a Kubernetes login: a pod carrying a projected service account token can
+ * exchange it for a Consul token, that token grants the key access its role was given, and the same key stays
+ * unreadable without a token.
  *
- * <p>Nothing here depends on the code under test, so a failure separates a broken stand from a broken library.
+ * <p>The login is done with plain curl from inside the pod, so nothing here goes through the library under test and a
+ * failure tells a broken stand from a broken library.
  */
 @DisplayName("Consul Kubernetes auth method issues a token to a pod with a netcracker-audience token")
 class ConsulKubernetesLoginIT {

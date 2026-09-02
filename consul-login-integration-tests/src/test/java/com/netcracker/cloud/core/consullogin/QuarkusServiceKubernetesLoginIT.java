@@ -21,12 +21,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The same check as on Spring, on the other stack: a Quarkus service configured to log in with the projected service
- * account token of its pod has to report a Consul token of its own and serve the property the test seeded before the
- * pod started.
+ * Checks that a Quarkus service logs in to Consul with the projected service account token of its pod and reads its
+ * configuration with the token Consul issued: it has to report a token of its own and serve a property seeded before
+ * the pod started.
  *
- * <p>Both stacks carry the same login library, but the configuration around it, the transport and the reader of the
- * properties are their own, so passing on one says nothing about the other.
+ * <p>The login library is shared between the stacks, but the configuration around it, the transport and the reader of
+ * the properties are Quarkus code, which is why this way is checked on each stack separately.
  */
 @DisplayName("The Quarkus service logs in to Consul with its projected token and reads its properties")
 class QuarkusServiceKubernetesLoginIT {
