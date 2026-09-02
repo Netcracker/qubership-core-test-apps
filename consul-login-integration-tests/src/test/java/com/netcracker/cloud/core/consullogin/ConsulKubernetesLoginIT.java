@@ -33,6 +33,13 @@ import static com.netcracker.cloud.core.consullogin.Stand.TOKEN_MOUNT_PATH;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @ExtendWith(ConsulKubernetesLoginIT.Dump.class)
+/**
+ * Checks the stand rather than the library: a pod that carries a projected service account token of the netcracker
+ * audience logs in through a Kubernetes auth method with plain curl, reads a key the test seeded with the token
+ * Consul issued, and is refused that same key when it asks without a token.
+ *
+ * <p>Nothing here depends on the code under test, so a failure separates a broken stand from a broken library.
+ */
 @DisplayName("Consul Kubernetes auth method issues a token to a pod with a netcracker-audience token")
 class ConsulKubernetesLoginIT {
 

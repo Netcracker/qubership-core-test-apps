@@ -18,20 +18,17 @@ public class LoginStatusController {
 
     private final ObjectProvider<TokenStorage> tokenStorage;
     private final Environment environment;
-    private final String transport;
     private final String loginMode;
     private final String authMethod;
     private final String audience;
 
     public LoginStatusController(ObjectProvider<TokenStorage> tokenStorage,
                                  Environment environment,
-                                 @Value("${service.transport:unknown}") String transport,
                                  @Value("${spring.cloud.consul.config.login.mode:UNSET}") String loginMode,
                                  @Value("${spring.cloud.consul.config.login.auth-method:UNSET}") String authMethod,
                                  @Value("${spring.cloud.consul.config.login.audience:UNSET}") String audience) {
         this.tokenStorage = tokenStorage;
         this.environment = environment;
-        this.transport = transport;
         this.loginMode = loginMode;
         this.authMethod = authMethod;
         this.audience = audience;
@@ -46,7 +43,6 @@ public class LoginStatusController {
         String token = tokenStorage.getIfAvailable() == null ? "" : tokenStorage.getObject().get();
 
         Map<String, Object> status = new LinkedHashMap<>();
-        status.put("transport", transport);
         status.put("loginMode", loginMode);
         status.put("authMethod", authMethod);
         status.put("audience", audience);
