@@ -29,7 +29,8 @@ import java.util.concurrent.TimeUnit;
 public enum TestService {
 
     SPRING("consul-login-test-service-spring"),
-    QUARKUS("consul-login-test-service-quarkus");
+    QUARKUS("consul-login-test-service-quarkus"),
+    GO("consul-login-test-service-go");
 
     private static final String DEFAULT_TAG = "feat-consul-login-integration-tests-snapshot";
     private static final int PORT = 8080;
