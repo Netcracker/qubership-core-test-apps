@@ -1,0 +1,10 @@
+{
+    "components" : [
+      {
+        "name": "qubership-core-consul-login-test-service-go",
+        "file": "./consul-login-test-service-go/Dockerfile",
+        "context": "./consul-login-test-service-go/"
+      }
+    ],
+    "platforms" : "linux/amd64"
+  }
