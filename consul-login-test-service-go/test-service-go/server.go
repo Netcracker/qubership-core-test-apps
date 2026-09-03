@@ -16,8 +16,7 @@ import (
 
 var logger logging.Logger
 
-// The stand-in outranks nothing else here: it is the only token provider the service registers, and the login of the
-// m2m way asks the service loader for one.
+// The stand-in is the only token provider the service registers, which is where the login of the m2m way asks for one.
 func init() {
 	logger = logging.GetLogger("server")
 	serviceloader.Register(1, &StandInTokenProvider{})
