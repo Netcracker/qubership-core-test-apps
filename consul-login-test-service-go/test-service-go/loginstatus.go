@@ -5,10 +5,10 @@ import (
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 )
 
-// What the login left behind, in the shape the scenarios read: the way the service was configured for, and the
-// property it got from Consul. Unlike the Spring and the Quarkus services this one names no token: the Consul token
-// stays inside the property source of the Go library, and under a deny-by-default policy the marker below arrives
-// only through a token Consul issued.
+// What the login left behind, in the shape the scenarios read: which way the service was configured for, and the
+// property it got from Consul. Unlike the Spring and Quarkus services this one names no token: the Consul token stays
+// inside the property source of the Go library, and under a deny-by-default policy the marker below arrives only
+// through a token Consul issued.
 type loginStatus struct {
 	LoginMode    string `json:"loginMode"`
 	AuthMethod   string `json:"authMethod"`
