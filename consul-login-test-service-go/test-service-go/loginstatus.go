@@ -6,9 +6,9 @@ import (
 )
 
 // What the login left behind, in the shape the scenarios read: which way the service was configured for, and the
-// property it got from Consul. Unlike the Spring and Quarkus services this one names no token: the Consul token stays
-// inside the property source of the Go library, and under a deny-by-default policy the marker below arrives only
-// through a token Consul issued.
+// property it got from Consul. Unlike the Spring and Quarkus services this one names no token, because the Consul
+// token stays inside the property source of the Go library. A scenario reads the login off Consul instead, which
+// records the auth method every token came from.
 type loginStatus struct {
 	LoginMode    string `json:"loginMode"`
 	AuthMethod   string `json:"authMethod"`
