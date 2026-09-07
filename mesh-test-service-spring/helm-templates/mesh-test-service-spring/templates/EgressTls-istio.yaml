@@ -51,6 +51,28 @@ spec:
   - matches:
     - path:
         type: PathPrefix
+        value: /egress-tls/implicit
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        remove:
+        - Origin
+        - Authorization
+    - type: URLRewrite
+      urlRewrite:
+        hostname: implicit.external.test
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - group: networking.istio.io
+      kind: Hostname
+      name: implicit.external.test
+      port: 8443
+      weight: 1
+  - matches:
+    - path:
+        type: PathPrefix
         value: /egress-tls/insecure
     filters:
     - type: RequestHeaderModifier
@@ -70,6 +92,8 @@ spec:
       name: insecure.external.test
       port: 8443
       weight: 1
+  # No hostRewrite in the source: an egress external destination still gets a
+  # URLRewrite hostname, so Istio sends the endpoint host as the authority.
   - matches:
     - path:
         type: PathPrefix
@@ -93,30 +117,6 @@ spec:
     - group: networking.istio.io
       kind: Hostname
       name: verified.external.test
-      port: 8443
-      weight: 1
-  # No hostRewrite in the source: an egress external destination still gets a
-  # URLRewrite hostname, so Istio sends the endpoint host as the authority.
-  - matches:
-    - path:
-        type: PathPrefix
-        value: /egress-tls/implicit
-    filters:
-    - type: RequestHeaderModifier
-      requestHeaderModifier:
-        remove:
-        - Origin
-        - Authorization
-    - type: URLRewrite
-      urlRewrite:
-        hostname: implicit.external.test
-        path:
-          type: ReplacePrefixMatch
-          replacePrefixMatch: /
-    backendRefs:
-    - group: networking.istio.io
-      kind: Hostname
-      name: implicit.external.test
       port: 8443
       weight: 1
   - matches:

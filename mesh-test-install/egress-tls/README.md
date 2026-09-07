@@ -121,13 +121,28 @@ logs the authority instead of asserting it. Two consequences worth knowing:
 
 ## Verifying against the skill
 
-The Istio manifests here were written by hand from the mapping rules. The package carrying them
-(`core-mesh-crs-to-istio` with `tls-def-mapping.md`) is not installed in this repo — `.agents/skills/` has the older
-`core-mesh-crs-to-gatewayapi`, whose `route-configuration-mapping.md` still says `tlsConfigName ... ignore` — and
-PR #398 is open. So these tests prove the configuration works at runtime; they do not prove the skill emits it.
+The Istio manifests were written by hand from the mapping rules, then checked against the skill itself. Install it with:
 
-Once #398 merges, point `apm.yml` at the merged commit, run the skill against `EgressTls.yaml`, and diff its output
-against `EgressTls-istio.yaml`. Any divergence is a bug in one or the other.
+```bash
+apm install "Netcracker/qubership-core-control-plane/agent-packages/core-mesh-crs-to-istio#feature/egress-routes-migration"
+```
+
+The check was a blind reproduction: a session with no knowledge of `EgressTls-istio.yaml` was given only
+`EgressTls.yaml` and the skill, and asked to convert it. Its output and this file agree on all 14 resources — same
+names, same TLS modes, credentials, SNI, ServiceEntry hosts and ports, Secret keys, backendRefs and labels.
+
+Two deviations came out of that run:
+
+- **Rule order.** Five prefixes share two segments, so `path-specificity-sorting` rule 4 breaks the tie
+  lexicographically. The rules had been left in source order. Matching was unaffected — the prefixes are disjoint — but
+  regenerating would have produced churn. Fixed here.
+- **`namespace: {{ .Release.Namespace }}`.** The `ServiceEntry`, `Secret` and `DestinationRule` templates in
+  `tls-def-mapping.md` set it, while the `HTTPRoute` template does not. Helm already installs into the release
+  namespace, so the field is redundant and the inconsistency across kinds is not deliberate. This chart leaves it out,
+  and the skill is being changed to match rather than the other way round.
+
+Re-run that comparison after any change to `EgressTls.yaml`, and again once PR #398 merges, so this file stays what the
+migration actually produces rather than a hand-written lookalike.
 
 ## Running them
 
