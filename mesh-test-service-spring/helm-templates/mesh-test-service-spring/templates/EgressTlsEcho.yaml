@@ -1,0 +1,212 @@
+{{- if .Values.EGRESS_TLS_TESTS_ENABLED }}
+# Simulated external HTTPS site for the egress TLS tests.
+#
+# Deployed identically on both mesh types: it is the *target* of egress traffic,
+# not a mesh resource, so nothing here is guarded by SERVICE_MESH_TYPE. The mesh
+# reaches it under the fake external names *.external.test, which the install
+# script maps onto this Service with a CoreDNS rewrite.
+#
+# nginx picks the server block - and therefore the server certificate - by SNI,
+# so a gateway that originates TLS with the wrong SNI gets a 421 instead of a
+# body. The JSON it answers with reports back what the "external site" actually
+# saw: SNI, Host header, path, and the client certificate, if any.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: egress-tls-echo
+  labels:
+    app.kubernetes.io/part-of: 'mesh-test-app'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+data:
+  # Included by every server block, so the answer shape is defined once.
+  echo.conf: |
+    default_type application/json;
+    return 200 '{"sni":"$ssl_server_name","host":"$host","uri":"$request_uri","clientVerify":"$client_verify","clientDn":"$ssl_client_s_dn","origin":"$http_origin","authorization":"$http_authorization","tenantId":"$http_tenant_id"}';
+
+  nginx.conf: |
+    worker_processes 1;
+    error_log /dev/stderr warn;
+    pid /tmp/nginx.pid;
+
+    events {
+        worker_connections 256;
+    }
+
+    http {
+        access_log /dev/stdout;
+        client_body_temp_path /tmp/client_body;
+        proxy_temp_path /tmp/proxy;
+        fastcgi_temp_path /tmp/fastcgi;
+        uwsgi_temp_path /tmp/uwsgi;
+        scgi_temp_path /tmp/scgi;
+
+        # $ssl_client_verify is empty on a listener that asks for no client
+        # certificate; report that as NONE so the tests assert on one value.
+        map $ssl_client_verify $client_verify {
+            default $ssl_client_verify;
+            ""      NONE;
+        }
+
+        # Host names this site serves. A request can reach the default server
+        # below with a Host that matches no server block, which is legitimate:
+        # Cloud-Core Mesh forwards the caller's Host unless the route sets
+        # hostRewrite, while Istio always rewrites it. Only an unrecognized SNI
+        # means the gateway originated TLS for the wrong host.
+        map $ssl_server_name $sni_known {
+            default                 0;
+            verified.external.test  1;
+            gwdefault.external.test 1;
+            mtls.external.test      1;
+            insecure.external.test  1;
+            implicit.external.test  1;
+        }
+
+        # Reached when the Host header matches no server block. Answers normally
+        # for a known SNI, and rejects an unknown one.
+        server {
+            listen 8443 ssl default_server;
+            server_name _;
+            ssl_certificate     /etc/egress-tls/server.crt;
+            ssl_certificate_key /etc/egress-tls/server.key;
+            default_type application/json;
+            if ($sni_known = 0) {
+                return 421 '{"error":"unexpected sni","sni":"$ssl_server_name","host":"$host"}';
+            }
+            include /etc/nginx/egress/echo.conf;
+        }
+
+        # Server certificate signed by the CA the mesh trusts.
+        server {
+            listen 8443 ssl;
+            server_name verified.external.test gwdefault.external.test implicit.external.test;
+            ssl_certificate     /etc/egress-tls/server.crt;
+            ssl_certificate_key /etc/egress-tls/server.key;
+            include /etc/nginx/egress/echo.conf;
+        }
+
+        # Same certificate, but the client must present one signed by the same CA.
+        server {
+            listen 8443 ssl;
+            server_name mtls.external.test;
+            ssl_certificate     /etc/egress-tls/server.crt;
+            ssl_certificate_key /etc/egress-tls/server.key;
+            ssl_client_certificate /etc/egress-tls/ca.crt;
+            ssl_verify_client on;
+            include /etc/nginx/egress/echo.conf;
+        }
+
+        # Server certificate signed by a CA the mesh was never given, so only a
+        # profile that skips verification can talk to this host.
+        server {
+            listen 8443 ssl;
+            server_name insecure.external.test;
+            ssl_certificate     /etc/egress-tls/rogue-server.crt;
+            ssl_certificate_key /etc/egress-tls/rogue-server.key;
+            include /etc/nginx/egress/echo.conf;
+        }
+    }
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: egress-tls-echo-certs
+  labels:
+    app.kubernetes.io/part-of: 'mesh-test-app'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+type: Opaque
+stringData:
+  ca.crt: |
+{{ .Files.Get "files/egress-tls/ca.crt" | indent 4 }}
+  server.crt: |
+{{ .Files.Get "files/egress-tls/server.crt" | indent 4 }}
+  server.key: |
+{{ .Files.Get "files/egress-tls/server.key" | indent 4 }}
+  rogue-server.crt: |
+{{ .Files.Get "files/egress-tls/rogue-server.crt" | indent 4 }}
+  rogue-server.key: |
+{{ .Files.Get "files/egress-tls/rogue-server.key" | indent 4 }}
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: egress-tls-echo
+  labels:
+    name: egress-tls-echo
+    app.kubernetes.io/part-of: 'mesh-test-app'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+spec:
+  replicas: 1
+  revisionHistoryLimit: {{ .Values.RC_REVISIONS }}
+  selector:
+    matchLabels:
+      name: egress-tls-echo
+  template:
+    metadata:
+      labels:
+        name: egress-tls-echo
+        app.kubernetes.io/part-of: 'mesh-test-app'
+      annotations:
+        # Rolls the pod when a certificate or the nginx config changes.
+        egress-tls-echo/config-checksum: '{{ printf "%s%s%s" (.Files.Get "files/egress-tls/server.crt") (.Files.Get "files/egress-tls/rogue-server.crt") (.Files.Get "files/egress-tls/ca.crt") | sha256sum }}'
+    spec:
+      containers:
+      - name: egress-tls-echo
+        image: '{{ .Values.EGRESS_ECHO_IMAGE }}'
+        command: ["nginx", "-c", "/etc/nginx/egress/nginx.conf", "-g", "daemon off;"]
+        securityContext:
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          seccompProfile:
+            type: RuntimeDefault
+          capabilities:
+            drop:
+            - ALL
+        ports:
+        - name: https
+          containerPort: 8443
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 20m
+            memory: 32Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+        volumeMounts:
+        - name: nginx-conf
+          mountPath: /etc/nginx/egress
+          readOnly: true
+        - name: certs
+          mountPath: /etc/egress-tls
+          readOnly: true
+        readinessProbe:
+          tcpSocket:
+            port: 8443
+          initialDelaySeconds: 2
+          periodSeconds: 5
+      volumes:
+      - name: nginx-conf
+        configMap:
+          name: egress-tls-echo
+      - name: certs
+        secret:
+          secretName: egress-tls-echo-certs
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: egress-tls-echo
+  labels:
+    app.kubernetes.io/part-of: 'mesh-test-app'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+spec:
+  type: ClusterIP
+  selector:
+    name: egress-tls-echo
+  ports:
+  - name: https
+    port: 8443
+    targetPort: 8443
+    protocol: TCP
+{{- end }}

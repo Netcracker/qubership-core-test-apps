@@ -1,0 +1,378 @@
+{{- if .Values.EGRESS_TLS_TESTS_ENABLED }}
+{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
+# Istio Ambient Mesh equivalent of EgressTls.yaml, produced by the mapping rules
+# in the core-mesh-crs-to-istio skill (tls-def-mapping.md).
+#
+#   TlsDef                      -> Secret (cert material) + DestinationRule (origination)
+#   RouteDestination https://   -> ServiceEntry (MESH_EXTERNAL) + Hostname backendRef
+#   RouteConfiguration          -> HTTPRoute on the egress Gateway, rules sorted by
+#                                  path specificity
+#
+# The Gateway listener stays HTTP: TlsDef on egress is outbound origination to the
+# external host, not listener TLS.
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: egress-tls-routes-spring
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "istiod"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: egress-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /egress-tls/gwdefault
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        remove:
+        - Origin
+        - Authorization
+    - type: URLRewrite
+      urlRewrite:
+        hostname: gwdefault.external.test
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - group: networking.istio.io
+      kind: Hostname
+      name: gwdefault.external.test
+      port: 8443
+      weight: 1
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /egress-tls/insecure
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        remove:
+        - Origin
+        - Authorization
+    - type: URLRewrite
+      urlRewrite:
+        hostname: insecure.external.test
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - group: networking.istio.io
+      kind: Hostname
+      name: insecure.external.test
+      port: 8443
+      weight: 1
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /egress-tls/verified
+      headers:
+      - name: tenant-id
+        value: cloud-common
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        remove:
+        - Origin
+        - Authorization
+    - type: URLRewrite
+      urlRewrite:
+        hostname: verified.external.test
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - group: networking.istio.io
+      kind: Hostname
+      name: verified.external.test
+      port: 8443
+      weight: 1
+  # No hostRewrite in the source: an egress external destination still gets a
+  # URLRewrite hostname, so Istio sends the endpoint host as the authority.
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /egress-tls/implicit
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        remove:
+        - Origin
+        - Authorization
+    - type: URLRewrite
+      urlRewrite:
+        hostname: implicit.external.test
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - group: networking.istio.io
+      kind: Hostname
+      name: implicit.external.test
+      port: 8443
+      weight: 1
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /egress-tls/mtls
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        remove:
+        - Origin
+        - Authorization
+    - type: URLRewrite
+      urlRewrite:
+        hostname: mtls.external.test
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - group: networking.istio.io
+      kind: Hostname
+      name: mtls.external.test
+      port: 8443
+      weight: 1
+---
+# One ServiceEntry per external host, named after the Cloud-Core Mesh cluster token.
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: echo-verified
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "istiod"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  hosts:
+  - verified.external.test
+  location: MESH_EXTERNAL
+  resolution: DNS
+  ports:
+  - number: 8443
+    name: https
+    protocol: HTTPS
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: echo-insecure
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "istiod"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  hosts:
+  - insecure.external.test
+  location: MESH_EXTERNAL
+  resolution: DNS
+  ports:
+  - number: 8443
+    name: https
+    protocol: HTTPS
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: echo-mtls
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "istiod"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  hosts:
+  - mtls.external.test
+  location: MESH_EXTERNAL
+  resolution: DNS
+  ports:
+  - number: 8443
+    name: https
+    protocol: HTTPS
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: echo-gwdefault
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "istiod"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  hosts:
+  - gwdefault.external.test
+  location: MESH_EXTERNAL
+  resolution: DNS
+  ports:
+  - number: 8443
+    name: https
+    protocol: HTTPS
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: echo-implicit
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "istiod"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  hosts:
+  - implicit.external.test
+  location: MESH_EXTERNAL
+  resolution: DNS
+  ports:
+  - number: 8443
+    name: https
+    protocol: HTTPS
+---
+# TlsDef cert material. stringData keeps the PEMs readable and unwrapped.
+# No Secret for egress-insecure-cert: that profile carries no cert material.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: egress-verified-cert
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "istiod"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+type: Opaque
+stringData:
+  ca.crt: |
+{{ .Files.Get "files/egress-tls/ca.crt" | indent 4 }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: egress-mtls-cert
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "istiod"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+type: Opaque
+stringData:
+  ca.crt: |
+{{ .Files.Get "files/egress-tls/ca.crt" | indent 4 }}
+  tls.crt: |
+{{ .Files.Get "files/egress-tls/client.crt" | indent 4 }}
+  tls.key: |
+{{ .Files.Get "files/egress-tls/client.key" | indent 4 }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: egress-gw-default-cert
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "istiod"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+type: Opaque
+stringData:
+  ca.crt: |
+{{ .Files.Get "files/egress-tls/ca.crt" | indent 4 }}
+---
+# One DestinationRule per external host. sni comes from the cluster-level TlsDef
+# where it is set, and from the destination host otherwise.
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: egress-verified-cert
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "istiod"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  host: verified.external.test
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+      credentialName: egress-verified-cert
+      sni: verified.external.test
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: egress-insecure-cert
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "istiod"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  host: insecure.external.test
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+      insecureSkipVerify: true
+      sni: insecure.external.test
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: egress-mtls-cert
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "istiod"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  host: mtls.external.test
+  trafficPolicy:
+    tls:
+      mode: MUTUAL
+      credentialName: egress-mtls-cert
+      sni: mtls.external.test
+---
+# Gateway-level TlsDef expanded to the one host that named no cluster-level
+# profile; name is <TlsDef name>-<host with dots as dashes>.
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: egress-gw-default-cert-gwdefault-external-test
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "istiod"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  host: gwdefault.external.test
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+      credentialName: egress-gw-default-cert
+      sni: gwdefault.external.test
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: egress-gw-default-cert-implicit-external-test
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "istiod"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  host: implicit.external.test
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+      credentialName: egress-gw-default-cert
+      sni: implicit.external.test
+{{- end }}
+{{- end }}
