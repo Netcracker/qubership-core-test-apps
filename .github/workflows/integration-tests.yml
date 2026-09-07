@@ -327,7 +327,7 @@ jobs:
         uses: ./.github/actions/setup-kind-with-cloud-core
         with:
           core-bootstrap-branch: ${{ inputs.core-bootstrap-branch }}
-          install-maas: ${{ inputs.install-maas || 'false' }}
+          install-maas: ${{ (inputs.install-maas || contains(inputs.run-tests-for, 'storage-tests')) && 'true' || 'false' }}
           install-istio: ${{ inputs.install-istio || 'false' }}
           istio-repo-branch: ${{ inputs.istio-repo-branch }}
           core-mesh-config-repo-branch: ${{ inputs.core-mesh-config-repo-branch }}
@@ -341,7 +341,6 @@ jobs:
           site-management-tag: ${{ inputs.site-management-tag || 'latest' }}
           test-branch: ${{ inputs.test-branch || 'main' }}
           mesh-type: ${{ inputs.mesh-type || 'Core' }}
-          # a leader change needs a second node, and only the storage suite induces one
           patroni-replicas: ${{ contains(inputs.run-tests-for, 'storage-tests') && '2' || '1' }}
           rabbit-instances: ${{ contains(inputs.run-tests-for, 'storage-tests') && 'rabbitmq-1' || '' }}
 

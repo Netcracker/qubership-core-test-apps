@@ -90,12 +90,17 @@ public abstract class StorageITBase {
         }
     }
 
+    /** Both fields are null when the fixture failed before them, and that failure is the one to report. */
     @AfterEach
     void tearDownFixture() {
         try {
-            app.stopWorkload();
+            if (app != null) {
+                app.stopWorkload();
+            }
         } finally {
-            faults.awaitStable(STABILISATION);
+            if (faults != null) {
+                faults.awaitStable(STABILISATION);
+            }
         }
     }
 
