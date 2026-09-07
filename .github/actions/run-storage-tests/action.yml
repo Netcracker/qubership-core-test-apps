@@ -30,6 +30,12 @@ inputs:
       resources: otherwise leaving them in place lets the workflow collect their state at the end.
     required: false
     default: 'false'
+  github-token:
+    description: >
+      GitHub token for Maven. setup-java writes a settings.xml whose github server reads
+      GITHUB_ACTOR and GITHUB_TOKEN from the environment, and the dependencies live in
+      GitHub Packages.
+    required: true
 
 runs:
   using: composite
@@ -40,6 +46,8 @@ runs:
     - name: Build and load the storage test service images
       shell: bash
       env:
+        GITHUB_ACTOR: ${{ github.actor }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
         APPS: ${{ inputs.apps }}
         TAG: ${{ inputs.tag }}
         CLUSTER: ${{ inputs.cluster }}
@@ -63,6 +71,8 @@ runs:
     - name: Run storage integration tests
       shell: bash
       env:
+        GITHUB_ACTOR: ${{ github.actor }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
         NAMESPACE: ${{ inputs.namespace }}
         APPS: ${{ inputs.apps }}
         TAG: ${{ inputs.tag }}
