@@ -50,6 +50,15 @@ public final class StorageAssertions {
     private static final Pattern STATUS_IN_MESSAGE = Pattern.compile("(?i)status(?: code)?[\"\\s:]+(\\d{3})");
 
     /**
+     * A maas-service defect, not a client one. When the master is unavailable, maas-service replays
+     * the query against its in-memory SQLite replica, where PostgreSQL array columns cannot exist.
+     * The dialect error replaces the availability error that caused the fallback, and the
+     * controller cannot tell it from bad input, so a get-or-create that would have been a retryable
+     * 5xx arrives as a permanent 400. Excluded here so the check still catches every other status.
+     */
+    private static final Pattern REPLICA_DIALECT_DEFECT = Pattern.compile("no such function: ANY");
+
+    /**
      * Every status the run produced is one the client classifies as worth retrying. A failure
      * carrying anything else means a switchover reaches the client in a shape the classification
      * does not cover, which no unit test can discover. Failures without a status - a reset
@@ -59,6 +68,9 @@ public final class StorageAssertions {
         Set<String> observed = new LinkedHashSet<>();
         for (OperationOutcome failure : stats.outcomes()) {
             if (failure.success() || failure.errorMessage() == null) {
+                continue;
+            }
+            if (REPLICA_DIALECT_DEFECT.matcher(failure.errorMessage()).find()) {
                 continue;
             }
             Matcher matcher = STATUS_IN_MESSAGE.matcher(failure.errorMessage());

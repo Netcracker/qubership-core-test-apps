@@ -56,7 +56,9 @@ re-arms. Two properties force that shape:
   designed — the freshly armed subscription in particular, whose topic is created before its poll
   has reached the server.
 
-## A defect this suite found
+## Defects this suite found
+
+### The Go client posts a bare classifier to the Rabbit vhost endpoint
 
 `MaasRabbitGoStorageIT` is `@Disabled`. The Go client posts the bare classifier to
 `/api/v1/rabbit/vhost`:
@@ -74,6 +76,48 @@ a bare classifier.
 The client's own unit test does not catch it because its fake server answers 200 to any POST on
 that path without looking at the request body. Re-enable the class once a client carrying the fix
 is released.
+
+### maas-service reports a failover as a client input error
+
+`BaseDaoImpl.UsingDb` runs a query on the master, and when the master is unavailable it replays the
+same closure against the in-memory SQLite replica:
+
+```go
+if (!executedOnMaster || (err != nil && IsMasterAvailabilityError(err))) && d.replica != nil {
+    log.DebugC(ctx, "detected connectivity problems to master db, retry on in-memory cache")
+    err = withMetrics(..., func() error { return f(d.replica.DB().WithContext(ctx)) })
+}
+```
+
+The replica cannot hold the whole schema. `domain_namespaces` is a PostgreSQL array —
+`ALTER TABLE kafka_topic_templates ADD domain_namespaces text[]` in `dao/schema/22_bg_domain.go`,
+mapped as `pq.StringArray` with `gorm:"type:text[]"` — and SQLite has no array type at all. Every
+construct over that column is therefore unavailable on the replica, not just one:
+`FindTopicTemplateByNameAndNamespace` uses `= ANY(...)`, and `topicTemplateAttachNamespace` in the same file
+uses `array_length(...)`.
+
+`GetOrCreateTopic` calls the first of those unconditionally, before anything else, even when the
+request carries no template:
+
+```go
+Where(cnn.Where("?=ANY(domain_namespaces)", namespace).Or("namespace=?", namespace))
+```
+
+On the replica it fails, and that error **replaces** the availability error that caused the
+fallback. The controller cannot tell it from bad input and wraps it in `msg.BadRequest`:
+
+```json
+{"status":"400","code":"MAAS-0600","reason":"input error",
+ "message":"error resolve topic template: SQL logic error: no such function: ANY (1): input error"}
+```
+
+So one leader change produces two different answers for the same cause. Requests that fail earlier,
+in the account lookup, come back as 500 and the client retries them — in one observed run it
+recovered in 682ms. Requests that reach the template query come back as 400 and are lost: 400 is a
+permanent client error by every convention, so neither client can retry it, and neither should.
+
+Nothing here is fixable on the client side. `assertStatusesAreClassified` excludes this one message
+by pattern so the check still catches any other unclassified status.
 
 ## What is out of scope
 
