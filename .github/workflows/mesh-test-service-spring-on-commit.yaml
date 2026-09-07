@@ -12,22 +12,17 @@ on:
       - 'mesh-test-service-spring/**'
       - '.github/mesh-test-service-spring-docker-config.json'
       - '.github/workflows/mesh-test-service-spring-on-commit.yaml'
+
 jobs:
   mvn:
-    uses: netcracker/qubership-core-infra/.github/workflows/maven-build-with-sonar.yaml@e8322e6ee168795edec1d103e289b3fe3ceb805d # v2.6.0
+    uses: Netcracker/qubership-core-infra/.github/workflows/generic-maven-build.yaml@e8322e6ee168795edec1d103e289b3fe3ceb805d # v2.6.0
     with:
-      event-name: ${{ github.event_name }}
-      actor: ${{ github.actor }}
+      pom-file: mesh-test-service-spring/pom.xml
+      # A pull request validates only; main publishes the snapshot.
+      maven-command: ${{ github.event_name == 'pull_request' && 'verify' || 'deploy' }}
+      # The Docker context is ./artifacts/mesh-test-service-spring/, so the build
+      # needs the uploaded Maven artifact.
+      upload-artifact: 'true'
+      docker-config-file: mesh-test-service-spring-docker-config.json
       sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
-      upload-artifact: true
-      pom-file-path: mesh-test-service-spring/pom.xml
-    secrets:
-      sonar-token: ${{ secrets.SONAR_TOKEN }}
-
-  docker-build:
-    needs: [mvn]
-    uses: netcracker/qubership-core-infra/.github/workflows/docker-build.yaml@e8322e6ee168795edec1d103e289b3fe3ceb805d # v2.6.0
-    with:
-      dry-run: false
-      config-filename: mesh-test-service-spring-docker-config.json
-      
+    secrets: inherit
