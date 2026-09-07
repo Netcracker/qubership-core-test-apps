@@ -443,7 +443,6 @@ jobs:
           # free the resources only when the run asked for it; otherwise the service stays up and
           # the cluster-state step at the end of this workflow picks it up
           cleanup: ${{ inputs.do-resources-workaround || 'false' }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run paas-mediation integration tests
         id: paas_tests

@@ -14,9 +14,6 @@ public interface FaultController {
     /** Graceful handover: leadership is transferred before the old leader stops serving. */
     void switchover();
 
-    /** Restarts every member in turn, the way a node sweep moves them. */
-    void rollingRestart();
-
     /** Waits until the storage reports a healthy leader again. */
     void awaitStable(Duration timeout);
 }

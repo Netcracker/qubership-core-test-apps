@@ -40,14 +40,6 @@ func (p *MaasRabbit) WriteAndRead(ctx context.Context, mode HandleMode, key, val
 	return value, nil
 }
 
-func (p *MaasRabbit) Read(ctx context.Context, mode HandleMode, key string) (string, error) {
-	config, err := p.client(mode).GetVhost(ctx, probeClassifier(key))
-	if err != nil || config == nil {
-		return "", err
-	}
-	return config.Vhost.GetConnectionUri(), nil
-}
-
 func (p *MaasRabbit) ReleaseHeldHandle() {
 	p.mu.Lock()
 	defer p.mu.Unlock()

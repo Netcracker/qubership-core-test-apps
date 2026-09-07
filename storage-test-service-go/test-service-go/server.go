@@ -46,11 +46,8 @@ func main() {
 		return
 	}
 
-	kafkaProbe := storage.NewKafka()
-	defer kafkaProbe.Close()
-
 	runner := workload.NewRunner(storage.NewMaasKafka(), storage.NewMaasRabbit(),
-		storage.NewMaasWatch(), kafkaProbe)
+		storage.NewMaasWatch())
 	controller.New(runner).Register(app.Group("/api/v1"))
 
 	server.StartServer(app, "http.server.bind")

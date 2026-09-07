@@ -77,15 +77,8 @@ public class MaasWatchProbe implements StorageProbe {
         return value;
     }
 
-    /** Watches are one-shot, so there is nothing to read back beyond what the callbacks delivered. */
-    @Override
-    public String read(HandleMode handleMode, String key) {
-        return delivered.get() > 0 ? key : null;
-    }
-
     @Override
     public void releaseHeldHandle() {
-        client = null;
         current = null;
     }
 

@@ -7,7 +7,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
-import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
@@ -22,7 +21,6 @@ public class DeploymentFaultController implements FaultController {
 
     private static final Logger log = LoggerFactory.getLogger(DeploymentFaultController.class);
 
-    private static final String RESTART_ANNOTATION = "kubectl.kubernetes.io/restartedAt";
 
     private final KubernetesClient client;
     private final String namespace;
@@ -52,17 +50,6 @@ public class DeploymentFaultController implements FaultController {
     public void switchover() {
         throw new UnsupportedOperationException(
                 name + " is stateless and has no leadership to hand over");
-    }
-
-    @Override
-    public void rollingRestart() {
-        log.info("Rolling restart of {}", name);
-        client.apps().deployments().inNamespace(namespace).withName(name)
-                .edit(deployment -> {
-                    deployment.getSpec().getTemplate().getMetadata()
-                            .setAnnotations(Map.of(RESTART_ANNOTATION, Instant.now().toString()));
-                    return deployment;
-                });
     }
 
     /**

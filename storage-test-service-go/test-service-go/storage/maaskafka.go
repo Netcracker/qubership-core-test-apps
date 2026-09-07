@@ -42,14 +42,6 @@ func (p *MaasKafka) WriteAndRead(ctx context.Context, mode HandleMode, key, valu
 	return value, nil
 }
 
-func (p *MaasKafka) Read(ctx context.Context, mode HandleMode, key string) (string, error) {
-	topic, err := p.client(mode).GetTopic(ctx, probeClassifier(key))
-	if err != nil || topic == nil {
-		return "", err
-	}
-	return topic.TopicName, nil
-}
-
 func (p *MaasKafka) ReleaseHeldHandle() {
 	p.mu.Lock()
 	defer p.mu.Unlock()

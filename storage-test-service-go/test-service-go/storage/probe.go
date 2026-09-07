@@ -23,9 +23,6 @@ type Probe interface {
 	// WriteAndRead performs one workload operation and returns what was read back.
 	WriteAndRead(ctx context.Context, mode HandleMode, key, value string) (string, error)
 
-	// Read returns a previously written value, or an empty string when the key is absent.
-	Read(ctx context.Context, mode HandleMode, key string) (string, error)
-
 	// ReleaseHeldHandle drops whatever the probe holds, so the next operation starts clean.
 	ReleaseHeldHandle()
 

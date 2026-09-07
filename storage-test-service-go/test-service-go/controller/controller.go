@@ -25,7 +25,6 @@ func New(runner *workload.Runner) *Controller {
 func (c *Controller) Register(router fiber.Router) {
 	router.Post("/db/:type/init", c.Init)
 	router.Post("/db/:type/write", c.Write)
-	router.Get("/db/:type/read", c.Read)
 	router.Post("/workload/start", c.Start)
 	router.Post("/workload/stop", c.Stop)
 	router.Get("/workload/stats", c.Stats)
@@ -57,20 +56,6 @@ func (c *Controller) Write(ctx *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 	return ctx.JSON(fiber.Map{"storage": storageType, "key": key, "value": read})
-}
-
-func (c *Controller) Read(ctx *fiber.Ctx) error {
-	storageType := ctx.Params("type")
-	probe, err := c.workload.Probe(storageType)
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	}
-	key := ctx.Query("key")
-	value, err := probe.Read(ctx.UserContext(), handleMode(ctx), key)
-	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
-	}
-	return ctx.JSON(fiber.Map{"storage": storageType, "key": key, "found": value != "", "value": value})
 }
 
 func (c *Controller) Start(ctx *fiber.Ctx) error {

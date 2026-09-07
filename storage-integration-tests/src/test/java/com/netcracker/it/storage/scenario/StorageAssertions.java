@@ -3,9 +3,13 @@ package com.netcracker.it.storage.scenario;
 import com.netcracker.it.storage.app.WorkloadStats;
 import com.netcracker.it.storage.app.WorkloadStats.OperationOutcome;
 
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -33,6 +37,39 @@ public final class StorageAssertions {
         assertRecovered(stats, faultClearedAtMillis, thresholds);
         assertErrorsStopped(stats, faultClearedAtMillis);
         assertNothingHung(stats, thresholds);
+        assertStatusesAreClassified(stats);
+    }
+
+    /**
+     * Statuses the client is built to survive: a demoted leader answers 405, an agent that cannot
+     * reach maas-service answers 5xx, and a throttled call answers 429.
+     */
+    private static final Set<String> EXPECTED_STATUSES = Set.of("405", "429", "500", "502", "503", "504");
+
+    /** Matches the status in both clients' error text: "status code 405", "status 405", "Status: 500". */
+    private static final Pattern STATUS_IN_MESSAGE = Pattern.compile("(?i)status(?: code)?[\"\\s:]+(\\d{3})");
+
+    /**
+     * Every status the run produced is one the client classifies as worth retrying. A failure
+     * carrying anything else means a switchover reaches the client in a shape the classification
+     * does not cover, which no unit test can discover. Failures without a status - a reset
+     * connection, a watch callback that never arrived - are not statuses and do not apply.
+     */
+    public static void assertStatusesAreClassified(WorkloadStats stats) {
+        Set<String> observed = new LinkedHashSet<>();
+        for (OperationOutcome failure : stats.outcomes()) {
+            if (failure.success() || failure.errorMessage() == null) {
+                continue;
+            }
+            Matcher matcher = STATUS_IN_MESSAGE.matcher(failure.errorMessage());
+            while (matcher.find()) {
+                observed.add(matcher.group(1));
+            }
+        }
+        assertThat(observed)
+                .as("HTTP statuses seen during the run; anything outside this set is a failure mode "
+                        + "the client does not classify")
+                .isSubsetOf(EXPECTED_STATUSES);
     }
 
     /** Without this every other assertion passes vacuously when nothing ever ran. */
@@ -124,7 +161,12 @@ public final class StorageAssertions {
                 recovery, stats.maxDurationMillis(), errorSummary(failures));
     }
 
-    /** Failures grouped by error class, so a failed assertion says what went wrong. */
+    /**
+     * Failures grouped by error class, then by distinct message, so a failed assertion says what
+     * went wrong and which statuses maas-service produced. The status a demoted leader answers
+     * with is the assumption the retry classification rests on, and the messages are where the
+     * run reports it.
+     */
     public static String errorSummary(List<OperationOutcome> outcomes) {
         List<OperationOutcome> failures = outcomes.stream().filter(o -> !o.success()).toList();
         if (failures.isEmpty()) {
@@ -133,6 +175,9 @@ public final class StorageAssertions {
         Map<String, Long> byClass = failures.stream().collect(Collectors.groupingBy(
                 outcome -> outcome.errorClass() == null ? "unknown" : outcome.errorClass(),
                 Collectors.counting()));
-        return byClass + ", first message: " + failures.get(0).errorMessage();
+        Map<String, Long> byMessage = failures.stream().collect(Collectors.groupingBy(
+                outcome -> outcome.errorMessage() == null ? "no message" : outcome.errorMessage(),
+                Collectors.counting()));
+        return byClass + ", messages: " + byMessage;
     }
 }

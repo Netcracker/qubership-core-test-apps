@@ -1,7 +1,6 @@
 package com.netcracker.cloud.storagetestservice.configuration;
 
 import com.netcracker.cloud.maas.client.api.MaaSAPIClient;
-import com.netcracker.cloud.storagetestservice.storage.KafkaProbe;
 import com.netcracker.cloud.storagetestservice.storage.MaasKafkaProbe;
 import com.netcracker.cloud.storagetestservice.storage.MaasRabbitProbe;
 import com.netcracker.cloud.storagetestservice.storage.MaasWatchProbe;
@@ -19,12 +18,6 @@ public class WorkloadConfiguration {
     @Bean
     public MaasKafkaProbe maasKafkaProbe(MaaSAPIClient maas) {
         return new MaasKafkaProbe(maas);
-    }
-
-    // close() is inferred: the probe is AutoCloseable
-    @Bean
-    public KafkaProbe kafkaProbe(MaaSAPIClient maas) {
-        return new KafkaProbe(maas);
     }
 
     @Bean

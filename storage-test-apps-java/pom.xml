@@ -30,7 +30,6 @@
     <modules>
         <module>../storage-test-service-common</module>
         <module>../storage-test-service-spring</module>
-        <module>../storage-test-service-quarkus</module>
     </modules>
 
     <scm>

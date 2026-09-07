@@ -37,15 +37,6 @@ public class StorageController {
         return ResponseEntity.ok(Map.of("storage", type, "key", key, "value", read));
     }
 
-    @GetMapping("/api/v1/db/{type}/read")
-    public ResponseEntity<Map<String, Object>> read(@PathVariable String type,
-                                                    @RequestParam String key,
-                                                    @RequestParam(defaultValue = "PER_CALL") HandleMode handleMode) {
-        String value = workload.probe(type).read(handleMode, key);
-        return ResponseEntity.ok(Map.of("storage", type, "key", key, "found", value != null,
-                "value", value == null ? "" : value));
-    }
-
     @PostMapping("/api/v1/workload/start")
     public ResponseEntity<Map<String, Object>> start(@RequestParam String storage,
                                                      @RequestParam(defaultValue = "PER_CALL") HandleMode handleMode,

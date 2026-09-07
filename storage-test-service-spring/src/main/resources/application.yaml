@@ -32,17 +32,6 @@ management:
       probes:
         enabled: true
 
-# The pool is deliberately small and quick to give up: a failover test must observe a bounded
-# failure, and a pool that waits minutes for a connection hides exactly what is being measured.
-dbaas:
-  api:
-    datasource:
-      postgresql:
-        maximumPoolSize: 5
-        connectionTimeout: 5000
-        validationTimeout: 2000
-
 logging:
   level:
     com.netcracker.cloud.storagetestservice: INFO
-    com.netcracker.cloud.dbaas: INFO

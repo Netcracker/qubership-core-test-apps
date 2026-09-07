@@ -9,7 +9,6 @@ import com.netcracker.cloud.maas.client.api.kafka.TopicCreateOptions;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Optional;
 
 /**
  * MaaS control plane, not the broker. maas-service keeps its state in PostgreSQL, so a leader
@@ -45,12 +44,6 @@ public class MaasKafkaProbe implements StorageProbe {
         TopicAddress address = kafkaClient(handleMode)
                 .getOrCreateTopic(classifier(key), TopicCreateOptions.DEFAULTS);
         return address == null ? null : value;
-    }
-
-    @Override
-    public String read(HandleMode handleMode, String key) {
-        Optional<TopicAddress> topic = kafkaClient(handleMode).getTopic(classifier(key));
-        return topic.map(TopicAddress::getTopicName).orElse(null);
     }
 
     @Override

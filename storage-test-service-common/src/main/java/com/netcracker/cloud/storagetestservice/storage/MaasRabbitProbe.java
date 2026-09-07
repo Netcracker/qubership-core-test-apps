@@ -42,12 +42,6 @@ public class MaasRabbitProbe implements StorageProbe {
     }
 
     @Override
-    public String read(HandleMode handleMode, String key) {
-        VHost vhost = rabbitClient(handleMode).getVirtualHost(classifier(key));
-        return vhost == null ? null : vhost.getCnn();
-    }
-
-    @Override
     public void releaseHeldHandle() {
         heldClient = null;
     }

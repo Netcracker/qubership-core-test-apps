@@ -101,13 +101,6 @@ func (p *MaasWatch) WriteAndRead(ctx context.Context, _ HandleMode, key, value s
 }
 
 // Read has nothing to return beyond what the callbacks delivered: a watch is one-shot.
-func (p *MaasWatch) Read(_ context.Context, _ HandleMode, key string) (string, error) {
-	if p.delivered.Load() > 0 {
-		return key, nil
-	}
-	return "", nil
-}
-
 func (p *MaasWatch) ReleaseHeldHandle() {
 	p.mu.Lock()
 	defer p.mu.Unlock()

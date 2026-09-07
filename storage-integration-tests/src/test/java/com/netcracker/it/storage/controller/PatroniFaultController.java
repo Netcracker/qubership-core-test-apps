@@ -94,16 +94,6 @@ public class PatroniFaultController implements FaultController {
     }
 
     @Override
-    public void rollingRestart() {
-        for (Pod pod : members()) {
-            String name = pod.getMetadata().getName();
-            log.info("Rolling restart: deleting {}", name);
-            client.pods().inNamespace(namespace).withName(name).withGracePeriod(0).delete();
-            awaitStable(Duration.ofMinutes(3));
-        }
-    }
-
-    @Override
     public void awaitStable(Duration timeout) {
         // an empty member list is a configuration error, not something to wait out
         if (members().isEmpty()) {

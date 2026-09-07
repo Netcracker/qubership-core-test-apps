@@ -1,0 +1,117 @@
+# One storage test application: a service account, a service and a deployment.
+# Rendered by storage-test-apps.sh with envsubst, which exports every placeholder below.
+#
+# The applications are reached by port-forward rather than through the gateway, so they need no
+# route declarations and no synchronizer hooks. The service account carries the m2m label because
+# that is what identifies it once the client talks to maas-service directly instead of through
+# maas-agent.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: '${SERVICE}'
+  labels:
+    type: m2m
+    app.kubernetes.io/part-of: storage-test-app
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: '${SERVICE}'
+  labels:
+    app.kubernetes.io/part-of: storage-test-app
+spec:
+  ports:
+    - name: web
+      port: 8080
+      targetPort: 8080
+  selector:
+    name: '${SERVICE}'
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: '${SERVICE}'
+  labels:
+    name: '${SERVICE}'
+    app.kubernetes.io/instance: '${SERVICE}'
+    app.kubernetes.io/part-of: storage-test-app
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      name: '${SERVICE}'
+  template:
+    metadata:
+      labels:
+        name: '${SERVICE}'
+        app.kubernetes.io/instance: '${SERVICE}'
+        app.kubernetes.io/part-of: storage-test-app
+    spec:
+      serviceAccountName: '${SERVICE}'
+      containers:
+        - name: '${SERVICE}'
+          image: '${IMAGE}'
+          imagePullPolicy: '${IMAGE_PULL_POLICY}'
+          securityContext:
+            runAsGroup: 10001
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: web
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: MICROSERVICE_NAME
+              value: '${SERVICE}'
+            - name: CLOUD_SERVICE_NAME
+              value: '${SERVICE}'
+            - name: DEPLOYMENT_VERSION
+              value: v1
+            - name: CLOUD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            # The Go MaaS client resolves its namespace from this one and fails to start without it.
+            - name: MICROSERVICE_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: MAAS_AGENT_URL
+              value: '${MAAS_AGENT_URL}'
+            - name: CONSUL_ENABLED
+              value: 'true'
+            - name: CONSUL_URL
+              value: 'http://consul-consul-server.consul.svc.cluster.local:8500'
+          readinessProbe:
+            httpGet:
+              path: '${READINESS_PATH}'
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: '${LIVENESS_PATH}'
+              port: 8080
+            # Deliberately slack: a storage failover must not restart the application, or the
+            # recovery being measured would be the container's, not the library's.
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            failureThreshold: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi

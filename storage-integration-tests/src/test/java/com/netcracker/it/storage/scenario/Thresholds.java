@@ -19,18 +19,10 @@ public record Thresholds(
         int leakCycles) {
 
     /**
-     * Patroni promotes a replica in a few seconds; 30s leaves room for the client to notice, drop
-     * its cached connection and rebuild. maxOperation is well under the recovery window on purpose
-     * — an operation that outlives it is hanging, not slow.
-     */
-    public static Thresholds postgresql() {
-        return new Thresholds(Duration.ofSeconds(30), Duration.ofSeconds(20), 0.25, 5);
-    }
-
-    /**
-     * The MaaS client retries a call for up to maas.http.retry.max-total-duration-ms (60s by
-     * default) before failing, so both numbers sit above the database election itself. A vhost and
-     * a watch travel the same path as a topic, so all three MaaS profiles share this allowance.
+     * Both clients bound one call, retries included, to a minute before giving up, so both numbers
+     * sit above the database election itself. A vhost and a watch travel the same path as a topic,
+     * so all three MaaS profiles share this allowance. An operation that outlives maxOperation is
+     * hanging rather than slow, which is a hard failure on either platform.
      */
     public static Thresholds maas() {
         return new Thresholds(Duration.ofSeconds(90), Duration.ofSeconds(65), 0.25, 5);
@@ -42,14 +34,5 @@ public record Thresholds(
      */
     public static Thresholds maasAgent() {
         return new Thresholds(Duration.ofSeconds(45), Duration.ofSeconds(70), 0.25, 5);
-    }
-
-    /**
-     * Losing the broker takes the whole instance down, so recovery is the pod returning, the topic
-     * being reconciled and the producer refreshing metadata. maxOperation matches the producer
-     * delivery timeout.
-     */
-    public static Thresholds kafka() {
-        return new Thresholds(Duration.ofSeconds(60), Duration.ofSeconds(25), 0.25, 5);
     }
 }
