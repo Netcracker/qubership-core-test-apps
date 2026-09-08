@@ -53,10 +53,17 @@ data:
         # Host names this site serves. A request can reach the default server
         # below with a Host that matches no server block, which is legitimate:
         # Cloud-Core Mesh forwards the caller's Host unless the route sets
-        # hostRewrite, while Istio always rewrites it. Only an unrecognized SNI
-        # means the gateway originated TLS for the wrong host.
+        # hostRewrite, while Istio always rewrites it.
+        #
+        # An absent SNI is legitimate too. Cloud-Core Mesh only sends one when the
+        # TLS profile carries tls.sni, or when the control plane runs with
+        # SNI_PROPAGATION_ENABLED=true, which defaults to false; a gateway-level
+        # profile is forbidden from setting tls.sni, so it originates without one.
+        # Istio always sends the destination host. Only a non-empty SNI naming a
+        # host this site does not serve means TLS was originated for the wrong one.
         map $ssl_server_name $sni_known {
             default                 0;
+            ""                      1;
             verified.external.test  1;
             gwdefault.external.test 1;
             mtls.external.test      1;

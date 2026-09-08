@@ -97,27 +97,61 @@ only in TLS settings cannot share a host.
 The `verified` route also matches on a `tenant-id: cloud-common` header, which exercises the `headerMatchers` →
 `matches[].headers` mapping, and every route strips `Origin` and `Authorization`.
 
-## The authority divergence
+## Where the two meshes diverge
+
+Two things an egress route controls are not portable, and the tests are written around that rather than pretending
+otherwise.
+
+### The authority
 
 Four of the five rules set `hostRewrite` explicitly. nginx picks its server block by the `Host` header, so pinning the
 authority keeps those assertions on the configuration under test rather than on gateway defaults.
 
-The fifth, `/egress-tls/implicit`, deliberately sets none, because that is where the two meshes part company. The
-migration rules give every egress destination a `URLRewrite` hostname *even when the source has no `hostRewrite`*,
-reasoning that Cloud-Core Mesh already uses the cluster endpoint as the upstream authority. That does not hold for the
-`Host` header: `NewEgressRouteBuilder` sets `hostRewrite = true`, but the builder only applies a rewrite when the route
-carries `HostRewrite` or `HostAutoRewrite`, and nothing populates either for a declarative egress route. With both
-empty, Envoy sets no rewrite specifier and forwards the caller's `Host` unchanged.
+The fifth, `/egress-tls/implicit`, deliberately sets none. The migration rules give every egress destination a
+`URLRewrite` hostname *even when the source has no `hostRewrite`*, reasoning that Cloud-Core Mesh already uses the
+cluster endpoint as the upstream authority. That does not hold for the `Host` header: `NewEgressRouteBuilder` sets
+`hostRewrite = true`, but the builder only applies a rewrite when the route carries `HostRewrite` or `HostAutoRewrite`,
+and nothing populates either for a declarative egress route. With both empty, Envoy sets no rewrite specifier and
+forwards the caller's `Host` unchanged.
 
-So on that route Istio sends `implicit.external.test` as the authority and Cloud-Core Mesh sends whatever the caller
-used. `testEgressTlsWithoutExplicitHostRewrite` asserts SNI and the path rewrite, which both meshes must agree on, and
-logs the authority instead of asserting it. Two consequences worth knowing:
+Migrating a chart whose egress routes omit `hostRewrite` therefore changes the `Host` the external host receives. An
+upstream that routes by `Host` — a shared CDN, or an nginx with several `server_name` blocks — can start answering
+differently after migration.
 
-- Migrating a chart whose egress routes omit `hostRewrite` changes the `Host` the external host receives. An upstream
-  that routes by `Host` — a shared CDN or an nginx with several `server_name` blocks — can start answering differently
-  after migration.
-- The echo server treats that as legitimate: its default server answers normally for any SNI it recognizes and returns
-  `421` only for an unrecognized one, so an unrewritten authority is not mistaken for an SNI fault.
+### SNI on a gateway-level profile
+
+Cloud-Core Mesh forbids `tls.sni` on a gateway-level `TlsDef`, and derives one from the endpoint only when the control
+plane runs with `SNI_PROPAGATION_ENABLED=true`:
+
+```go
+// control-plane/envoy/cache/builder/cluster/cluster.go
+if propagateSni && aggregatedTlsConfig.SNI == "" {
+    aggregatedTlsConfig.SNI = cluster.Endpoints[0].Address
+}
+```
+
+That flag defaults to `false` (`control-plane/values.yaml`), so a gateway-level profile originates TLS with **no SNI**.
+Istio has no gateway-wide profile, so the migration expands it into a per-host `DestinationRule` whose `sni` is the
+destination host — meaning Istio always sends one.
+
+So `/egress-tls/gwdefault` and `/egress-tls/implicit` see SNI on Istio and no SNI on Cloud-Core Mesh. The three
+cluster-level profiles set `tls.sni` in the `TlsDef`, so their SNI is asserted on both meshes.
+
+### What the tests do about it
+
+Each test asserts what both meshes must agree on and logs the rest. A route reaching the external host at all already
+proves TLS origination worked, because the site serves a certificate signed by a CA that only the profile under test
+carries.
+
+| Route | Asserted on both meshes | Logged, not asserted |
+|---|---|---|
+| `verified`, `insecure`, `mtls` | SNI, path rewrite, client cert | — |
+| `gwdefault` | authority, path rewrite, no client cert | SNI |
+| `implicit` | path rewrite, no client cert | authority, SNI |
+
+The echo server matches: it answers normally when SNI is absent, since that is ordinary Cloud-Core Mesh behavior, and
+returns `421` only for a non-empty SNI naming a host it does not serve. That keeps the guard against originating TLS
+to the wrong host without failing the legitimate no-SNI case.
 
 ## Verifying against the skill
 

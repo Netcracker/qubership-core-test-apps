@@ -2,6 +2,7 @@ package com.netcracker.it.common.model;
 
 import com.google.gson.annotations.SerializedName;
 import lombok.Getter;
+import lombok.ToString;
 
 /**
  * What the simulated external HTTPS site saw. Answered by the egress-tls-echo nginx
@@ -10,6 +11,7 @@ import lombok.Getter;
  * certificate it presented, if any.
  */
 @Getter
+@ToString
 public class EgressEchoResponse {
 
     /** SNI the gateway offered while opening the TLS connection. */
