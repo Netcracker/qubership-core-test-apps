@@ -112,24 +112,32 @@ where every rule already carries its own `RequestHeaderModifier`.
 
 ## Where the two meshes diverge
 
-Two things an egress route controls are not portable, and the tests are written around that rather than pretending
-otherwise.
+One thing an egress route controls is not portable, and the tests are written around that rather than pretending
+otherwise. A second, the upstream authority, turns out to be portable after all.
 
-### The authority
+### The authority: not a divergence
 
 Four of the five rules set `hostRewrite` explicitly. nginx picks its server block by the `Host` header, so pinning the
 authority keeps those assertions on the configuration under test rather than on gateway defaults.
 
-The fifth, `/egress-tls/implicit`, deliberately sets none. The migration rules give every egress destination a
-`URLRewrite` hostname *even when the source has no `hostRewrite`*, reasoning that Cloud-Core Mesh already uses the
-cluster endpoint as the upstream authority. That does not hold for the `Host` header: `NewEgressRouteBuilder` sets
-`hostRewrite = true`, but the builder only applies a rewrite when the route carries `HostRewrite` or `HostAutoRewrite`,
-and nothing populates either for a declarative egress route. With both empty, Envoy sets no rewrite specifier and
-forwards the caller's `Host` unchanged.
+The fifth, `/egress-tls/implicit`, sets none, and Cloud-Core Mesh rewrites the authority anyway. Every route it creates
+carries the cluster endpoint as its authority, and an explicit rule-level `hostRewrite` simply takes priority:
 
-Migrating a chart whose egress routes omit `hostRewrite` therefore changes the `Host` the external host receives. An
-upstream that routes by `Host` — a shared CDN, or an nginx with several `server_name` blocks — can start answering
-differently after migration.
+```go
+// control-plane/services/route/creator/routescreation.go
+HostRewrite:              endpointAddr,
+```
+
+```text
+/egress-tls/implicit   host_rewrite_literal= implicit.external.test:8443   # no hostRewrite in the source
+/egress-tls/gwdefault  host_rewrite_literal= gwdefault.external.test       # explicit hostRewrite
+```
+
+So the migration rule that gives every egress destination a `URLRewrite` hostname *even when the source has no
+`hostRewrite`* matches what Cloud-Core Mesh already does. The only difference is the port: Cloud-Core Mesh rewrites to
+the endpoint address, port included, while Gateway API's `URLRewrite.hostname` cannot carry one. nginx's `$host`
+strips the port, so both meshes report the same value here; an upstream that reads the `Host` header verbatim would
+see `host:port` before migration and a bare host after.
 
 ### SNI on a gateway-level profile
 
@@ -165,7 +173,7 @@ carries.
 |---|---|---|
 | `verified`, `insecure`, `mtls` | SNI, path rewrite, client cert | — |
 | `gwdefault` | authority, path rewrite, no client cert | SNI |
-| `implicit` | path rewrite, no client cert | authority, SNI |
+| `implicit` | authority, path rewrite, no client cert | SNI |
 
 The echo server matches: it answers normally when SNI is absent, since that is ordinary Cloud-Core Mesh behavior, and
 returns `421` only for a non-empty SNI naming a host it does not serve. That keeps the guard against originating TLS

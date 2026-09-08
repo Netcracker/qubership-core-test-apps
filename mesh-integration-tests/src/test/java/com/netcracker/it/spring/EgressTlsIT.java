@@ -158,19 +158,22 @@ public class EgressTlsIT {
      * origination still has to happen, through the gateway-level profile, with SNI
      * derived from the destination host.
      *
-     * <p>Neither the authority nor SNI is asserted, because this route diverges on both.
-     * The migration rules give every egress destination a {@code URLRewrite} hostname
-     * even when the source sets no {@code hostRewrite}, so Istio sends the external host
-     * while Cloud-Core Mesh forwards the caller's {@code Host}. The route names no TLS
-     * profile either, so it falls through to the gateway-level one, which Cloud-Core
-     * Mesh originates without SNI. Asserting either value would fail on one mesh by
-     * construction, so the check covers what both must agree on and logs the rest.
+     * <p>Both meshes still rewrite the authority. Cloud-Core Mesh gives every route it
+     * creates the cluster endpoint as its authority, and an explicit rule-level
+     * {@code hostRewrite} merely takes priority, so the migration rule that always emits
+     * a {@code URLRewrite} hostname matches it. Cloud-Core Mesh includes the port and
+     * Gateway API cannot, but nginx reports {@code $host} with the port stripped, so the
+     * value asserted here holds on both.
+     *
+     * <p>SNI is not asserted: the route names no TLS profile, so it falls through to the
+     * gateway-level one, which Cloud-Core Mesh originates without SNI.
      */
     @Test
     public void testEgressTlsWithoutExplicitHostRewrite() throws IOException {
         EgressEchoResponse echo = callEgress("egress-tls/implicit/hello", false);
         log.info("Route with neither hostRewrite nor tlsConfigName reached the external host: {}", echo);
 
+        assertEquals("implicit.external.test", echo.getHost(), "authority was not rewritten to the endpoint host");
         assertEquals("/hello", echo.getUri(), "prefix rewrite did not strip the egress path prefix");
         assertEquals("NONE", echo.getClientVerify());
     }
