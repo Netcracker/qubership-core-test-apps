@@ -107,7 +107,10 @@ spec:
   gateways: ["egress-gateway"]
   virtualServices:
     - name: egress-gw
-      removeHeaders: ["Origin", "Authorization"]
+      # No virtualService-level removeHeaders. Three other RouteConfigurations in this
+      # chart name the same virtual service on egress-gateway, so Cloud-Core Mesh merges
+      # them into one virtual host and keeps a single header list. Each rule below carries
+      # its own instead.
       routeConfiguration:
         routes:
           # Cluster-level profile with an explicit CA.
