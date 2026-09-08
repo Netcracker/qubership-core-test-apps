@@ -16,6 +16,7 @@ in the [`core-mesh-crs-to-istio`][skill] skill (`tls-def-mapping.md`).
 | Piece | Where | Purpose |
 |---|---|---|
 | `egress-tls-echo` (nginx) | `templates/EgressTlsEcho.yaml` | Stands in for the external HTTPS site. Mesh-agnostic. |
+| its nginx config | `templates/EgressTlsEchoConfig.yaml` | Separate file so the Deployment can hash it and roll the pod. |
 | `TlsDef` + `RouteConfiguration` | `templates/EgressTls.yaml` | Cloud-Core Mesh side, guarded by `SERVICE_MESH_TYPE: Core`. |
 | `HTTPRoute` + `ServiceEntry` + `Secret` + `DestinationRule` | `templates/EgressTls-istio.yaml` | Istio side, guarded by `SERVICE_MESH_TYPE: Istio`. |
 | `EgressTlsIT` | `mesh-integration-tests/.../spring/EgressTlsIT.java` | Assertions, identical for both meshes. |
@@ -81,6 +82,11 @@ Both meshes then resolve the same names: Cloud-Core Mesh in the egress gateway's
 `insecure.external.test` is served by a certificate from the rogue CA, so the "skip verification" scenario fails
 unless verification really is off. A shared CA would let it pass for the wrong reason.
 
+That only holds if the gateway offers SNI. nginx picks the certificate during the handshake, so without SNI it serves
+the default server's certificate — the trusted one — and the scenario passes whether verification is on or off. This
+is why `egress-insecure-cert` sets `tls.sni` even though it verifies nothing: the SNI is what makes the site present
+the untrusted certificate. The cluster run that caught this returned `200` with `sni: ""` before the field was added.
+
 ## Scenarios
 
 Every scenario uses its own external host name. Istio allows one `DestinationRule` per host, so scenarios that differ
@@ -89,13 +95,20 @@ only in TLS settings cannot share a host.
 | Path prefix | External host | Cloud-Core Mesh | Istio |
 |---|---|---|---|
 | `/egress-tls/verified` | `verified.external.test` | cluster-level `TlsDef`, `trustedCA`, explicit `sni` | `Secret` with `ca.crt`, `DestinationRule` `mode: SIMPLE` + `credentialName` |
-| `/egress-tls/insecure` | `insecure.external.test` | `TlsDef` with `insecure: true` | `DestinationRule` `mode: SIMPLE` + `insecureSkipVerify: true`, no `Secret` |
+| `/egress-tls/insecure` | `insecure.external.test` | `TlsDef` with `insecure: true` and explicit `sni` | `DestinationRule` `mode: SIMPLE` + `insecureSkipVerify: true`, no `Secret` |
 | `/egress-tls/mtls` | `mtls.external.test` | `TlsDef` with `clientCert` and `privateKey` | `Secret` with `ca.crt` / `tls.crt` / `tls.key`, `DestinationRule` `mode: MUTUAL` |
 | `/egress-tls/gwdefault` | `gwdefault.external.test` | gateway-level `TlsDef` (`trustedForGateways`), route names no profile | per-host `DestinationRule` named `<TlsDef>-<host-with-dashes>`, SNI taken from the host |
 | `/egress-tls/implicit` | `implicit.external.test` | gateway-level `TlsDef`, and the rule sets no `hostRewrite` | same, plus a `URLRewrite` hostname the source never asked for |
 
 The `verified` route also matches on a `tenant-id: cloud-common` header, which exercises the `headerMatchers` →
-`matches[].headers` mapping, and every route strips `Origin` and `Authorization`.
+`matches[].headers` mapping.
+
+Every rule strips `Origin` and `Authorization` at **rule level**, not on the virtual service. Four RouteConfigurations
+in this chart — the two pre-existing egress ones, the Quarkus one, and this one — all name the `egress-gw` virtual
+service on `egress-gateway`, so they merge into one Envoy virtual host and its `removeHeaders` resolves to a single
+list. This chart's `["Origin", "Authorization"]` lost to the others' `["Origin"]`, and `Authorization` reached the
+external host. Rule-level `removeHeaders` belongs to one route and cannot collide, and it matches the Istio sibling,
+where every rule already carries its own `RequestHeaderModifier`.
 
 ## Where the two meshes diverge
 
@@ -134,8 +147,13 @@ That flag defaults to `false` (`control-plane/values.yaml`), so a gateway-level 
 Istio has no gateway-wide profile, so the migration expands it into a per-host `DestinationRule` whose `sni` is the
 destination host — meaning Istio always sends one.
 
-So `/egress-tls/gwdefault` and `/egress-tls/implicit` see SNI on Istio and no SNI on Cloud-Core Mesh. The three
-cluster-level profiles set `tls.sni` in the `TlsDef`, so their SNI is asserted on both meshes.
+The same applies to a cluster-level profile that omits `tls.sni`: Cloud-Core Mesh sends SNI only when the field is
+set, while the migration gives every `DestinationRule` an `sni` regardless — `tls.sni` when present, the destination
+host otherwise. So all three cluster-level profiles here set `tls.sni` explicitly, which makes their SNI assertable on
+both meshes.
+
+That leaves `/egress-tls/gwdefault` and `/egress-tls/implicit` as the two routes that see SNI on Istio and none on
+Cloud-Core Mesh, because a gateway-level profile is the one case where `tls.sni` cannot be set.
 
 ### What the tests do about it
 
@@ -152,6 +170,16 @@ carries.
 The echo server matches: it answers normally when SNI is absent, since that is ordinary Cloud-Core Mesh behavior, and
 returns `421` only for a non-empty SNI naming a host it does not serve. That keeps the guard against originating TLS
 to the wrong host without failing the legitimate no-SNI case.
+
+The table is what a Cloud-Core Mesh cluster actually reports, not what the mapping rules predict:
+
+```text
+verified   sni=verified.external.test   host=verified.external.test   origin=""  tenantId=cloud-common
+insecure   sni=insecure.external.test   host=insecure.external.test
+mtls       sni=mtls.external.test       clientVerify=SUCCESS  clientDn=...CN=egress-gateway-client
+gwdefault  sni=""                       host=gwdefault.external.test
+implicit   sni=""                       host=implicit.external.test
+```
 
 ## Verifying against the skill
 
@@ -207,8 +235,15 @@ The script needs OpenSSL 1.1.1 or later. On Windows, run it from Git Bash with `
 - **`credentialName` resolves in the gateway's namespace.** Istio reads the Secret from the namespace the egress
   gateway pod runs in. When `core-mesh-config` places `egress-gateway` outside the application namespace, the Secrets
   in `EgressTls-istio.yaml` have to move with it.
+- **The CoreDNS rewrite survived, and covers every host.** `kubectl -n kube-system get cm coredns -o yaml` should
+  contain the marked block with one `rewrite name` per host. A cluster rebuild between install and test run drops the
+  block; a host added to the chart but not to `EGRESS_TLS_HOSTS` in `egress-tls-dns.sh` is missing from it, which
+  Envoy reports as `503 no healthy upstream` rather than a DNS error. **Adding a scenario means editing three places:**
+  the chart, the certificate SANs in `gen-certs.sh`, and that host list.
+- **The echo pod is serving the config you think it is.** `kubectl -n core exec deploy/egress-tls-echo -- cat
+  /etc/nginx/egress/nginx.conf`. The Deployment hashes `EgressTlsEchoConfig.yaml` into an annotation so a config change
+  rolls the pod; a mounted ConfigMap on its own would update in place and leave nginx running the old configuration.
 - **`subKind: TlsDef` reaches the control plane.** The chart wraps `TlsDef` the way it wraps every other Cloud-Core
-  Mesh CR, as `core.netcracker.com/v1` `Mesh` with a `subKind`. A `TlsDef` that never arrives shows up as a handshake
-  failure rather than a deployment error.
-- **The CoreDNS rewrite survived.** `kubectl -n kube-system get cm coredns -o yaml` should contain the marked block.
-  A cluster rebuild between install and test run drops it.
+  Mesh CR, as `core.netcracker.com/v1` `Mesh` with a `subKind`. Confirmed working against Cloud-Core Mesh —
+  `kubectl -n core get mesh` lists each profile with `subKind=TlsDef`. A `TlsDef` that never arrives shows up as a
+  handshake failure rather than a deployment error.

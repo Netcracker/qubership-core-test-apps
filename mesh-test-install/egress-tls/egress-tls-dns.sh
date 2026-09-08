@@ -17,7 +17,7 @@
 
 set -e
 
-EGRESS_TLS_HOSTS=(verified.external.test insecure.external.test mtls.external.test gwdefault.external.test)
+EGRESS_TLS_HOSTS=(verified.external.test insecure.external.test mtls.external.test gwdefault.external.test implicit.external.test)
 COREDNS_MARKER="# BEGIN qubership-core-test-apps egress-tls"
 COREDNS_END_MARKER="# END qubership-core-test-apps egress-tls"
 

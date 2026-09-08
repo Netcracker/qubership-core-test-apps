@@ -43,6 +43,10 @@ spec:
   tls:
     enabled: true
     insecure: true
+    # Without an SNI the external site serves its default certificate, which this
+    # CA signs, and the scenario would pass even with verification on. Naming the
+    # host makes it serve the untrusted one instead.
+    sni: insecure.external.test
 ---
 apiVersion: core.netcracker.com/v1
 kind: Mesh
@@ -118,6 +122,7 @@ spec:
                     - name: tenant-id
                       exactMatch: cloud-common
                 allowed: true
+                removeHeaders: ["Origin", "Authorization"]
                 hostRewrite: verified.external.test
                 prefixRewrite: /
           # Verification switched off: the host serves a certificate from a CA the
@@ -130,6 +135,7 @@ spec:
               - match:
                   prefix: /egress-tls/insecure
                 allowed: true
+                removeHeaders: ["Origin", "Authorization"]
                 hostRewrite: insecure.external.test
                 prefixRewrite: /
           # Mutual TLS: the gateway presents a client certificate.
@@ -141,6 +147,7 @@ spec:
               - match:
                   prefix: /egress-tls/mtls
                 allowed: true
+                removeHeaders: ["Origin", "Authorization"]
                 hostRewrite: mtls.external.test
                 prefixRewrite: /
           # No tlsConfigName: falls through to the gateway-level profile.
@@ -151,6 +158,7 @@ spec:
               - match:
                   prefix: /egress-tls/gwdefault
                 allowed: true
+                removeHeaders: ["Origin", "Authorization"]
                 hostRewrite: gwdefault.external.test
                 prefixRewrite: /
           # Neither tlsConfigName nor hostRewrite. The migration rules say an egress
@@ -164,6 +172,7 @@ spec:
               - match:
                   prefix: /egress-tls/implicit
                 allowed: true
+                removeHeaders: ["Origin", "Authorization"]
                 prefixRewrite: /
 {{- end }}
 {{- end }}

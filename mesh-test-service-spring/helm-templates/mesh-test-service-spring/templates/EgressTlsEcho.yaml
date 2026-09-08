@@ -12,110 +12,6 @@
 # saw: SNI, Host header, path, and the client certificate, if any.
 ---
 apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: egress-tls-echo
-  labels:
-    app.kubernetes.io/part-of: 'mesh-test-app'
-    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
-data:
-  # Included by every server block, so the answer shape is defined once.
-  # No default_type here: nginx rejects a duplicate directive in one context,
-  # and the http block below sets it for every server.
-  echo.conf: |
-    return 200 '{"sni":"$ssl_server_name","host":"$host","uri":"$request_uri","clientVerify":"$client_verify","clientDn":"$ssl_client_s_dn","origin":"$http_origin","authorization":"$http_authorization","tenantId":"$http_tenant_id"}';
-
-  nginx.conf: |
-    worker_processes 1;
-    error_log /dev/stderr warn;
-    pid /tmp/nginx.pid;
-
-    events {
-        worker_connections 256;
-    }
-
-    http {
-        access_log /dev/stdout;
-        default_type application/json;
-        client_body_temp_path /tmp/client_body;
-        proxy_temp_path /tmp/proxy;
-        fastcgi_temp_path /tmp/fastcgi;
-        uwsgi_temp_path /tmp/uwsgi;
-        scgi_temp_path /tmp/scgi;
-
-        # $ssl_client_verify is empty on a listener that asks for no client
-        # certificate; report that as NONE so the tests assert on one value.
-        map $ssl_client_verify $client_verify {
-            default $ssl_client_verify;
-            ""      NONE;
-        }
-
-        # Host names this site serves. A request can reach the default server
-        # below with a Host that matches no server block, which is legitimate:
-        # Cloud-Core Mesh forwards the caller's Host unless the route sets
-        # hostRewrite, while Istio always rewrites it.
-        #
-        # An absent SNI is legitimate too. Cloud-Core Mesh only sends one when the
-        # TLS profile carries tls.sni, or when the control plane runs with
-        # SNI_PROPAGATION_ENABLED=true, which defaults to false; a gateway-level
-        # profile is forbidden from setting tls.sni, so it originates without one.
-        # Istio always sends the destination host. Only a non-empty SNI naming a
-        # host this site does not serve means TLS was originated for the wrong one.
-        map $ssl_server_name $sni_known {
-            default                 0;
-            ""                      1;
-            verified.external.test  1;
-            gwdefault.external.test 1;
-            mtls.external.test      1;
-            insecure.external.test  1;
-            implicit.external.test  1;
-        }
-
-        # Reached when the Host header matches no server block. Answers normally
-        # for a known SNI, and rejects an unknown one.
-        server {
-            listen 8443 ssl default_server;
-            server_name _;
-            ssl_certificate     /etc/egress-tls/server.crt;
-            ssl_certificate_key /etc/egress-tls/server.key;
-            if ($sni_known = 0) {
-                return 421 '{"error":"unexpected sni","sni":"$ssl_server_name","host":"$host"}';
-            }
-            include /etc/nginx/egress/echo.conf;
-        }
-
-        # Server certificate signed by the CA the mesh trusts.
-        server {
-            listen 8443 ssl;
-            server_name verified.external.test gwdefault.external.test implicit.external.test;
-            ssl_certificate     /etc/egress-tls/server.crt;
-            ssl_certificate_key /etc/egress-tls/server.key;
-            include /etc/nginx/egress/echo.conf;
-        }
-
-        # Same certificate, but the client must present one signed by the same CA.
-        server {
-            listen 8443 ssl;
-            server_name mtls.external.test;
-            ssl_certificate     /etc/egress-tls/server.crt;
-            ssl_certificate_key /etc/egress-tls/server.key;
-            ssl_client_certificate /etc/egress-tls/ca.crt;
-            ssl_verify_client on;
-            include /etc/nginx/egress/echo.conf;
-        }
-
-        # Server certificate signed by a CA the mesh was never given, so only a
-        # profile that skips verification can talk to this host.
-        server {
-            listen 8443 ssl;
-            server_name insecure.external.test;
-            ssl_certificate     /etc/egress-tls/rogue-server.crt;
-            ssl_certificate_key /etc/egress-tls/rogue-server.key;
-            include /etc/nginx/egress/echo.conf;
-        }
-    }
----
-apiVersion: v1
 kind: Secret
 metadata:
   name: egress-tls-echo-certs
@@ -155,8 +51,9 @@ spec:
         name: egress-tls-echo
         app.kubernetes.io/part-of: 'mesh-test-app'
       annotations:
-        # Rolls the pod when a certificate or the nginx config changes.
-        egress-tls-echo/config-checksum: '{{ printf "%s%s%s" (.Files.Get "files/egress-tls/server.crt") (.Files.Get "files/egress-tls/rogue-server.crt") (.Files.Get "files/egress-tls/ca.crt") | sha256sum }}'
+        # Rolls the pod when a certificate or the nginx config changes. Hashing
+        # the ConfigMap by path keeps the two from drifting.
+        egress-tls-echo/config-checksum: '{{ printf "%s%s%s%s" (include (print $.Template.BasePath "/EgressTlsEchoConfig.yaml") .) (.Files.Get "files/egress-tls/server.crt") (.Files.Get "files/egress-tls/rogue-server.crt") (.Files.Get "files/egress-tls/ca.crt") | sha256sum }}'
     spec:
       containers:
       - name: egress-tls-echo
