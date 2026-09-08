@@ -18,6 +18,8 @@ import java.net.URL;
 import static com.netcracker.it.common.HttpClient.okHttpClient;
 import static com.netcracker.it.spring.Const.EGRESS_GW_SERVICE_NAME;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -93,12 +95,21 @@ public class EgressTlsIT {
     /**
      * The route matches on a header as well as a path, so the same path without the
      * header must not reach the external host at all.
+     *
+     * <p>What answers instead differs by mesh, so the status is not asserted. Cloud-Core
+     * Mesh has nothing to match and returns 404. The Istio egress gateway that
+     * core-mesh-config installs carries a catch-all route to {@code egress-fallback-service},
+     * so an unmatched path reaches that service rather than falling through. Either way
+     * the response must not come from the external host, which is what this checks.
      */
     @Test
     public void testEgressTlsHeaderMatcherIsRequired() throws IOException {
         Request request = requestBuilder("egress-tls/verified/hello").build();
         try (Response response = okHttpClient.newCall(request).execute()) {
-            assertEquals(404, response.code(), "route matched without the tenant-id header");
+            String body = response.body().string();
+            assertNotEquals(200, response.code(), "route matched without the tenant-id header: " + body);
+            assertFalse(body.contains("\"sni\""),
+                    "request reached the external host without the tenant-id header: " + body);
         }
     }
 

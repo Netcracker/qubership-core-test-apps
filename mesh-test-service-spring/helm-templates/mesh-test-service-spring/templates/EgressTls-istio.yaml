@@ -263,7 +263,10 @@ metadata:
     app.kubernetes.io/name: '{{ .Values.SERVICE }}'
     app.kubernetes.io/processed-by-operator: "istiod"
     deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
-type: Opaque
+# Istio reads tls.crt / tls.key only from a kubernetes.io/tls secret. As Opaque it
+# resolves ca.crt for the -cacert role and silently skips the client certificate,
+# so MUTUAL origination fails the handshake with no SDS entry for the cert.
+type: kubernetes.io/tls
 stringData:
   ca.crt: |
 {{ .Files.Get "files/egress-tls/ca.crt" | indent 4 }}

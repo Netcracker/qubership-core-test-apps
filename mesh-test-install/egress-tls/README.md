@@ -163,6 +163,22 @@ both meshes.
 That leaves `/egress-tls/gwdefault` and `/egress-tls/implicit` as the two routes that see SNI on Istio and none on
 Cloud-Core Mesh, because a gateway-level profile is the one case where `tls.sni` cannot be set.
 
+### An unmatched path
+
+Cloud-Core Mesh has nothing to match and returns `404`. The Istio egress gateway that
+`core-mesh-config` installs carries a catch-all route to `egress-fallback-service`, so an unmatched
+path reaches that service instead:
+
+```text
+/egress-tls/verified   headers=['tenant-id']  -> verified.external.test
+/                      headers=[]             -> egress-fallback-service.core
+```
+
+`testEgressTlsHeaderMatcherIsRequired` therefore asserts that the response is not `200` and carries
+no `"sni"` field — it never reached the external host — rather than asserting a status. A rule with
+`allowed: false` is unaffected: that mapping omits `backendRefs`, so the rule matches and returns
+`404` itself, and the catch-all only sees paths matching no rule at all.
+
 ### What the tests do about it
 
 Each test asserts what both meshes must agree on and logs the rest. A route reaching the external host at all already
@@ -223,7 +239,7 @@ migration actually produces rather than a hand-written lookalike.
 ```
 
 `EgressTlsIT` port-forwards the `egress-gateway` Service and calls it directly, so it needs no application endpoint
-and behaves the same whichever mesh is installed.
+and behaves the same whichever mesh is installed. All eight tests pass against both Cloud-Core Mesh and Istio.
 
 ## Regenerating the PKI
 
@@ -251,6 +267,14 @@ The script needs OpenSSL 1.1.1 or later. On Windows, run it from Git Bash with `
 - **The echo pod is serving the config you think it is.** `kubectl -n core exec deploy/egress-tls-echo -- cat
   /etc/nginx/egress/nginx.conf`. The Deployment hashes `EgressTlsEchoConfig.yaml` into an annotation so a config change
   rolls the pod; a mounted ConfigMap on its own would update in place and leave nginx running the old configuration.
+- **Mutual TLS needs two things Istio does not warn about.** The Secret must be
+  `type: kubernetes.io/tls`; from an `Opaque` one Istio resolves `ca.crt` for the `<name>-cacert`
+  role and silently skips `tls.crt` / `tls.key`. And the egress gateway's ServiceAccount must be
+  allowed to read Secrets in the namespace — istiod's SubjectAccessReview carries no resource name,
+  so a `Role` narrowed with `resourceNames` never satisfies it even though `kubectl auth can-i` on
+  that Secret answers `yes`. Both show up only as `503 ... remote connection failure` with nothing
+  logged. The grant ships in `qubership-core-mesh-config`; check
+  `kubectl auth can-i get secrets -n <ns> --as=system:serviceaccount:<ns>:egress-gateway-istio`.
 - **`subKind: TlsDef` reaches the control plane.** The chart wraps `TlsDef` the way it wraps every other Cloud-Core
   Mesh CR, as `core.netcracker.com/v1` `Mesh` with a `subKind`. Confirmed working against Cloud-Core Mesh —
   `kubectl -n core get mesh` lists each profile with `subKind=TlsDef`. A `TlsDef` that never arrives shows up as a
