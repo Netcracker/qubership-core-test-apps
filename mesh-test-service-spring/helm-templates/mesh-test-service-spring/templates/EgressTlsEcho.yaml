@@ -20,8 +20,9 @@ metadata:
     app.kubernetes.io/name: '{{ .Values.SERVICE }}'
 data:
   # Included by every server block, so the answer shape is defined once.
+  # No default_type here: nginx rejects a duplicate directive in one context,
+  # and the http block below sets it for every server.
   echo.conf: |
-    default_type application/json;
     return 200 '{"sni":"$ssl_server_name","host":"$host","uri":"$request_uri","clientVerify":"$client_verify","clientDn":"$ssl_client_s_dn","origin":"$http_origin","authorization":"$http_authorization","tenantId":"$http_tenant_id"}';
 
   nginx.conf: |
@@ -35,6 +36,7 @@ data:
 
     http {
         access_log /dev/stdout;
+        default_type application/json;
         client_body_temp_path /tmp/client_body;
         proxy_temp_path /tmp/proxy;
         fastcgi_temp_path /tmp/fastcgi;
@@ -69,7 +71,6 @@ data:
             server_name _;
             ssl_certificate     /etc/egress-tls/server.crt;
             ssl_certificate_key /etc/egress-tls/server.key;
-            default_type application/json;
             if ($sni_known = 0) {
                 return 421 '{"error":"unexpected sni","sni":"$ssl_server_name","host":"$host"}';
             }
