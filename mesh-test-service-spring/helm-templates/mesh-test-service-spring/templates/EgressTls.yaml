@@ -1,0 +1,181 @@
+{{- if .Values.EGRESS_TLS_TESTS_ENABLED }}
+{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}
+# Cloud-Core Mesh egress TLS origination.
+#
+# Clients call the egress gateway over plain HTTP with a path prefix; the gateway
+# opens the HTTPS connection to the external host. Each scenario uses its own
+# external host name, because the Istio sibling expresses the TLS profile as a
+# DestinationRule and Istio allows exactly one of those per host.
+#
+# The Istio equivalent of this file is EgressTls-istio.yaml.
+---
+apiVersion: core.netcracker.com/v1
+kind: Mesh
+subKind: TlsDef
+metadata:
+  name: egress-verified-cert
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
+    app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
+spec:
+  name: egress-verified-cert
+  tls:
+    enabled: true
+    insecure: false
+    sni: verified.external.test
+    trustedCA: |
+{{ .Files.Get "files/egress-tls/ca.crt" | indent 6 }}
+---
+apiVersion: core.netcracker.com/v1
+kind: Mesh
+subKind: TlsDef
+metadata:
+  name: egress-insecure-cert
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "core-operator"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  name: egress-insecure-cert
+  tls:
+    enabled: true
+    insecure: true
+    # Without an SNI the external site serves its default certificate, which this
+    # CA signs, and the scenario would pass even with verification on. Naming the
+    # host makes it serve the untrusted one instead.
+    sni: insecure.external.test
+---
+apiVersion: core.netcracker.com/v1
+kind: Mesh
+subKind: TlsDef
+metadata:
+  name: egress-mtls-cert
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "core-operator"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  name: egress-mtls-cert
+  tls:
+    enabled: true
+    insecure: false
+    sni: mtls.external.test
+    trustedCA: |
+{{ .Files.Get "files/egress-tls/ca.crt" | indent 6 }}
+    clientCert: |
+{{ .Files.Get "files/egress-tls/client.crt" | indent 6 }}
+    privateKey: |
+{{ .Files.Get "files/egress-tls/client.key" | indent 6 }}
+---
+# Gateway-level profile: applies to every cluster on egress-gateway that does not
+# name a cluster-level profile. Cloud-Core Mesh forbids sni here.
+apiVersion: core.netcracker.com/v1
+kind: Mesh
+subKind: TlsDef
+metadata:
+  name: egress-gw-default-cert
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "core-operator"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  name: egress-gw-default-cert
+  trustedForGateways:
+    - egress-gateway
+  tls:
+    enabled: true
+    insecure: false
+    trustedCA: |
+{{ .Files.Get "files/egress-tls/ca.crt" | indent 6 }}
+---
+apiVersion: core.netcracker.com/v1
+kind: Mesh
+subKind: RouteConfiguration
+metadata:
+  name: egress-tls-routes-spring
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "core-operator"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  gateways: ["egress-gateway"]
+  virtualServices:
+    - name: egress-gw
+      # No virtualService-level removeHeaders. Three other RouteConfigurations in this
+      # chart name the same virtual service on egress-gateway, so Cloud-Core Mesh merges
+      # them into one virtual host and keeps a single header list. Each rule below carries
+      # its own instead.
+      routeConfiguration:
+        routes:
+          # Cluster-level profile with an explicit CA.
+          - destination:
+              cluster: echo-verified
+              endpoint: https://verified.external.test:8443
+              tlsConfigName: egress-verified-cert
+            rules:
+              - match:
+                  prefix: /egress-tls/verified
+                  headerMatchers:
+                    - name: tenant-id
+                      exactMatch: cloud-common
+                allowed: true
+                removeHeaders: ["Origin", "Authorization"]
+                hostRewrite: verified.external.test
+                prefixRewrite: /
+          # Verification switched off: the host serves a certificate from a CA the
+          # mesh was never given.
+          - destination:
+              cluster: echo-insecure
+              endpoint: https://insecure.external.test:8443
+              tlsConfigName: egress-insecure-cert
+            rules:
+              - match:
+                  prefix: /egress-tls/insecure
+                allowed: true
+                removeHeaders: ["Origin", "Authorization"]
+                hostRewrite: insecure.external.test
+                prefixRewrite: /
+          # Mutual TLS: the gateway presents a client certificate.
+          - destination:
+              cluster: echo-mtls
+              endpoint: https://mtls.external.test:8443
+              tlsConfigName: egress-mtls-cert
+            rules:
+              - match:
+                  prefix: /egress-tls/mtls
+                allowed: true
+                removeHeaders: ["Origin", "Authorization"]
+                hostRewrite: mtls.external.test
+                prefixRewrite: /
+          # No tlsConfigName: falls through to the gateway-level profile.
+          - destination:
+              cluster: echo-gwdefault
+              endpoint: https://gwdefault.external.test:8443
+            rules:
+              - match:
+                  prefix: /egress-tls/gwdefault
+                allowed: true
+                removeHeaders: ["Origin", "Authorization"]
+                hostRewrite: gwdefault.external.test
+                prefixRewrite: /
+          # Neither tlsConfigName nor hostRewrite. The migration rules say an egress
+          # destination always gets a URLRewrite hostname, so Istio sends the endpoint
+          # host as authority while Cloud-Core Mesh forwards the caller's Host; the
+          # test asserts only what both meshes must agree on.
+          - destination:
+              cluster: echo-implicit
+              endpoint: https://implicit.external.test:8443
+            rules:
+              - match:
+                  prefix: /egress-tls/implicit
+                allowed: true
+                removeHeaders: ["Origin", "Authorization"]
+                prefixRewrite: /
+{{- end }}
+{{- end }}

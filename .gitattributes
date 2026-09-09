@@ -1,0 +1,3 @@
+# Test PKI for the egress TLS tests: PEMs are mounted into containers and fed to
+# the mesh verbatim, so they must keep LF endings on every checkout.
+mesh-test-service-spring/helm-templates/mesh-test-service-spring/files/egress-tls/* text eol=lf

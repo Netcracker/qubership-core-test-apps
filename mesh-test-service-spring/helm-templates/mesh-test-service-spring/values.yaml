@@ -50,3 +50,10 @@ RESOURCE_POLLING_TIMEOUT: 60
 SERVICE_MESH_TYPE: "Core"
 CONSUL_ENABLED: false
 CONSUL_URL: ''
+# Egress TLS tests: deploy the simulated external HTTPS site and the egress TLS
+# mesh resources. Requires the *.external.test CoreDNS rewrite that
+# mesh-test-install/mesh-test-apps.sh installs.
+EGRESS_TLS_TESTS_ENABLED: true
+# Image serving the simulated external site. Any nginx that runs as non-root and
+# reads its config from -c will do; override to point at an internal mirror.
+EGRESS_ECHO_IMAGE: 'nginxinc/nginx-unprivileged:1.29-alpine'
