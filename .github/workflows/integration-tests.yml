@@ -547,7 +547,7 @@ jobs:
           artifact-suffix: ${{ inputs.test-usecase != '' && format('-{0}', inputs.test-usecase) || '' }}
 
       - name: Collect Kubernetes diagnostics
-        if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure' }}
+        if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure' || steps.consul_login_tests.outcome == 'failure' }}
         env:
           COLLECT_LOGS_FOR: ${{ inputs.collect-logs-for || '' }}
         run: |
