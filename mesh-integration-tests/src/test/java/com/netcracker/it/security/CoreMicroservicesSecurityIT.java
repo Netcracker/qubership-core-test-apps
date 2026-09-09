@@ -29,7 +29,8 @@ class CoreMicroservicesSecurityIT {
             "mesh-test-service-quarkus",
             "mesh-test-service-go",
             "test-stateful-set",
-            "test-daemon-set");
+            "test-daemon-set",
+            "egress-tls-echo");
 
     private static KubernetesClient client;
     private static String namespace;
