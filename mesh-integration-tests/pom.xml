@@ -21,7 +21,7 @@
         <java.version>21</java.version>
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
-        <surefire-plugin.version>3.5.6</surefire-plugin.version>
+        <surefire-plugin.version>3.6.0</surefire-plugin.version>
         <cloud.junit.cloudcore.version>8.10.2</cloud.junit.cloudcore.version>
         <cloud.core.security.utils.version>3.2.2</cloud.core.security.utils.version>
         <skipIT>true</skipIT>
