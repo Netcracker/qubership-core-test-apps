@@ -26,11 +26,6 @@ public final class ConsulAcl {
         createKeyPrefixPolicy(consul, name, keyPrefix, "read");
     }
 
-    /** A deny over a prefix beats a read granted on a shorter one, which is how a scenario walls off its own keys. */
-    public static void createDenyPolicy(ConsulClient consul, String name, String keyPrefix) {
-        createKeyPrefixPolicy(consul, name, keyPrefix, "deny");
-    }
-
     private static void createKeyPrefixPolicy(ConsulClient consul, String name, String keyPrefix, String policy) {
         ObjectNode body = JSON.createObjectNode()
                 .put("Name", name)
