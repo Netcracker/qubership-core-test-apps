@@ -24,9 +24,9 @@ public class LoginStatusController {
 
     public LoginStatusController(ObjectProvider<TokenStorage> tokenStorage,
                                  Environment environment,
-                                 @Value("${spring.cloud.consul.config.login.mode:UNSET}") String loginMode,
-                                 @Value("${spring.cloud.consul.config.login.auth-method:UNSET}") String authMethod,
-                                 @Value("${spring.cloud.consul.config.login.audience:UNSET}") String audience) {
+                                 @Value("${consul.auth.mode:UNSET}") String loginMode,
+                                 @Value("${consul.auth.method:UNSET}") String authMethod,
+                                 @Value("${consul.auth.audience:UNSET}") String audience) {
         this.tokenStorage = tokenStorage;
         this.environment = environment;
         this.loginMode = loginMode;
