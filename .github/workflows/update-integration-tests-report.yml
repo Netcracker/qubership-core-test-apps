@@ -41,14 +41,7 @@ jobs:
       run-tests-for: 'all'            
       
   run-tests-consul-login:
-    uses: ./.github/workflows/integration-tests.yml
-    with:
-      install-istio: false
-      install-maas: false
-      mesh-type: 'Core'
-      test-usecase: 'consul-login'
-      run-tests-for: 'consul-login'
-      consul-acls: true
+    uses: ./.github/workflows/consul-login-integration-tests.yml
 
   update-report:
     needs: [run-tests-core-mesh, run-tests-istio-mesh-fallback-mode, run-tests-istio-mesh-migrated-mode, run-tests-consul-login]

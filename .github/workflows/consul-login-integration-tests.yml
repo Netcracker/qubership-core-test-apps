@@ -1,9 +1,14 @@
 name: Run Consul login integration tests
-run-name: >-
-  [ACL=${{ (inputs.consul-acls && 'yes') || 'no' }}]
-  [tests=${{ inputs.run-tests-for || 'consul-login' }}]
+run-name: Consul login integration tests
 
 on:
+  workflow_call:
+    inputs:
+      core-bootstrap-branch:
+        description: 'Branch of core-bootstrap repo'
+        required: false
+        default: 'main'
+        type: string
   workflow_dispatch:
     inputs:
       core-bootstrap-branch:
@@ -11,37 +16,94 @@ on:
         required: false
         default: 'main'
         type: string
-      test-branch:
-        description: 'Branch to use in core services & test repositories. If branch not found in specific repo, checkout will fallback to main'
-        required: false
-        default: 'main'
-        type: string
-      consul-acls:
-        description: 'Enable the Consul ACL system'
-        required: false
-        default: true
-        type: boolean
-      collect-logs-for:
-        description: 'Labels of pods whose logs are collected when the stand fails. Comma-separated label_name=value pairs'
-        required: false
-        default: 'job-name=finalyzer-postinstall-job-core-operator,name=core-operator,app=core-operator'
-        type: string
-      run-tests-for:
-        description: 'Integration tests to run: all, none, or comma-separated test names (mesh-tests,paas-mediation,control-plane,site-management,maas-agent,consul-login)'
-        required: false
-        default: 'consul-login'
-        type: string
 
 jobs:
-  run-tests-consul-login:
-    uses: ./.github/workflows/integration-tests.yml
-    with:
-      core-bootstrap-branch: ${{ inputs.core-bootstrap-branch }}
-      test-branch: ${{ inputs.test-branch }}
-      consul-acls: ${{ inputs.consul-acls }}
-      install-istio: false
-      install-maas: false
-      mesh-type: 'Core'
-      test-usecase: 'consul-login'
-      run-tests-for: ${{ inputs.run-tests-for }}
-      collect-logs-for: ${{ inputs.collect-logs-for }}
+  consul-login-integration-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Kind cluster with Consul
+        uses: ./.github/actions/setup-kind-with-consul
+        with:
+          core-bootstrap-branch: ${{ inputs.core-bootstrap-branch || 'main' }}
+
+      # Scenario failures are read from the test report, they do not fail the run.
+      - name: Run consul-login integration tests
+        id: consul_login_tests
+        continue-on-error: true
+        uses: ./.github/actions/run-integrations-tests
+        with:
+          repository: Netcracker/qubership-core-test-apps
+          branch: ${{ github.ref_name }}
+          path: repos/consul-login
+          test-folder: consul-login-integration-tests
+          test-service-name: consul-login-tests
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # The name of the artifact and the layout inside it are what the report job expects.
+      - name: Aggregate Surefire reports
+        run: |
+          module=repos/consul-login/consul-login-integration-tests
+          mkdir -p artifacts/consul-login
+          cp -r "$module/target/surefire-reports" artifacts/consul-login/ || true
+          if [ -d "$module/target/reports" ]; then
+            cp -r "$module/target/reports" artifacts/consul-login/ || true
+          fi
+
+      - name: Upload Surefire reports
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: surefire-reports-consul-login
+          path: artifacts/*
+
+      - name: Collect Kubernetes diagnostics
+        if: ${{ failure() || steps.consul_login_tests.outcome == 'failure' }}
+        run: |
+          set +e
+
+          {
+            echo "==== CLUSTER INFO ===="
+            kubectl version --short || true
+            kubectl cluster-info || true
+
+            echo
+            echo "==== PODS (ALL NAMESPACES) ===="
+            kubectl get pods -A -o wide || true
+
+            echo
+            echo "==== EVENTS (CHRONOLOGICAL) ===="
+            kubectl get events -A --sort-by=.metadata.creationTimestamp || true
+
+            echo
+            echo "==== KIND CONTROL PLANE LOGS ===="
+            docker logs kind-control-plane || true
+          } > cluster-state.txt 2>&1
+
+          {
+            echo "==== CONSUL SERVER LOGS ===="
+            kubectl logs -n consul --selector=app=consul,component=server --tail=200 || true
+
+            echo
+            echo "==== SERVICES UNDER TEST ===="
+            for ns in $(kubectl get namespaces -o name | grep consul-login | cut -d/ -f2); do
+              for pod in $(kubectl get pods -n "$ns" -o name); do
+                echo
+                echo "-- describe $pod in $ns"
+                kubectl describe -n "$ns" "$pod" || true
+                echo
+                echo "-- logs of $pod in $ns"
+                kubectl logs -n "$ns" "$pod" --tail=200 || true
+              done
+            done
+          } > pods-logs.txt 2>&1
+
+      - name: Upload Kubernetes diagnostics
+        if: ${{ failure() || steps.consul_login_tests.outcome == 'failure' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: kind-k8s-debug-consul-login
+          path: |
+            cluster-state.txt
+            pods-logs.txt

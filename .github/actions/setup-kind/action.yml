@@ -1,0 +1,46 @@
+name: Setup Kind cluster
+description: >
+  Spins up a Kind cluster, installs required tooling, and checks out the
+  qubership-core-bootstrap repo into core-bootstrap-repo, from where the
+  actions that install into the cluster take their Makefile.
+
+inputs:
+  core-bootstrap-branch:
+    description: Branch of the qubership-core-bootstrap repo to check out
+    required: false
+    default: main
+
+runs:
+  using: composite
+  steps:
+    - name: Add cluster.local to hosts
+      shell: bash
+      run: |
+        echo "127.0.0.1 cluster.local" | sudo tee -a /etc/hosts
+
+    - name: Set up Kind
+      uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
+      with:
+        cluster_name: kind
+
+    # Install Helm 4 - required by core-mesh-config
+    - name: Install Helm 4
+      uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
+      with:
+         version: v4.3.0
+
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@829323503d1be3d00ca8346e5391ca0b07a9ab0d # v5
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
+      with:
+        java-version: '21'
+        distribution: temurin
+
+    - name: Checkout cloud core bootstrap repo
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      with:
+        repository: Netcracker/qubership-core-bootstrap
+        ref: ${{ inputs.core-bootstrap-branch }}
+        path: core-bootstrap-repo
