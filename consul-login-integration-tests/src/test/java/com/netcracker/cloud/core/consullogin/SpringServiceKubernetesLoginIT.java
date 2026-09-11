@@ -141,9 +141,9 @@ class SpringServiceKubernetesLoginIT {
                 "CLOUD_NAMESPACE", NAMESPACE,
                 "MICROSERVICE_NAME", SERVICE.serviceName(),
                 "CONSUL_HOST", "consul-consul-server.consul",
-                "CONSUL_LOGIN_MODE", "kubernetes",
-                "CONSUL_LOGIN_AUTH_METHOD", AUTH_METHOD,
-                "CONSUL_LOGIN_AUDIENCE", ProjectedToken.AUDIENCE);
+                "CONSUL_AUTH_MODE", "kubernetes",
+                "CONSUL_AUTH_METHOD", AUTH_METHOD,
+                "CONSUL_AUTH_AUDIENCE", ProjectedToken.AUDIENCE);
     }
 
 }

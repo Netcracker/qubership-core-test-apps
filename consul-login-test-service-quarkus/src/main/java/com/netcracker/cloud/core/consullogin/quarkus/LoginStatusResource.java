@@ -27,13 +27,13 @@ public class LoginStatusResource {
     @Inject
     TokenStorage tokenStorage;
 
-    @ConfigProperty(name = "quarkus.consul-source-config.login.mode")
+    @ConfigProperty(name = "consul.auth.mode")
     Optional<String> loginMode;
 
-    @ConfigProperty(name = "quarkus.consul-source-config.login.auth-method")
+    @ConfigProperty(name = "consul.auth.method")
     Optional<String> authMethod;
 
-    @ConfigProperty(name = "quarkus.consul-source-config.login.audience")
+    @ConfigProperty(name = "consul.auth.audience")
     Optional<String> audience;
 
     @GET

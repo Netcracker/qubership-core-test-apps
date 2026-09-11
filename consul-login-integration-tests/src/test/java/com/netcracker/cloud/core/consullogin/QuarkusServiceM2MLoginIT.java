@@ -104,7 +104,7 @@ class QuarkusServiceM2MLoginIT {
                 "CLOUD_NAMESPACE", NAMESPACE,
                 "MICROSERVICE_NAME", SERVICE.serviceName(),
                 "CONSUL_URL", Cluster.CONSUL_IN_CLUSTER_URL + "/",
-                "CONSUL_LOGIN_MODE", "m2m",
+                "CONSUL_AUTH_MODE", "m2m",
                 "CONSUL_LOGIN_M2M_PRIVATE_KEY", signingKey.privateKeyBase64(),
                 "CONSUL_LOGIN_M2M_ISSUER", SigningKey.ISSUER,
                 "CONSUL_LOGIN_M2M_AUDIENCE", SigningKey.AUDIENCE,

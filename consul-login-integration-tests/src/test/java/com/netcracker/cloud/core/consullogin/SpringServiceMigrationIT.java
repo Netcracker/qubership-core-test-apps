@@ -140,10 +140,10 @@ class SpringServiceMigrationIT {
         environment.put("NAMESPACE", NAMESPACE);
         environment.put("MICROSERVICE_NAME", SERVICE.serviceName());
         environment.put("CONSUL_HOST", "consul-consul-server.consul");
-        environment.put("CONSUL_LOGIN_MODE", "kubernetes-with-m2m-fallback");
-        environment.put("CONSUL_LOGIN_AUTH_METHOD", KUBERNETES_AUTH_METHOD);
-        environment.put("CONSUL_LOGIN_AUDIENCE", ProjectedToken.AUDIENCE);
-        environment.put("CONSUL_LOGIN_RECHECK", RECHECK_INTERVAL);
+        environment.put("CONSUL_AUTH_MODE", "kubernetes-with-m2m-fallback");
+        environment.put("CONSUL_AUTH_METHOD", KUBERNETES_AUTH_METHOD);
+        environment.put("CONSUL_AUTH_AUDIENCE", ProjectedToken.AUDIENCE);
+        environment.put("CONSUL_AUTH_FALLBACK_RECHECK_INTERVAL", RECHECK_INTERVAL);
         environment.put("CONSUL_LOGIN_M2M_PRIVATE_KEY", signingKey.privateKeyBase64());
         environment.put("CONSUL_LOGIN_M2M_ISSUER", SigningKey.ISSUER);
         environment.put("CONSUL_LOGIN_M2M_AUDIENCE", SigningKey.AUDIENCE);

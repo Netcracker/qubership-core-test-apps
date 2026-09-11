@@ -15,11 +15,13 @@ spring:
         prefix: config/${CLOUD_NAMESPACE:consul-login-test}
         m2m:
           enabled: ${CONSUL_M2M_ENABLED:true}
-        login:
-          mode: ${CONSUL_LOGIN_MODE:kubernetes}
-          auth-method: ${CONSUL_LOGIN_AUTH_METHOD:consul-login-test-service}
-          audience: ${CONSUL_LOGIN_AUDIENCE:netcracker}
-          fallback-recheck-interval: ${CONSUL_LOGIN_RECHECK:5h}
+
+consul:
+  auth:
+    mode: kubernetes
+    method: consul-login-test-service
+    audience: netcracker
+    fallback-recheck-interval: 5h
 
 cloud:
   microservice:
