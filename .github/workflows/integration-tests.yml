@@ -43,11 +43,6 @@ on:
         required: false
         default: false
         type: boolean
-      kind-config:
-        description: 'Path to a kind cluster config file; empty uses the default kind cluster'
-        required: false
-        default: ''
-        type: string
       consul-acls:
         description: 'Enable the Consul ACL system'
         required: false
@@ -293,7 +288,6 @@ jobs:
             echo "| istio-repo-branch | \`${{ inputs.istio-repo-branch || 'main' }}\` |"
             echo "| core-mesh-config-repo-branch | \`${{ inputs.core-mesh-config-repo-branch || 'main' }}\` |"
             echo "| do-resources-workaround | \`${{ (inputs.do-resources-workaround && 'true') || 'false' }}\` |"
-            echo "| kind-config | \`${{ inputs.kind-config || '' }}\` |"
             echo "| consul-acls | \`${{ (inputs.consul-acls && 'true') || 'false' }}\` |"
             echo "| facade-operator-tag | \`${{ inputs.facade-operator-tag || 'latest' }}\` |"
             echo "| ingress-gateway-tag | \`${{ inputs.ingress-gateway-tag || 'latest' }}\` |"
@@ -319,7 +313,6 @@ jobs:
           echo "istio-repo-branch=${{ inputs.istio-repo-branch || 'main' }}"
           echo "core-mesh-config-repo-branch=${{ inputs.core-mesh-config-repo-branch || 'main' }}"
           echo "do-resources-workaround=${{ (inputs.do-resources-workaround && 'true') || 'false' }}"
-          echo "kind-config=${{ inputs.kind-config || '' }}"
           echo "consul-acls=${{ (inputs.consul-acls && 'true') || 'false' }}"
           echo "facade-operator-tag=${{ inputs.facade-operator-tag || 'latest' }}"
           echo "ingress-gateway-tag=${{ inputs.ingress-gateway-tag || 'latest' }}"
@@ -341,7 +334,6 @@ jobs:
         uses: ./.github/actions/setup-kind-with-cloud-core
         with:
           core-bootstrap-branch: ${{ inputs.core-bootstrap-branch }}
-          kind-config: ${{ inputs.kind-config || '' }}
           consul-acls: ${{ (inputs.consul-acls && 'true') || 'false' }}
           install-maas: ${{ inputs.install-maas || 'false' }}
           install-istio: ${{ inputs.install-istio || 'false' }}
