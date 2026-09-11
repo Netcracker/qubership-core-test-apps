@@ -16,11 +16,6 @@ on:
         required: false
         default: 'main'
         type: string
-      kind-config:
-        description: 'Path to a kind cluster config file; empty uses the default kind cluster'
-        required: false
-        default: '.github/kind/cluster-consul-login.yaml'
-        type: string
       consul-acls:
         description: 'Enable the Consul ACL system'
         required: false
@@ -43,7 +38,6 @@ jobs:
     with:
       core-bootstrap-branch: ${{ inputs.core-bootstrap-branch }}
       test-branch: ${{ inputs.test-branch }}
-      kind-config: ${{ inputs.kind-config }}
       consul-acls: ${{ inputs.consul-acls }}
       install-istio: false
       install-maas: false
