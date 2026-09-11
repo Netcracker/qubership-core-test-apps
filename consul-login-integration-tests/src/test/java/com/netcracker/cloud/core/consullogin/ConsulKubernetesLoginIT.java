@@ -1,9 +1,5 @@
 package com.netcracker.cloud.core.consullogin;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.netcracker.cloud.core.consullogin.stand.Cluster;
 import com.netcracker.cloud.core.consullogin.stand.ConsulAcl;
 import com.netcracker.cloud.core.consullogin.stand.ConsulClient;
@@ -49,13 +45,9 @@ class ConsulKubernetesLoginIT {
     private static final String AUTH_METHOD = "consul-login-probe";
     private static final String POLICY = "consul-login-probe-read";
     private static final String ROLE = "consul-login-probe-reader";
-    private static final String DENY_POLICY = "consul-login-probe-deny-anonymous";
-    private static final String ANONYMOUS_TOKEN_ID = "00000000-0000-0000-0000-000000000002";
     private static final String KV_PREFIX = "config/consul-login-itest/";
     private static final String KV_KEY = KV_PREFIX + "probe";
     private static final String KV_VALUE = "consul-kubernetes-login-works";
-
-    private static final ObjectMapper JSON = new ObjectMapper();
 
     private static KubernetesClient kubernetes;
     private static LocalPortForward consulPortForward;
@@ -78,7 +70,6 @@ class ConsulKubernetesLoginIT {
         ConsulAcl.createKubernetesAuthMethod(consul, kubernetes, AUTH_METHOD);
         bindingRuleId = ConsulAcl.createBindingRule(consul, AUTH_METHOD,
                 "value.namespace==\"" + PROBE_NAMESPACE + "\"", ROLE);
-        denyAnonymousAccess();
         createProbePod();
     }
 
@@ -110,7 +101,6 @@ class ConsulKubernetesLoginIT {
     @AfterAll
     static void cleanUpStand() {
         if (consul != null) {
-            restoreAnonymousAccess();
             ConsulAcl.deleteIssuedTokens(consul, AUTH_METHOD);
             if (bindingRuleId != null) {
                 consul.delete("/v1/acl/binding-rule/" + bindingRuleId);
@@ -118,42 +108,12 @@ class ConsulKubernetesLoginIT {
             consul.delete("/v1/acl/auth-method/" + AUTH_METHOD);
             ConsulAcl.deleteRole(consul, ROLE);
             ConsulAcl.deletePolicy(consul, POLICY);
-            ConsulAcl.deletePolicy(consul, DENY_POLICY);
             consul.delete("/v1/kv/" + KV_KEY);
         }
         if (kubernetes != null) {
             kubernetes.namespaces().withName(PROBE_NAMESPACE).delete();
         }
         closeQuietly();
-    }
-
-    private static void denyAnonymousAccess() {
-        ConsulAcl.createDenyPolicy(consul, DENY_POLICY, KV_PREFIX);
-        setDenyPolicyOnAnonymousToken(true);
-    }
-
-    private static void restoreAnonymousAccess() {
-        setDenyPolicyOnAnonymousToken(false);
-    }
-
-    private static void setDenyPolicyOnAnonymousToken(boolean attached) {
-        ConsulClient.Response current = consul.get("/v1/acl/token/" + ANONYMOUS_TOKEN_ID);
-        if (!current.isSuccessful()) {
-            return;
-        }
-        ObjectNode token = (ObjectNode) current.json();
-        ArrayNode policies = JSON.createArrayNode();
-        for (JsonNode policy : token.path("Policies")) {
-            if (!DENY_POLICY.equals(policy.path("Name").asText())) {
-                policies.add(policy);
-            }
-        }
-        if (attached) {
-            policies.add(JSON.createObjectNode().put("Name", DENY_POLICY));
-        }
-        token.set("Policies", policies);
-        consul.put("/v1/acl/token/" + ANONYMOUS_TOKEN_ID, token.toString())
-                .requireSuccess("updating the anonymous token");
     }
 
     private static void createProbePod() {
