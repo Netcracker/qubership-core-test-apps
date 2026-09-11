@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.netcracker.cloud</groupId>
+    <artifactId>storage-test-service-common</artifactId>
+    <packaging>jar</packaging>
+    <version>1.0.0-SNAPSHOT</version>
+    <description>
+        The storage probes and the workload runner, without a framework. Each platform application
+        adds only its own wiring, so a change to a probe is made once.
+    </description>
+
+    <licenses>
+        <license>
+            <name>Apache-2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <properties>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <cloud.core.java.bom.version>12.0.2</cloud.core.java.bom.version>
+        <!-- Compile-time only, see the dependency block: each application supplies its own. -->
+        <kafka-clients.version>3.9.1</kafka-clients.version>
+        <slf4j.version>2.0.17</slf4j.version>
+        <!--
+          Consumed only by the applications next to it, which the reactor builds in the same run.
+          Nothing outside this repository resolves it, so it stays out of the registry.
+        -->
+        <maven.deploy.skip>true</maven.deploy.skip>
+    </properties>
+
+    <scm>
+        <connection>scm:git:https://github.com/Netcracker/qubership-core-test-apps.git</connection>
+        <developerConnection>scm:git:https://github.com/Netcracker/qubership-core-test-apps.git
+        </developerConnection>
+        <url>https://github.com/Netcracker/qubership-core-test-apps</url>
+        <tag>HEAD</tag>
+    </scm>
+
+    <repositories>
+        <repository>
+            <id>github</id>
+            <url>https://maven.pkg.github.com/netcracker/*</url>
+            <snapshots />
+        </repository>
+    </repositories>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.netcracker.cloud</groupId>
+                <artifactId>cloud-core-java-bom</artifactId>
+                <version>${cloud.core.java.bom.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <!--
+      All provided: each application already brings these, and its own version has to win.
+      This module compiles against them and contributes none of them at runtime.
+    -->
+    <dependencies>
+        <dependency>
+            <groupId>com.netcracker.cloud.maas.client</groupId>
+            <artifactId>maas-client</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.kafka</groupId>
+            <artifactId>kafka-clients</artifactId>
+            <version>${kafka-clients.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>${slf4j.version}</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+</project>

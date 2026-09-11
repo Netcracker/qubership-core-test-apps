@@ -1,0 +1,33 @@
+name: Storage-test-apps-java build
+
+# One build for the Java storage test applications: the shared module has to be compiled before
+# the applications that depend on it, and the reactor is what guarantees that ordering.
+#
+# No image is published: the integration test job builds it from the commit it runs on.
+
+on:
+  push:
+    paths:
+      - 'storage-test-apps-java/**'
+      - 'storage-test-service-common/**'
+      - 'storage-test-service-spring/**'
+      - '.github/workflows/storage-test-apps-java-on-commit.yaml'
+  pull_request:
+    types: [ opened, synchronize, reopened ]
+    paths:
+      - 'storage-test-apps-java/**'
+      - 'storage-test-service-common/**'
+      - 'storage-test-service-spring/**'
+      - '.github/workflows/storage-test-apps-java-on-commit.yaml'
+
+jobs:
+  mvn:
+    uses: netcracker/qubership-core-infra/.github/workflows/maven-build-with-sonar.yaml@32a5b506971a029acc41bc69fd42d06137caeb36 # v1.3.3
+    with:
+      event-name: ${{ github.event_name }}
+      actor: ${{ github.actor }}
+      sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
+      upload-artifact: true
+      pom-file-path: storage-test-apps-java/pom.xml
+    secrets:
+      sonar-token: ${{ secrets.SONAR_TOKEN }}

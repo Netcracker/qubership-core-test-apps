@@ -1,0 +1,94 @@
+name: Run storage integration tests
+description: >
+  Builds the storage test service images from the checked-out sources, loads them into the kind
+  cluster, installs them and runs the storage failover integration tests.
+
+inputs:
+  namespace:
+    description: Kubernetes namespace to install the storage test services into
+    required: false
+    default: core
+  apps:
+    description: Comma-separated platforms to install and test, for example "spring,go"
+    required: false
+    default: spring,go
+  tag:
+    description: Tag for the locally built images. Only has to be unique within the cluster.
+    required: false
+    default: it
+  cluster:
+    description: Name of the kind cluster the images are loaded into
+    required: false
+    default: kind
+  maas-agent-url:
+    description: Address of the MaaS agent the client under test talks to
+    required: false
+    default: http://maas-agent:8080
+  cleanup:
+    description: >
+      Uninstall the test services when the run ends. Only worth doing when the cluster is short on
+      resources: otherwise leaving them in place lets the workflow collect their state at the end.
+    required: false
+    default: 'false'
+  github-token:
+    description: >
+      GitHub token for Maven. setup-java writes a settings.xml whose github server reads
+      GITHUB_ACTOR and GITHUB_TOKEN from the environment, and the dependencies live in
+      GitHub Packages.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # Built here rather than pulled: a published image is tagged from the branch, so a change that
+    # touches only the suite would run against whatever was published last, and a change that
+    # touches an application would race its own image build.
+    - name: Build and load the storage test service images
+      shell: bash
+      env:
+        GITHUB_ACTOR: ${{ github.actor }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        APPS: ${{ inputs.apps }}
+        TAG: ${{ inputs.tag }}
+        CLUSTER: ${{ inputs.cluster }}
+      run: |
+        set -e
+        images=""
+        if [[ ",$APPS," == *",spring,"* ]]; then
+          mvn -B -f storage-test-apps-java/pom.xml package -DskipTests
+          docker build -t "storage-test-service-spring:$TAG" \
+              -f storage-test-service-spring/Dockerfile storage-test-service-spring
+          images="$images storage-test-service-spring:$TAG"
+        fi
+        if [[ ",$APPS," == *",go,"* ]]; then
+          docker build -t "storage-test-service-go:$TAG" \
+              -f storage-test-service-go/Dockerfile storage-test-service-go
+          images="$images storage-test-service-go:$TAG"
+        fi
+        # shellcheck disable=SC2086 # the list is deliberately word-split into separate arguments
+        kind load docker-image $images --name "$CLUSTER"
+
+    - name: Run storage integration tests
+      shell: bash
+      env:
+        GITHUB_ACTOR: ${{ github.actor }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        NAMESPACE: ${{ inputs.namespace }}
+        APPS: ${{ inputs.apps }}
+        TAG: ${{ inputs.tag }}
+        MAAS_AGENT_URL: ${{ inputs.maas-agent-url }}
+      run: |
+        set -e
+        ./storage-test-install/storage-test-apps.sh install \
+            --namespace "$NAMESPACE" --apps "$APPS" --tag "$TAG" --local-images \
+            --maas-agent "$MAAS_AGENT_URL"
+
+        ./run-it/run-integration-tests.sh kind-kind "$NAMESPACE" kind-control-plane:10.244.0.1 \
+            storage-test-apps:storage-integration-tests
+
+    - name: Uninstall the storage test services
+      if: always() && inputs.cleanup == 'true'
+      shell: bash
+      run: >
+        ./storage-test-install/storage-test-apps.sh uninstall
+        --namespace ${{ inputs.namespace }} --apps ${{ inputs.apps }}

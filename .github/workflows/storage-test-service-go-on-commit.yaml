@@ -1,0 +1,29 @@
+name: Storage-test-service-go build
+
+# No image is published: the integration test job builds it from the commit it runs on. This is the
+# compile check that keeps a broken module from reaching that job.
+
+on:
+  push:
+    paths:
+      - 'storage-test-service-go/**'
+      - '.github/workflows/storage-test-service-go-on-commit.yaml'
+  pull_request:
+    types: [ opened, synchronize, reopened ]
+    paths:
+      - 'storage-test-service-go/**'
+      - '.github/workflows/storage-test-service-go-on-commit.yaml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: storage-test-service-go/test-service-go/go.mod
+      - name: Build and vet
+        working-directory: storage-test-service-go/test-service-go
+        run: |
+          go build ./...
+          go vet ./...

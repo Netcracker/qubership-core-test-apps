@@ -1,0 +1,4 @@
+microservice:
+  name: storage-test-service-go
+deployment:
+  version: ${DEPLOYMENT_VERSION:v1}
