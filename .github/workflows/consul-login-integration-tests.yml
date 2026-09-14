@@ -37,15 +37,15 @@ jobs:
         with:
           repository: Netcracker/qubership-core-test-apps
           branch: ${{ github.ref_name }}
-          path: repos/consul-login
-          test-folder: consul-login-integration-tests
+          path: repos/test-apps
+          test-folder: consul-login/integration-tests
           test-service-name: consul-login-tests
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       # The name of the artifact and the layout inside it are what the report job expects.
       - name: Aggregate Surefire reports
         run: |
-          module=repos/consul-login/consul-login-integration-tests
+          module=repos/test-apps/consul-login/integration-tests
           mkdir -p artifacts/consul-login
           cp -r "$module/target/surefire-reports" artifacts/consul-login/ || true
           if [ -d "$module/target/reports" ]; then
