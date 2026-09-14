@@ -14,8 +14,8 @@ import java.time.Instant;
 import java.util.Base64;
 
 /**
- * Stands in for the customer security library that real services pull in. Quarkus resolves an {@link M2MManager}
- * through {@code ServiceLoader} and keeps the provider with the highest {@code priority()}, so this one is declared in
+ * Stands in for the {@link M2MManager} a real service brings with it. Quarkus resolves one through
+ * {@code ServiceLoader} and keeps the provider with the highest {@code priority()}, so this one is declared in
  * {@code META-INF/services} and outranks whatever else is on the classpath.
  *
  * <p>With a signing key in {@code CONSUL_LOGIN_M2M_PRIVATE_KEY} it signs its own JWT, which is the old way end to end

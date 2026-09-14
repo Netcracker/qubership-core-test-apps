@@ -5,8 +5,8 @@ import org.springframework.boot.bootstrap.BootstrapRegistry;
 import org.springframework.boot.bootstrap.BootstrapRegistryInitializer;
 
 /**
- * Puts {@link StandInM2MManager} into the bootstrap registry, where the security library of a real service would put
- * its own {@link M2MManager}. The ConfigData phase runs before the application context, so the bean published for the
+ * Puts {@link StandInM2MManager} into the bootstrap registry, where a real service would put the {@link M2MManager}
+ * it brings with it. The ConfigData phase runs before the application context, so the bean published for the
  * other entry points is not visible there; without this registration the m2m way is unreachable in that phase and the
  * service measures its own gap instead of the library.
  *

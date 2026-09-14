@@ -22,10 +22,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Checks that a Quarkus service still logs in the way services did before the kubernetes way existed: it asks
- * its security library for a token, Consul validates that token with a jwt auth method named after the namespace of
- * the service, and the service ends up holding a Consul token of its own and serving a property seeded by the test.
+ * the {@code M2MManager} it carries for a token, Consul validates that token with a jwt auth method named after the
+ * namespace of the service, and the service ends up holding a Consul token of its own and serving a property
+ * seeded by the test.
  *
- * <p>The security library is stood in for by a signer of a key generated for the run, so what this covers is the
+ * <p>The {@code M2MManager} is stood in for by a signer of a key generated for the run, so what this covers is the
  * exchange and the code around it, not the token of a real Identity Provider. On this stack the stand-in is picked
  * out of {@code ServiceLoader} by its priority, so the check covers that wiring as well.
  */
