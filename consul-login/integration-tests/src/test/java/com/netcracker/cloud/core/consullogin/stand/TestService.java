@@ -32,7 +32,7 @@ public enum TestService {
     QUARKUS("consul-login-test-service-quarkus"),
     GO("consul-login-test-service-go");
 
-    private static final String DEFAULT_TAG = "feat-consul-login-integration-tests-snapshot";
+    private static final String LOCAL_TAG = "it";
     private static final int PORT = 8080;
 
     private final String name;
@@ -47,12 +47,15 @@ public enum TestService {
     }
 
     /**
-     * The image built from the module of the same name in this repository. Override it with
-     * {@code -Dconsul.login.test.service.<stack>.image} to run the scenarios against a build of your own.
+     * The image built from the module of the same name in this repository and loaded into the cluster, which the run
+     * does for every scenario set. To run the scenarios by hand, build it with
+     * {@code docker build -t <name>:it consul-login/test-service-<stack>} and load it with
+     * {@code kind load docker-image <name>:it}; {@code -Dconsul.login.test.service.<stack>.image} points them at
+     * another image instead.
      */
     public String image() {
         return System.getProperty("consul.login.test.service." + name().toLowerCase() + ".image",
-                "ghcr.io/netcracker/qubership-core-" + name + ":" + DEFAULT_TAG);
+                name + ":" + LOCAL_TAG);
     }
 
     /**
@@ -91,6 +94,7 @@ public enum TestService {
                 .addNewContainer()
                 .withName(name)
                 .withImage(image())
+                .withImagePullPolicy("IfNotPresent")
                 .addNewPort().withContainerPort(PORT).endPort()
                 .endContainer()
                 .endSpec()

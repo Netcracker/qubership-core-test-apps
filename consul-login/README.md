@@ -35,9 +35,15 @@ The workflows in `.github/workflows/`:
 | Workflow | Runs |
 | --- | --- |
 | `consul-login-integration-tests.yml` | The set, on a Kind cluster with Consul and no Cloud Core. Called by `update-integration-tests-report.yml` nightly, and by hand through `workflow_dispatch` |
-| `consul-login-test-service-spring-on-commit.yaml` | Builds and publishes the image of the Spring service |
-| `consul-login-test-service-quarkus-on-commit.yaml` | Builds and publishes the image of the Quarkus service |
-| `consul-login-test-service-go-on-commit.yaml` | Builds and publishes the image of the Go service |
+| `consul-login-test-service-spring-on-commit.yaml` | Builds and analyses the Spring service on a change to it |
+| `consul-login-test-service-quarkus-on-commit.yaml` | Builds and analyses the Quarkus service on a change to it |
+| `consul-login-test-service-go-on-commit.yaml` | Builds and analyses the Go service on a change to it |
+
+The images are built by the run itself, from the same ref as the scenarios, and loaded into the cluster under the
+tag `it`; none of them is published. To run the scenarios by hand, build each service with
+`docker build -t consul-login-test-service-<stack>:it consul-login/test-service-<stack>` (the Java ones after
+`mvn package`) and load it with `kind load docker-image`, or point the set at another image with
+`-Dconsul.login.test.service.<stack>.image`.
 
 The stand itself comes from `.github/actions/setup-kind-with-consul`, which installs Consul with
 `global.acls.manageSystemACLs=true` through the `deploy-consul` target of `cloud-core-local-dev` in
