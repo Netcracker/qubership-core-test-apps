@@ -1,0 +1,33 @@
+name: Maas-failover-test-apps-java build
+
+# One build for the Java failover test applications: the shared module has to be compiled before
+# the applications that depend on it, and the reactor is what guarantees that ordering.
+#
+# No image is published: the integration test job builds it from the commit it runs on.
+
+on:
+  push:
+    paths:
+      - 'maas-failover-resilience/test-apps-java/**'
+      - 'maas-failover-resilience/test-service-common/**'
+      - 'maas-failover-resilience/test-service-spring/**'
+      - '.github/workflows/maas-failover-test-apps-java-on-commit.yaml'
+  pull_request:
+    types: [ opened, synchronize, reopened ]
+    paths:
+      - 'maas-failover-resilience/test-apps-java/**'
+      - 'maas-failover-resilience/test-service-common/**'
+      - 'maas-failover-resilience/test-service-spring/**'
+      - '.github/workflows/maas-failover-test-apps-java-on-commit.yaml'
+
+jobs:
+  mvn:
+    uses: netcracker/qubership-core-infra/.github/workflows/maven-build-with-sonar.yaml@e8322e6ee168795edec1d103e289b3fe3ceb805d # v2.6.0
+    with:
+      event-name: ${{ github.event_name }}
+      actor: ${{ github.actor }}
+      sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
+      upload-artifact: true
+      pom-file-path: maas-failover-resilience/test-apps-java/pom.xml
+    secrets:
+      sonar-token: ${{ secrets.SONAR_TOKEN }}
