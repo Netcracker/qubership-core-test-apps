@@ -21,11 +21,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Checks that a Go service still logs in the way services did before the kubernetes way existed: it asks its security
- * library for a token, Consul validates that token with a jwt auth method named after the namespace of the service,
- * and the service ends up serving a property seeded by the test.
+ * Checks that a Go service still logs in the way services did before the kubernetes way existed: it asks the token
+ * provider it carries for a token, Consul validates that token with a jwt auth method named after the namespace of
+ * the service, and the service ends up serving a property seeded by the test.
  *
- * <p>The security library is stood in for by a signer of a key generated for the run, so what this covers is the
+ * <p>The token provider is stood in for by a signer of a key generated for the run, so what this covers is the
  * exchange and the code around it, not the token of a real Identity Provider. On this stack the stand-in is the
  * {@code security.TokenProvider} the service registers in the service loader, which is where the login of the m2m way
  * asks for one.

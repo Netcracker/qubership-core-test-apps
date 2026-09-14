@@ -14,7 +14,7 @@ import java.time.Instant;
 import java.util.Base64;
 
 /**
- * Stands in for the customer security library that real services pull in. Spring reaches it twice, through the
+ * Stands in for the {@link M2MManager} a real service brings with it. Spring reaches it twice, through the
  * bootstrap registry of the ConfigData phase and through a bean of the application context, and both hand out an
  * instance of this class.
  *

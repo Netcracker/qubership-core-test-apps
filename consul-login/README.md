@@ -1,9 +1,10 @@
 # Consul login tests
 
 Integration tests for the way a service logs in to Consul: with the projected service account token of its pod
-(the kubernetes way), with a token from the security library (the m2m way), and with the fallback that carries a
-service from one to the other. Each stack carries the login library through its own wiring, so every way is checked
-on Spring, Quarkus and Go separately, against a real Consul with ACLs on.
+(the kubernetes way), with a JWT of its own that Consul validates against an auth method named after the namespace
+of the service (the m2m way), and with the fallback that carries a service from one to the other. Each stack carries
+the login library through its own wiring, so every way is checked on Spring, Quarkus and Go separately, against a
+real Consul with ACLs on.
 
 ## Scenarios
 
@@ -17,8 +18,8 @@ on Spring, Quarkus and Go separately, against a real Consul with ACLs on.
 | `QuarkusServiceM2MLoginIT` | The Quarkus service logs in the m2m way |
 | `GoServiceM2MLoginIT` | The Go service logs in the m2m way |
 | `SpringServiceMigrationIT` | A Spring pod started before its kubernetes auth method exists serves properties over m2m and moves to the kubernetes way without a restart |
-| `QuarkusServiceMigrationIT` | The same on Quarkus, which also covers the relogin on this stack |
-| `GoServiceMigrationIT` | The same on Go |
+| `QuarkusServiceMigrationIT` | A Quarkus pod started before its kubernetes auth method exists serves properties over m2m and moves to the kubernetes way without a restart, which also covers the relogin on this stack |
+| `GoServiceMigrationIT` | A Go pod started before its kubernetes auth method exists serves properties over m2m and moves to the kubernetes way without a restart |
 
 ## Layout
 
@@ -26,8 +27,8 @@ on Spring, Quarkus and Go separately, against a real Consul with ACLs on.
 | --- | --- |
 | `integration-tests/` | The scenarios and the stand they run on; `.../consullogin/stand/README.md` describes the stand |
 | `test-service-spring/` | The Spring service under test, and its `/login-status` endpoint |
-| `test-service-quarkus/` | The same service on Quarkus |
-| `test-service-go/` | The same service on Go |
+| `test-service-quarkus/` | The Quarkus service under test, and its `/login-status` endpoint |
+| `test-service-go/` | The Go service under test, and its `/login-status` endpoint |
 
 The workflows in `.github/workflows/`:
 
@@ -35,8 +36,8 @@ The workflows in `.github/workflows/`:
 | --- | --- |
 | `consul-login-integration-tests.yml` | The set, on a Kind cluster with Consul and no Cloud Core. Called by `update-integration-tests-report.yml` nightly, and by hand through `workflow_dispatch` |
 | `consul-login-test-service-spring-on-commit.yaml` | Builds and publishes the image of the Spring service |
-| `consul-login-test-service-quarkus-on-commit.yaml` | The same for Quarkus |
-| `consul-login-test-service-go-on-commit.yaml` | The same for Go |
+| `consul-login-test-service-quarkus-on-commit.yaml` | Builds and publishes the image of the Quarkus service |
+| `consul-login-test-service-go-on-commit.yaml` | Builds and publishes the image of the Go service |
 
 The stand itself comes from `.github/actions/setup-kind-with-consul`, which installs Consul with
 `global.acls.manageSystemACLs=true` through the `deploy-consul` target of `cloud-core-local-dev` in

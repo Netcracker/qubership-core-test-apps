@@ -23,8 +23,8 @@ const (
 	clockSkew     = time.Minute
 )
 
-// Stands in for the customer security library that real services pull in. The login of the m2m way asks the service
-// loader for a security.TokenProvider, so this one is registered as the only implementation the service has.
+// Stands in for the security.TokenProvider a real service brings with it. The login of the m2m way asks the service
+// loader for one, so this is registered as the only implementation the service has.
 //
 // With a signing key in CONSUL_LOGIN_M2M_PRIVATE_KEY it signs its own JWT, which is the old way end to end on a stand
 // that has no Identity Provider; Consul is configured with the matching public key. Without a key it hands out the
