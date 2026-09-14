@@ -1,0 +1,24 @@
+name: Consul-login-test-service-go build
+
+on:
+  push:
+    paths:
+      - 'consul-login-test-service-go/**'
+      - '.github/consul-login-test-service-go-docker-config.json'
+      - '.github/workflows/consul-login-test-service-go-on-commit.yaml'
+  pull_request:
+    types: [ opened, synchronize, reopened ]
+    paths:
+      - 'consul-login-test-service-go/**'
+      - '.github/consul-login-test-service-go-docker-config.json'
+      - '.github/workflows/consul-login-test-service-go-on-commit.yaml'
+
+jobs:
+  build:
+    uses: netcracker/qubership-core-infra/.github/workflows/generic-go-build.yaml@e8322e6ee168795edec1d103e289b3fe3ceb805d # v2.6.0
+    with:
+      go-module-dir: consul-login-test-service-go/test-service-go
+      sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
+      ref: ${{ github.ref }}
+      docker-config-file: consul-login-test-service-go-docker-config.json
+    secrets: inherit
