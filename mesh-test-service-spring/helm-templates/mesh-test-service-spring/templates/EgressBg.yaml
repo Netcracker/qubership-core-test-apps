@@ -1,0 +1,97 @@
+{{- if .Values.EGRESS_BG_TESTS_ENABLED }}
+{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}
+# Cloud-Core Mesh egress endpoints with Blue/Green support.
+#
+# An application deployed in a Blue/Green domain calls the egress gateway by its
+# explicit address, http://egress-gateway:8080/egress-bg/integration/..., and the
+# gateway picks the outbound endpoint from the x-version-name header the caller
+# propagated:
+#
+#   x-version-name: candidate | legacy   -> bg-stub   (stub for tests)
+#   x-version-name: active   | absent    -> bg-prod   (production)
+#
+# Both endpoints are the egress-bg-echo nginx (EgressBgEcho.yaml), behind one
+# Service each; the endpoint answers with its own name, which is what tells the
+# test which one the gateway chose.
+#
+# The production rules are gated by EGRESS_PROD_INTEGRATION_ENABLED. A candidate
+# deployment rolls out with it set to false, so a request that lost its
+# x-version-name on the way through the application matches nothing and fails
+# instead of quietly calling production. /egress-bg/stub-only below is that
+# rendering, kept as a separate prefix so the tests can exercise both states of
+# the flag from one deployment.
+#
+# The Istio equivalent of this file is EgressBg-istio.yaml.
+---
+apiVersion: core.netcracker.com/v1
+kind: Mesh
+subKind: RouteConfiguration
+metadata:
+  name: egress-bg-routes-spring
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
+    app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
+spec:
+  gateways: ["egress-gateway"]
+  virtualServices:
+    # Same virtual service the other egress RouteConfigurations in this chart
+    # name, so Cloud-Core Mesh merges these routes into the one Envoy virtual
+    # host it already keeps for egress-gateway.
+    - name: egress-gw
+      routeConfiguration:
+        routes:
+{{- if .Values.EGRESS_PROD_INTEGRATION_ENABLED }}
+          # Production endpoint: x-version-name is absent or "active".
+          #
+          # Header matcher field names follow the control-plane API
+          # (HeaderMatcher: presentMatch / exactMatch / safeRegexMatch /
+          # invertMatch). A misspelt specifier is dropped silently and the
+          # matcher degrades to "header present", which is why every rule here
+          # is covered by EgressBgIT.
+          - destination:
+              cluster: bg-prod
+              endpoint: http://bg-prod:8080
+            rules:
+              - match:
+                  prefix: /egress-bg/integration
+                  headerMatchers:
+                    - name: x-version-name
+                      presentMatch: true
+                      invertMatch: true
+                allowed: true
+                prefixRewrite: /
+              - match:
+                  prefix: /egress-bg/integration
+                  headerMatchers:
+                    - name: x-version-name
+                      exactMatch: active
+                allowed: true
+                prefixRewrite: /
+{{- end }}
+          # Stub endpoint: x-version-name is "candidate" or "legacy". Kept
+          # unconditional, so the RouteConfiguration is never left without a
+          # route when the production endpoint is switched off.
+          - destination:
+              cluster: bg-stub
+              endpoint: http://bg-stub:8080
+            rules:
+              - match:
+                  prefix: /egress-bg/integration
+                  headerMatchers:
+                    - name: x-version-name
+                      safeRegexMatch: "candidate|legacy"
+                allowed: true
+                prefixRewrite: /
+              # What /egress-bg/integration renders to on a candidate deployed
+              # with EGRESS_PROD_INTEGRATION_ENABLED=false: the stub rule only.
+              - match:
+                  prefix: /egress-bg/stub-only
+                  headerMatchers:
+                    - name: x-version-name
+                      safeRegexMatch: "candidate|legacy"
+                allowed: true
+                prefixRewrite: /
+{{- end }}
+{{- end }}
