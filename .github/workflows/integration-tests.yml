@@ -341,6 +341,9 @@ jobs:
           site-management-tag: ${{ inputs.site-management-tag || 'latest' }}
           test-branch: ${{ inputs.test-branch || 'main' }}
           mesh-type: ${{ inputs.mesh-type || 'Core' }}
+          # the action no longer sets a Patroni replica count of its own, and these suites were
+          # running against one node
+          aux-bootstrap-args: 'PATRONI_REPLICAS_NUMBER=1'
 
       - name: preserve-cpu-resources-workaround
         if: ${{ inputs.do-resources-workaround }}
@@ -513,134 +516,7 @@ jobs:
 
       - name: Collect Kubernetes diagnostics
         if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure' }}
-        env:
-          COLLECT_LOGS_FOR: ${{ inputs.collect-logs-for || '' }}
-        run: |
-          set +e
-
-          echo "==== Collecting cluster state ===="
-
-          {
-            echo "==== CLUSTER INFO ===="
-            kubectl version --short || true
-            kubectl cluster-info || true
-
-            echo
-            echo "==== NODES ===="
-            kubectl get nodes -o wide || true
-
-            echo
-            echo "==== PODS (ALL NAMESPACES) ===="
-            kubectl get pods -A -o wide || true
-
-            echo
-            echo "==== DEPLOYMENTS ===="
-            kubectl get deployments -A || true
-
-            echo
-            echo "==== SERVICES ===="
-            kubectl get services -A || true
-
-            echo
-            echo "==== HTTPROUTES ===="
-            kubectl get httproute -A -o yaml|| true
-
-            echo
-            echo "==== ENVOY FILTERS ===="
-            kubectl get envoyfilter -A -o yaml|| true
-
-            echo
-            echo "==== EVENTS (CHRONOLOGICAL) ===="
-            kubectl get events -A --sort-by=.metadata.creationTimestamp || true
-
-            echo
-            echo "==== KIND CLUSTER ===="
-            kind get clusters || true
-            docker ps -a --filter "name=kind" || true
-
-            echo
-            echo "==== KIND CONTROL PLANE LOGS ===="
-            docker logs kind-control-plane || true
-
-            echo
-            echo "==== KUBELET LOGS ===="
-            docker exec kind-control-plane journalctl -u kubelet --no-pager || true
-
-          } > cluster-state.txt 2>&1
-
-          {
-            collect_pod_logs() {
-              local pod_file="$1"
-              local empty_message="$2"
-              
-              if [ ! -s "$pod_file" ]; then
-                echo "$empty_message"
-                return
-              fi
-              
-              while read -r ns pod phase; do
-                echo
-                echo "################################################"
-                echo "# Pod: $pod"
-                echo "# Namespace: $ns"
-                echo "# Phase: $phase"
-                echo "################################################"
-                
-                echo
-                echo "---- kubectl describe ----"
-                kubectl describe pod "$pod" -n "$ns" || true
-                
-                echo
-                echo "---- container logs ----"
-                for c in $(kubectl get pod "$pod" -n "$ns" -o jsonpath='{.spec.containers[*].name}' 2>/dev/null); do
-                  echo
-                  echo "-- logs for container: $c"
-                  kubectl logs -n "$ns" "$pod" -c "$c" --tail=200 || true
-                  
-                  echo
-                  echo "-- previous logs for container: $c"
-                  kubectl logs -n "$ns" "$pod" -c "$c" --previous --tail=200 || true
-                done
-              done < "$pod_file"
-            }
-            
-            echo "==== Collecting unhealthy pod logs ===="
-            kubectl get pods -A \
-              -o jsonpath='{range .items[?(@.status.phase!="Running" && @.status.phase!="Succeeded")]}{.metadata.namespace} {.metadata.name} {.status.phase}{"\n"}{end}' \
-              > /tmp/unhealthy-pods.txt || true
-            
-            collect_pod_logs /tmp/unhealthy-pods.txt "No unhealthy pods found"
-            
-            echo "==== Collecting logs for labeled pods ===="
-
-            : > /tmp/load-logs-pods.txt || true
-
-            if [ -n "$COLLECT_LOGS_FOR" ]; then
-              IFS=',' read -ra LABELS <<< "$COLLECT_LOGS_FOR"
-              for lbl in "${LABELS[@]}"; do
-                lbl_trimmed=$(echo "$lbl" | xargs)
-                if [ -z "$lbl_trimmed" ]; then
-                  continue
-                fi
-                echo "Collecting pods for label selector: $lbl_trimmed"
-                kubectl get pods -A -l "$lbl_trimmed" \
-                  -o jsonpath='{range .items[*]}{.metadata.namespace} {.metadata.name} {.status.phase}{"\n"}{end}' \
-                  >> /tmp/load-logs-pods.txt || true
-              done
-            fi
-
-            collect_pod_logs /tmp/load-logs-pods.txt "No pods found for provided labels: $COLLECT_LOGS_FOR"
-            
-            # cleanup
-            rm -f /tmp/unhealthy-pods.txt /tmp/load-logs-pods.txt
-            
-          } > pods-logs.txt 2>&1
-      
-      - name: Upload Kubernetes diagnostics
-        if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: ./.github/actions/collect-k8s-diagnostics
         with:
-          name: kind-k8s-debug${{ inputs.test-usecase != '' && format('-{0}', inputs.test-usecase) || '' }}
-          path: |
-            cluster-state.txt
-            pods-logs.txt
+          collect-logs-for: ${{ inputs.collect-logs-for || '' }}
+          artifact-suffix: ${{ inputs.test-usecase != '' && format('-{0}', inputs.test-usecase) || '' }}

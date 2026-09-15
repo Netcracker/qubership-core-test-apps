@@ -38,10 +38,16 @@ jobs:
       install-maas: true
       mesh-type: 'Istio'
       test-usecase: 'istio-migrated'
-      run-tests-for: 'all'            
-      
+      run-tests-for: 'all'
+
+  run-maas-failover-tests:
+    uses: ./.github/workflows/maas-failover-tests.yml
+    with:
+      # the results are published in the report below, so a failed test must not skip it
+      fail-on-test-failure: false
+
   update-report:
-    needs: [run-tests-core-mesh, run-tests-istio-mesh-fallback-mode, run-tests-istio-mesh-migrated-mode]
+    needs: [run-tests-core-mesh, run-tests-istio-mesh-fallback-mode, run-tests-istio-mesh-migrated-mode, run-maas-failover-tests]
     runs-on: ubuntu-latest
     environment:
       name: pages

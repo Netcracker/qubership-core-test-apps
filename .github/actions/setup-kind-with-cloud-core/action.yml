@@ -64,6 +64,14 @@ inputs:
     description: 'Mesh type for test services — Core or Istio'
     required: false
     default: 'Core'
+  aux-bootstrap-args:
+    description: >
+      Extra variables passed to the cloud-core local-dev make target, space separated, as
+      KEY=VALUE. For bootstrap settings only one suite needs, so that this action does not
+      grow an input per variable. Example:
+      'PATRONI_REPLICAS_NUMBER=2 RABBIT_INSTANCES=rabbitmq-1'
+    required: false
+    default: ''
 
 runs:
   using: composite
@@ -145,5 +153,12 @@ runs:
         fi
         if [ -n "$CORE_MESH_CONFIG_REPO_BRANCH" ]; then
           MAKE_ARGS="$MAKE_ARGS CORE_MESH_CONFIG_REPO_BRANCH=$CORE_MESH_CONFIG_REPO_BRANCH"
+        fi
+        # appended last, so a caller can override anything set above: make takes the last
+        # assignment of a variable on the command line. Left out when empty, because an empty
+        # assignment would still override the bootstrap default.
+        AUX_BOOTSTRAP_ARGS="${{ inputs.aux-bootstrap-args }}"
+        if [ -n "$AUX_BOOTSTRAP_ARGS" ]; then
+          MAKE_ARGS="$MAKE_ARGS $AUX_BOOTSTRAP_ARGS"
         fi
         make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/ install
