@@ -49,8 +49,6 @@ public final class FailoverAssertions {
     /** Matches the status in both clients' error text: "status code 405", "status 405", "Status: 500". */
     private static final Pattern STATUS_IN_MESSAGE = Pattern.compile("(?i)status(?: code)?[\"\\s:]+(\\d{3})");
 
-    private static final Pattern REPLICA_DIALECT_DEFECT = Pattern.compile("no such function: ANY");
-
     /**
      * Every status the run produced is one the client classifies as worth retrying. A failure
      * carrying anything else means a switchover reaches the client in a shape the classification
@@ -61,9 +59,6 @@ public final class FailoverAssertions {
         Set<String> observed = new LinkedHashSet<>();
         for (OperationOutcome failure : stats.outcomes()) {
             if (failure.success() || failure.errorMessage() == null) {
-                continue;
-            }
-            if (REPLICA_DIALECT_DEFECT.matcher(failure.errorMessage()).find()) {
                 continue;
             }
             Matcher matcher = STATUS_IN_MESSAGE.matcher(failure.errorMessage());

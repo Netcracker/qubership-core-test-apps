@@ -28,7 +28,7 @@ and the faults. Everything else — the scenarios, the workload shape, the asser
 | `MaasAgentFailoverIT` | spring | Java MaaS client, with maas-agent losing an instance |
 | `MaasAgentGoFailoverIT` | go | Go MaaS client, with maas-agent losing an instance |
 | `MaasRabbitFailoverIT` | spring | Java MaaS client obtaining a vhost |
-| `MaasRabbitGoFailoverIT` | go | Go MaaS client obtaining a vhost — disabled, see below |
+| `MaasRabbitGoFailoverIT` | go | Go MaaS client obtaining a vhost |
 | `MaasWatchFailoverIT` | spring | Java MaaS client watch subscription |
 | `MaasWatchGoFailoverIT` | go | Go MaaS client watch subscription |
 
@@ -75,8 +75,8 @@ affected; the neighbouring `GetVhost` posts to `/rabbit/vhost/get-by-classifier`
 a bare classifier.
 
 The client's own unit test did not catch it because its fake server answers 200 to any POST on that
-path without looking at the request body. `MaasRabbitGoFailoverIT` stays `@Disabled` until a client
-carrying the fix is released.
+path without looking at the request body. The class runs again now that a client carrying the fix is
+released.
 
 ### maas-service reports a failover as a client input error
 
@@ -119,9 +119,9 @@ in the account lookup, come back as 500 and the client retries them — in one o
 recovered in 682ms. Requests that reach the template query come back as 400 and are lost: 400 is a
 permanent client error by every convention, so neither client can retry it, and neither should.
 
-Nothing here was fixable on the client side. `assertStatusesAreClassified` excludes this one message
-so the check still catches any other unclassified status; the exclusion comes out once a release
-carrying the fix is deployed.
+Nothing here was fixable on the client side. `assertStatusesAreClassified` carried an exclusion for this
+one message while the fix was in flight; it has been removed, so every status the run produces is
+now checked.
 
 ## What is out of scope
 
