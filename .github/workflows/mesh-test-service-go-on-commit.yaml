@@ -9,23 +9,15 @@ on:
   pull_request:
     types: [ opened, synchronize, reopened ]
     paths:
-      - 'mesh-test-service-go/**' 
+      - 'mesh-test-service-go/**'
       - '.github/mesh-test-service-go-docker-config.json'
       - '.github/workflows/mesh-test-service-go-on-commit.yaml'
 
 jobs:
   build:
-    uses: netcracker/qubership-core-infra/.github/workflows/go-build-with-sonar.yaml@e8322e6ee168795edec1d103e289b3fe3ceb805d # v2.6.0
+    uses: Netcracker/qubership-core-infra/.github/workflows/generic-go-build.yaml@8a233b03c5b5355d59c1585ffdaa1f45ea816405 # v2.6.1
     with:
-      actor: ${{ github.actor }}
+      go-module-dir: mesh-test-service-go/test-service-go
+      docker-config-file: mesh-test-service-go-docker-config.json
       sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
-    secrets:
-      sonar-token: ${{ secrets.SONAR_TOKEN }}
-
-  docker-build:
-    needs: [build]
-    uses: netcracker/qubership-core-infra/.github/workflows/docker-build.yaml@e8322e6ee168795edec1d103e289b3fe3ceb805d # v2.6.0
-    with:
-      dry-run: false
-      config-filename: mesh-test-service-go-docker-config.json    
-  
+    secrets: inherit
