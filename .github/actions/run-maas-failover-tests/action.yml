@@ -85,7 +85,7 @@ runs:
             --maas-agent "$MAAS_AGENT_URL"
 
         ./run-it/run-integration-tests.sh kind-kind "$NAMESPACE" kind-control-plane:10.244.0.1 \
-            maas-failover-resilience:maas-failover-integration-tests
+            maas-failover-resilience:maas-failover-resilience/integration-tests
 
     - name: Uninstall the failover test services
       if: always() && inputs.cleanup == 'true'

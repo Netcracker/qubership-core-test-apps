@@ -169,7 +169,7 @@ kind load docker-image maas-failover-test-service-spring:it maas-failover-test-s
 
 ./$suite/install/test-apps.sh install --namespace core --tag it --local-images
 ./run-it/run-integration-tests.sh kind-kind core kind-control-plane:10.244.0.1 \
-    maas-failover-resilience:maas-failover-integration-tests
+    maas-failover-resilience:maas-failover-resilience/integration-tests
 ```
 
 The images are built here rather than pulled. A published image is tagged from the branch, so a
