@@ -192,6 +192,10 @@ is what identifies it once the client talks to maas-service directly instead of 
 | `storage.maasAgentDeployment` | `maas-agent` | deployment whose instances are killed |
 | `storage.maasAgentReplicas` | `2` | instances the scenario needs running |
 
-The vhost classes need a registered RabbitMQ instance, which the bootstrap skips by default. The
-workflow passes `rabbit-instances: rabbitmq-1` when the storage suite is selected; locally, install
-MaaS with `RABBIT_INSTANCES=rabbitmq-1`.
+In CI the suite has a workflow of its own, `.github/workflows/maas-failover-tests.yml`: it brings up
+the cluster, installs the applications and runs the tests, and the nightly report calls it alongside
+the other suites. It is separate because the scenarios repeatedly kill the Patroni leader and a
+maas-agent instance, and because they need a cluster the other suites do not: a second Patroni node
+for the leader to move to, and a registered RabbitMQ instance for the vhost classes, which the
+bootstrap skips by default. Locally, install MaaS with `PATRONI_REPLICAS_NUMBER=2
+RABBIT_INSTANCES=rabbitmq-1`.

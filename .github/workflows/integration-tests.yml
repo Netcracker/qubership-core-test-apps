@@ -123,7 +123,7 @@ on:
         required: false
         description: Append to `integration-tests` name - to distiguish results in different mesh modes
       run-tests-for:
-        description: 'Integration tests to run: all, none, or comma-separated test names (mesh-tests,maas-failover-tests,paas-mediation,control-plane,site-management,maas-agent). maas-failover-tests is opt-in and not included in all'
+        description: 'Integration tests to run: all, none, or comma-separated test names (mesh-tests,paas-mediation,control-plane,site-management,maas-agent)'
         required: false
         default: 'all'
         type: string
@@ -250,7 +250,7 @@ on:
         required: false
         description: Append to `integration-tests` name - to distiguish results in different mesh modes
       run-tests-for:
-        description: 'Integration tests to run: all, none, or comma-separated test names (mesh-tests,maas-failover-tests,paas-mediation,control-plane,site-management,maas-agent). maas-failover-tests is opt-in and not included in all'
+        description: 'Integration tests to run: all, none, or comma-separated test names (mesh-tests,paas-mediation,control-plane,site-management,maas-agent)'
         required: false
         default: 'all'
         type: string
@@ -327,9 +327,7 @@ jobs:
         uses: ./.github/actions/setup-kind-with-cloud-core
         with:
           core-bootstrap-branch: ${{ inputs.core-bootstrap-branch }}
-          install-maas: >-
-            ${{ (inputs.install-maas
-            || contains(inputs.run-tests-for, 'maas-failover-tests')) && 'true' || 'false' }}
+          install-maas: ${{ inputs.install-maas || 'false' }}
           install-istio: ${{ inputs.install-istio || 'false' }}
           istio-repo-branch: ${{ inputs.istio-repo-branch }}
           core-mesh-config-repo-branch: ${{ inputs.core-mesh-config-repo-branch }}
@@ -343,12 +341,9 @@ jobs:
           site-management-tag: ${{ inputs.site-management-tag || 'latest' }}
           test-branch: ${{ inputs.test-branch || 'main' }}
           mesh-type: ${{ inputs.mesh-type || 'Core' }}
-          # the '1' branch is not redundant: the action no longer sets a Patroni replica count of
-          # its own, and the other suites were running against one node
-          aux-bootstrap-args: >-
-            ${{ contains(inputs.run-tests-for, 'maas-failover-tests')
-            && 'PATRONI_REPLICAS_NUMBER=2 RABBIT_INSTANCES=rabbitmq-1'
-            || 'PATRONI_REPLICAS_NUMBER=1' }}
+          # the action no longer sets a Patroni replica count of its own, and these suites were
+          # running against one node
+          aux-bootstrap-args: 'PATRONI_REPLICAS_NUMBER=1'
 
       - name: preserve-cpu-resources-workaround
         if: ${{ inputs.do-resources-workaround }}
@@ -366,7 +361,6 @@ jobs:
           normalized="$(echo "$selected" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
 
           mesh_tests=false
-          maas_failover_tests=false
           paas_mediation=false
           control_plane=false
           site_management=false
@@ -380,17 +374,12 @@ jobs:
             control_plane=true
             site_management=true
             maas_agent=true
-            # the failover tests are opt-in: they repeatedly kill the Patroni leader, which is not
-            # something the rest of the suite should have to run alongside
           else
             IFS=',' read -ra services <<< "$normalized"
             for service in "${services[@]}"; do
               case "$service" in
                 mesh-tests|mesh_tests)
                   mesh_tests=true
-                  ;;
-                maas-failover-tests|maas_failover_tests)
-                  maas_failover_tests=true
                   ;;
                 paas-mediation|paas_mediation)
                   paas_mediation=true
@@ -408,7 +397,7 @@ jobs:
                   ;;
                 *)
                   echo "::error::Unknown integration test service: $service"
-                  echo "::error::Allowed values: all, none, mesh-tests, maas-failover-tests, paas-mediation, control-plane, site-management, maas-agent"
+                  echo "::error::Allowed values: all, none, mesh-tests, paas-mediation, control-plane, site-management, maas-agent"
                   exit 1
                   ;;
               esac
@@ -416,7 +405,6 @@ jobs:
           fi
 
           echo "mesh_tests=$mesh_tests" >> "$GITHUB_OUTPUT"
-          echo "maas_failover_tests=$maas_failover_tests" >> "$GITHUB_OUTPUT"
           echo "paas_mediation=$paas_mediation" >> "$GITHUB_OUTPUT"
           echo "control_plane=$control_plane" >> "$GITHUB_OUTPUT"
           echo "site_management=$site_management" >> "$GITHUB_OUTPUT"
@@ -438,17 +426,6 @@ jobs:
         if: ${{ steps.integrations_tests_selection.outputs.mesh_tests == 'true' && inputs.test-usecase }}
         run: |
           mv mesh-integration-tests "mesh-tests-${{ inputs.test-usecase }}"
-
-      - name: Run MaaS failover integration tests
-        id: maas_failover_tests
-        if: ${{ steps.integrations_tests_selection.outputs.maas_failover_tests == 'true' }}
-        continue-on-error: true
-        uses: ./.github/actions/run-maas-failover-tests
-        with:
-          # free the resources only when the run asked for it; otherwise the service stays up and
-          # the cluster-state step at the end of this workflow picks it up
-          cleanup: ${{ inputs.do-resources-workaround || 'false' }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run paas-mediation integration tests
         id: paas_tests
@@ -532,152 +509,14 @@ jobs:
           path: artifacts/*
 
       - name: Collect Istio debug info
-        if: ${{ inputs.install-istio && (failure() || steps.mesh_tests.outcome == 'failure' || steps.maas_failover_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure') }}
+        if: ${{ inputs.install-istio && (failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure') }}
         uses: ./.github/actions/collect-istio-debug-info
         with:
           artifact-suffix: ${{ inputs.test-usecase != '' && format('-{0}', inputs.test-usecase) || '' }}
 
       - name: Collect Kubernetes diagnostics
-        if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.maas_failover_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure' }}
-        env:
-          COLLECT_LOGS_FOR: ${{ inputs.collect-logs-for || '' }}
-          MAAS_FAILOVER_TESTS: ${{ steps.integrations_tests_selection.outputs.maas_failover_tests }}
-        run: |
-          set +e
-          if [ "$MAAS_FAILOVER_TESTS" = "true" ]; then
-            FAILOVER_SELECTORS='app.kubernetes.io/part-of=maas-failover-test-app,name=maas-agent,name=maas-service'
-            COLLECT_LOGS_FOR="${COLLECT_LOGS_FOR:+$COLLECT_LOGS_FOR,}$FAILOVER_SELECTORS"
-          fi
-
-          echo "==== Collecting cluster state ===="
-
-          {
-            echo "==== CLUSTER INFO ===="
-            kubectl version --short || true
-            kubectl cluster-info || true
-
-            echo
-            echo "==== NODES ===="
-            kubectl get nodes -o wide || true
-
-            echo
-            echo "==== PODS (ALL NAMESPACES) ===="
-            kubectl get pods -A -o wide || true
-
-            echo
-            echo "==== DEPLOYMENTS ===="
-            kubectl get deployments -A || true
-
-            echo
-            echo "==== SERVICES ===="
-            kubectl get services -A || true
-
-            echo
-            echo "==== HTTPROUTES ===="
-            kubectl get httproute -A -o yaml|| true
-
-            echo
-            echo "==== ENVOY FILTERS ===="
-            kubectl get envoyfilter -A -o yaml|| true
-
-            echo
-            echo "==== EVENTS (CHRONOLOGICAL) ===="
-            kubectl get events -A --sort-by=.metadata.creationTimestamp || true
-
-            echo
-            echo "==== KIND CLUSTER ===="
-            kind get clusters || true
-            docker ps -a --filter "name=kind" || true
-
-            echo
-            echo "==== KIND CONTROL PLANE LOGS ===="
-            docker logs kind-control-plane || true
-
-            echo
-            echo "==== KUBELET LOGS ===="
-            docker exec kind-control-plane journalctl -u kubelet --no-pager || true
-
-          } > cluster-state.txt 2>&1
-
-          {
-            collect_pod_logs() {
-              local pod_file="$1"
-              local empty_message="$2"
-              
-              if [ ! -s "$pod_file" ]; then
-                echo "$empty_message"
-                return
-              fi
-              
-              while read -r ns pod phase; do
-                echo
-                echo "################################################"
-                echo "# Pod: $pod"
-                echo "# Namespace: $ns"
-                echo "# Phase: $phase"
-                echo "################################################"
-                
-                echo
-                echo "---- kubectl describe ----"
-                kubectl describe pod "$pod" -n "$ns" || true
-                
-                echo
-                echo "---- container logs ----"
-                for c in $(kubectl get pod "$pod" -n "$ns" -o jsonpath='{.spec.containers[*].name}' 2>/dev/null); do
-                  echo
-                  echo "-- logs for container: $c"
-                  kubectl logs -n "$ns" "$pod" -c "$c" --tail=200 || true
-                  
-                  echo
-                  echo "-- previous logs for container: $c"
-                  kubectl logs -n "$ns" "$pod" -c "$c" --previous --tail=200 || true
-                done
-              done < "$pod_file"
-            }
-            
-            echo "==== Collecting unhealthy pod logs ===="
-            # kubectl jsonpath has no boolean operators; Succeeded is filtered out afterwards
-            kubectl get pods -A \
-              -o jsonpath='{range .items[?(@.status.phase!="Running")]}{.metadata.namespace} {.metadata.name} {.status.phase}{"\n"}{end}' \
-              | grep -v ' Succeeded$' > /tmp/unhealthy-pods.txt || true
-
-            kubectl get pods -A \
-              -o jsonpath='{range .items[?(@.status.containerStatuses[*].ready==false)]}{.metadata.namespace} {.metadata.name} {.status.phase}{"\n"}{end}' \
-              >> /tmp/unhealthy-pods.txt || true
-            sort -u -o /tmp/unhealthy-pods.txt /tmp/unhealthy-pods.txt || true
-            
-            collect_pod_logs /tmp/unhealthy-pods.txt "No unhealthy pods found"
-            
-            echo "==== Collecting logs for labeled pods ===="
-
-            : > /tmp/load-logs-pods.txt || true
-
-            if [ -n "$COLLECT_LOGS_FOR" ]; then
-              IFS=',' read -ra LABELS <<< "$COLLECT_LOGS_FOR"
-              for lbl in "${LABELS[@]}"; do
-                lbl_trimmed=$(echo "$lbl" | xargs)
-                if [ -z "$lbl_trimmed" ]; then
-                  continue
-                fi
-                echo "Collecting pods for label selector: $lbl_trimmed"
-                kubectl get pods -A -l "$lbl_trimmed" \
-                  -o jsonpath='{range .items[*]}{.metadata.namespace} {.metadata.name} {.status.phase}{"\n"}{end}' \
-                  >> /tmp/load-logs-pods.txt || true
-              done
-            fi
-
-            collect_pod_logs /tmp/load-logs-pods.txt "No pods found for provided labels: $COLLECT_LOGS_FOR"
-            
-            # cleanup
-            rm -f /tmp/unhealthy-pods.txt /tmp/load-logs-pods.txt
-            
-          } > pods-logs.txt 2>&1
-      
-      - name: Upload Kubernetes diagnostics
-        if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.maas_failover_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure' }}
+        uses: ./.github/actions/collect-k8s-diagnostics
         with:
-          name: kind-k8s-debug${{ inputs.test-usecase != '' && format('-{0}', inputs.test-usecase) || '' }}
-          path: |
-            cluster-state.txt
-            pods-logs.txt
+          collect-logs-for: ${{ inputs.collect-logs-for || '' }}
+          artifact-suffix: ${{ inputs.test-usecase != '' && format('-{0}', inputs.test-usecase) || '' }}

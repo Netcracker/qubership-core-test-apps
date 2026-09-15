@@ -85,8 +85,7 @@ public abstract class FailoverITBase {
                 .toList();
         if (!missing.isEmpty()) {
             throw new IllegalStateException(profile().probe() + " tests need " + missing
-                    + " in namespace " + namespace + ", and they are not deployed."
-                    + " Run the workflow with install-maas enabled, or exclude this suite.");
+                    + " in namespace " + namespace + ", and they are not deployed.");
         }
     }
 
