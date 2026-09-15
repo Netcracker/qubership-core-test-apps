@@ -1,0 +1,71 @@
+{{- if .Values.EGRESS_BG_TESTS_ENABLED }}
+{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}
+# Cloud-Core Mesh egress endpoints with Blue/Green support.
+#
+#   x-version-name: candidate | legacy   -> bg-stub   (stub for tests)
+#   x-version-name: active   | absent    -> bg-prod   (production)
+#
+# The production rules are gated by EGRESS_PROD_INTEGRATION_ENABLED. A candidate
+# deployment rolls out with it set to false, so a request that lost its
+# x-version-name on the way through the application matches nothing and fails
+# instead of quietly calling production. /egress-bg/stub-only below is that
+# rendering, kept as a separate prefix so the tests can exercise both states of
+# the flag from one deployment.
+---
+apiVersion: core.netcracker.com/v1
+kind: Mesh
+subKind: RouteConfiguration
+metadata:
+  name: egress-bg-routes-spring
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "core-operator"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  gateways: ["egress-gateway"]
+  virtualServices:
+    - name: egress-gw
+      routeConfiguration:
+        routes:
+{{- if .Values.EGRESS_PROD_INTEGRATION_ENABLED }}
+          - destination:
+              cluster: bg-prod
+              endpoint: http://bg-prod:8080
+            rules:
+              - match:
+                  prefix: /egress-bg/integration
+                  headerMatchers:
+                    - name: x-version-name
+                      presentMatch: true
+                      invertMatch: true
+                allowed: true
+                prefixRewrite: /
+              - match:
+                  prefix: /egress-bg/integration
+                  headerMatchers:
+                    - name: x-version-name
+                      exactMatch: active
+                allowed: true
+                prefixRewrite: /
+{{- end }}
+          - destination:
+              cluster: bg-stub
+              endpoint: http://bg-stub:8080
+            rules:
+              - match:
+                  prefix: /egress-bg/integration
+                  headerMatchers:
+                    - name: x-version-name
+                      safeRegexMatch: "candidate|legacy"
+                allowed: true
+                prefixRewrite: /
+              - match:
+                  prefix: /egress-bg/stub-only
+                  headerMatchers:
+                    - name: x-version-name
+                      safeRegexMatch: "candidate|legacy"
+                allowed: true
+                prefixRewrite: /
+{{- end }}
+{{- end }}
