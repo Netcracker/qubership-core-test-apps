@@ -57,25 +57,15 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 public class EgressBgIT {
 
     private static final String INTEGRATION_PATH = "egress-bg/integration/hello";
-    /** The integration as a candidate deploys it: {@code EGRESS_PROD_INTEGRATION_ENABLED=false}. */
     private static final String STUB_ONLY_PATH = "egress-bg/stub-only/hello";
     private static final String PRODUCTION_ENDPOINT = "bg-prod";
     private static final String STUB_ENDPOINT = "bg-stub";
 
-    /**
-     * The application hop. The Spring test service proxies to the URL it is given through
-     * its m2m client, which serialises the {@code x-version-name} context it captured from
-     * the incoming request, exactly the way a business application is expected to.
-     */
     private static final String VIA_SPRING_PROXY =
             "api/v1/" + SPRING_SERVICE_NAME + "/spring/proxy?url=" + EGRESS_GW_SERVICE_NAME + ":8080/";
 
     private static final Gson GSON = new Gson();
 
-    /**
-     * For the requests that are meant to fail. The shared client retries a 503 for two
-     * minutes, and on Istio the answer to an unrouted egress path can be exactly that.
-     */
     private static final OkHttpClient noRetryClient = new OkHttpClient.Builder()
             .readTimeout(60, TimeUnit.SECONDS)
             .connectTimeout(60, TimeUnit.SECONDS)
@@ -101,11 +91,6 @@ public class EgressBgIT {
                 Arguments.of(X_VERSION_NAME_VALUE_LEGACY, STUB_ENDPOINT));
     }
 
-    /**
-     * The gateway alone: {@code headerMatchers} with {@code presentMatch} + {@code invertMatch},
-     * {@code exactMatch} and {@code safeRegexMatch} in Cloud-Core Mesh; {@code matches[].headers}
-     * with an exact and a regular-expression match, plus a bare path rule, in Istio.
-     */
     @ParameterizedTest(name = "[{index}] x-version-name={0} -> {1}")
     @MethodSource("versionNames")
     public void testEgressGatewaySelectsEndpointByVersionName(String xVersionName, String expectedEndpoint) throws IOException {
@@ -118,11 +103,6 @@ public class EgressBgIT {
                 "x-version-name did not reach the endpoint unchanged");
     }
 
-    /**
-     * Through the application: the header goes in at the public gateway, the Spring service
-     * carries it across its outbound call, and the egress gateway still sees it. A lost
-     * context here would send a candidate's traffic to production.
-     */
     @ParameterizedTest(name = "[{index}] x-version-name={0} -> {1}")
     @MethodSource("versionNames")
     public void testVersionNameSurvivesTheApplicationHop(String xVersionName, String expectedEndpoint) throws IOException {
@@ -134,20 +114,6 @@ public class EgressBgIT {
                 "x-version-name did not survive the application hop unchanged");
     }
 
-    /**
-     * The gate produces an error, not a fallback to production. With
-     * {@code EGRESS_PROD_INTEGRATION_ENABLED} off the production rules are not rendered at all,
-     * so a request carrying {@code active} or no header matches nothing. That is the intended
-     * signal: an unexpected error in a candidate deployment means the context was lost
-     * somewhere upstream.
-     *
-     * <p>What answers differs by mesh, so the status is not asserted. Cloud-Core Mesh has
-     * nothing to match and returns 404. The Istio egress gateway that core-mesh-config installs
-     * carries a catch-all route to {@code egress-fallback-service}, the Cloud-Core Mesh egress
-     * gateway, which answers 404 when it has routes of its own and refuses the connection
-     * (503 from the Istio gateway) when it has none. Either way the request must not reach
-     * an endpoint, which is what this checks.
-     */
     @ParameterizedTest(name = "[{index}] x-version-name={0}")
     @NullSource
     @ValueSource(strings = X_VERSION_NAME_VALUE_ACTIVE)
@@ -165,7 +131,6 @@ public class EgressBgIT {
         }
     }
 
-    /** The stub rule is kept unconditional, so a candidate's own traffic still has somewhere to go. */
     @ParameterizedTest(name = "[{index}] x-version-name={0}")
     @ValueSource(strings = {X_VERSION_NAME_VALUE_CANDIDATE, X_VERSION_NAME_VALUE_LEGACY})
     public void testStubStaysReachableWhenProductionEndpointIsOff(String xVersionName) throws IOException {
@@ -176,7 +141,6 @@ public class EgressBgIT {
         assertEquals(xVersionName, echo.getXVersionName());
     }
 
-    /** nginx reports a missing header as an empty string. */
     private static String headerAsSeenByEndpoint(String xVersionName) {
         return xVersionName == null ? "" : xVersionName;
     }

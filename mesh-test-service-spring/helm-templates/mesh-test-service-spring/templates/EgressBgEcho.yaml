@@ -29,8 +29,6 @@ spec:
         name: egress-bg-echo
         app.kubernetes.io/part-of: 'mesh-test-app'
       annotations:
-        # Rolls the pod when the nginx config changes; a mounted ConfigMap on
-        # its own would update in place and leave nginx running the old one.
         egress-bg-echo/config-checksum: '{{ include (print $.Template.BasePath "/EgressBgEchoConfig.yaml") . | sha256sum }}'
     spec:
       securityContext:
@@ -83,9 +81,6 @@ spec:
       - name: tmp
         emptyDir: {}
 ---
-# Named after the endpoints in the egress routes, so the RouteConfiguration
-# and the HTTPRoute read like the real thing: http://bg-prod:8080 is the
-# production integration, http://bg-stub:8080 its stub.
 apiVersion: v1
 kind: Service
 metadata:

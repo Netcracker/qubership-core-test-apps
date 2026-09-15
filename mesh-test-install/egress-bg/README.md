@@ -27,8 +27,7 @@ The tests here pin that down for both meshes: the same requests, the same assert
 | `EgressBgIT` | `mesh-integration-tests/.../spring/EgressBgIT.java` | Assertions, identical for both meshes. |
 
 All of these live in the `mesh-test-service-spring` chart and are switched off by setting `EGRESS_BG_TESTS_ENABLED` to
-`false`. Nothing here is shared with the egress TLS tests, and nothing outside the chart is touched: the endpoints are
-plain in-cluster Services, so no DNS setup is needed.
+`false`.
 
 ## The two endpoints
 
@@ -57,81 +56,13 @@ and the gateway forwards to one of the two endpoints:
 | absent | `bg-prod` | `presentMatch: true` + `invertMatch: true` | bare path match — see below |
 
 The endpoints are in-cluster Services rather than external hosts, so the destination side of the migration is the
-plain `endpoint` → Service `backendRef` mapping. The external-host side — `ServiceEntry`, `Hostname` backendRefs, TLS
-origination — is covered by the egress TLS tests; what this suite adds is the header matching and the gate.
+plain `endpoint` → Service `backendRef` mapping.
 
 ### Field names in the Cloud-Core Mesh rule
 
 The `Mesh` CR spec goes to the control plane unchanged and is decoded into its `HeaderMatcher` type by field name, so
 the specifiers are spelt as in the [control-plane API](https://github.com/Netcracker/qubership-core-control-plane/blob/main/docs/api/control-plane-api.md):
-`presentMatch`, `exactMatch`, `safeRegexMatch`, `invertMatch`. The design page for this feature writes `present: true`
-and `regexMatch:` instead. Those keys are unknown to the decoder and dropped without an error, and a header matcher
-with no specifier left degrades to "header present" — so the stub rule as written there would catch **every** request
-carrying `x-version-name`, `active` included. The chart uses the API names; the tests are what would catch a
-regression to the wrong ones.
-
-### `EGRESS_PROD_INTEGRATION_ENABLED`
-
-The production rules are wrapped in this flag. The intended workflow:
-
-1. Warm up the Blue/Green domain.
-2. Roll the candidate out with `EGRESS_PROD_INTEGRATION_ENABLED=false`, so the production endpoint is absent from the
-   rendered configuration entirely, not just unrouted.
-3. Test the candidate. A request that lost its `x-version-name` on the way matches nothing and fails — that is the
-   signal, and it beats a quiet call to production.
-4. Fix whatever dropped the context.
-5. Right before `promote`, roll out again with the flag on.
-
-Two things to keep in mind when copying the gated templates:
-
-- **The gate produces an error, not a fallback to production.** On Cloud-Core Mesh that error is a 404. On Istio it
-  is whatever the catch-all answers — see [An unmatched path](#an-unmatched-path) below.
-- **Never gate every rule.** The stub rule stays unconditional so a candidate's own traffic still has somewhere to
-  go, and so the `HTTPRoute` is never left with an empty `rules` list, which fails to apply.
-
-The tests cannot redeploy the chart between cases, so `/egress-bg/stub-only` is rendered alongside `/egress-bg/integration`
-as what the latter becomes with the flag off: the stub rule only. `testProductionTrafficIsRejectedWhenProductionEndpointIsOff`
-asserts that `active` and no header reach neither endpoint on it, `testStubStaysReachableWhenProductionEndpointIsOff`
-that the stub is still there.
-
-## Where the two meshes diverge
-
-### Negated header matches
-
-Gateway API has no negated header match. Cloud-Core Mesh expresses "header absent" as `presentMatch: true` +
-`invertMatch: true`; the [migration rules](https://github.com/Netcracker/qubership-core-control-plane/tree/main/agent-packages/core-mesh-crs-to-istio)
-drop that matcher, flag the rule for review, and leave a bare path match behind. Gateway API precedence is decided by
-specificity rather than list order, so the two rules with a header match still win for `candidate`, `legacy` and
-`active`, and the bare rule takes the rest.
-
-"The rest" is where the meshes differ. Cloud-Core Mesh answers 404 to a value that is neither `active` nor
-`candidate|legacy`, because nothing matches it; Istio sends it to production, because the bare rule does. Nothing in a
-Blue/Green domain sends such a value — `x-version-name` is `active`, `candidate` or `legacy`, or absent — so the tests
-do not cover it. A chart that has to reject unknown values on Istio would need an explicit rule for them, which Gateway
-API cannot express without listing the accepted ones.
-
-### An unmatched path
-
-Cloud-Core Mesh has nothing to match and returns `404`. The Istio egress gateway that `core-mesh-config` installs
-carries a catch-all `HTTPRoute` to `egress-fallback-service`, which is the Cloud-Core Mesh egress gateway, so an
-unmatched path is handed to that instead. What comes back depends on whether the Cloud-Core Mesh gateway has any
-routes of its own: with the test apps deployed in `Core` mode it does, and answers `404`; in `Istio` mode nothing
-registers routes on it, Envoy opens no listener, and the Istio gateway reports the refused connection as `503`:
-
-```text
-"GET /egress-bg/stub-only/hello HTTP/1.1" 503 UC upstream_reset_before_response_started{connection_termination}
-```
-
-`testProductionTrafficIsRejectedWhenProductionEndpointIsOff` therefore asserts that the response is not `200` and
-names neither endpoint, rather than a status. It uses a client without the shared retry-on-503 interceptor, which
-would otherwise spend two minutes on each of these cases.
-
-### One regular expression, not two exact matches
-
-The Istio route matches `candidate|legacy` with a single `RegularExpression` header match, which is what
-`safeRegexMatch` migrates to. Two `Exact` entries under separate `matches` items work as well; two `headers` entries
-under **one** match do not, because per the Gateway API spec only the first of several equivalent header names is
-considered, so `legacy` would silently fall through to the production rule.
+`presentMatch`, `exactMatch`, `safeRegexMatch`, `invertMatch`.
 
 ## What the tests assert
 
@@ -154,8 +85,6 @@ propagates it the same way; one that does not is exactly what step 3 of the work
 ./mesh-test-install/mesh-test-apps.sh uninstall <namespace> Core
 ```
 
-`EgressBgIT` port-forwards the `egress-gateway` and `public-gateway-service` Services and calls them directly, so it
-behaves the same whichever mesh is installed. All twelve cases pass against both Cloud-Core Mesh and Istio.
 
 ## Things to check when a scenario fails
 

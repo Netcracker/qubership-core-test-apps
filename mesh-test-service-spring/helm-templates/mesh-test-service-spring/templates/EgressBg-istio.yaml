@@ -1,23 +1,8 @@
 {{- if .Values.EGRESS_BG_TESTS_ENABLED }}
 {{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
-# Istio Ambient Mesh equivalent of EgressBg.yaml, produced by the mapping rules
-# in the core-mesh-crs-to-istio skill:
-#
-#   RouteConfiguration            -> HTTPRoute on the egress Gateway
-#   in-cluster destination        -> Service backendRef
-#   headerMatchers.safeRegexMatch -> matches[].headers[] type: RegularExpression
-#   headerMatchers.exactMatch     -> matches[].headers[] value
-#   presentMatch + invertMatch    -> no Gateway API equivalent, matcher dropped
-#                                    (see the production rules below)
-#
 # Header-based egress routing on egress-gateway:8080/egress-bg/integration:
 #   x-version-name: candidate | legacy   -> bg-stub   (stub for tests)
 #   x-version-name: active   | absent    -> bg-prod   (production)
-#
-# Gateway API decides rule precedence by specificity, not list order: every rule
-# here matches the same path prefix, so the rules with a header match win over
-# the bare path rule. They are still listed most specific first, for gateways
-# that do not implement that consistently.
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -34,9 +19,6 @@ spec:
     kind: Gateway
     name: egress-gateway
   rules:
-  # Stub endpoint: x-version-name is "candidate" or "legacy". One regular
-  # expression rather than two Exact entries: it is what safeRegexMatch
-  # migrates to, and both sides evaluate it as a full match.
   - matches:
     - path:
         type: PathPrefix
@@ -58,7 +40,6 @@ spec:
       port: 8080
       weight: 1
 {{- if .Values.EGRESS_PROD_INTEGRATION_ENABLED }}
-  # Production endpoint: x-version-name is "active".
   - matches:
     - path:
         type: PathPrefix
@@ -78,13 +59,6 @@ spec:
       name: bg-prod
       port: 8080
       weight: 1
-  # Production endpoint: x-version-name is absent. Cloud-Core Mesh expresses
-  # that as presentMatch: true + invertMatch: true; Gateway API has no negated
-  # header match, so the migration drops the matcher and flags the rule for
-  # review. What is left is a bare path match. Precedence by specificity keeps
-  # candidate and legacy on the stub rule above, so the widening only affects
-  # values Cloud-Core Mesh would answer 404 for, which nothing in a Blue/Green
-  # domain sends.
   - matches:
     - path:
         type: PathPrefix
@@ -102,13 +76,6 @@ spec:
       port: 8080
       weight: 1
 {{- end }}
-  # What /egress-bg/integration renders to on a candidate deployed with
-  # EGRESS_PROD_INTEGRATION_ENABLED=false: the stub rule only. A request that
-  # lost its x-version-name matches no rule here. The egress Gateway that
-  # core-mesh-config installs carries a catch-all HTTPRoute to
-  # egress-fallback-service, the Cloud-Core Mesh egress gateway, which has no
-  # route for the prefix either: 404 when it has routes at all, 503 from this
-  # gateway when it has none and refuses the connection.
   - matches:
     - path:
         type: PathPrefix
