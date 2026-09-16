@@ -18,7 +18,52 @@ on:
         type: string
 
 jobs:
+  # The services are built from the same ref as the scenarios and loaded into the cluster, so a run never depends
+  # on an image published earlier.
+  build-test-services:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [spring, quarkus, go]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up JDK 21
+        if: ${{ matrix.service != 'go' }}
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+          server-id: github
+
+      # The service resolves the login library from GitHub Packages, which the generated settings.xml reads
+      # GITHUB_ACTOR and GITHUB_TOKEN for.
+      - name: Package the service
+        if: ${{ matrix.service != 'go' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: mvn -B -ntp -f consul-login/test-service-${{ matrix.service }}/pom.xml package
+
+      # The Go service is built by its own Dockerfile, which carries the toolchain.
+      - name: Build the image
+        run: |
+          docker build -t consul-login-test-service-${{ matrix.service }}:it \
+            consul-login/test-service-${{ matrix.service }}
+
+      - name: Save the image
+        run: docker save -o image.tar consul-login-test-service-${{ matrix.service }}:it
+
+      - name: Upload the image
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: test-service-image-${{ matrix.service }}
+          path: image.tar
+          retention-days: 1
+
   consul-login-integration-tests:
+    needs: build-test-services
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -29,6 +74,18 @@ jobs:
         with:
           core-bootstrap-branch: ${{ inputs.core-bootstrap-branch || 'main' }}
 
+      - name: Download the test service images
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          path: test-service-images
+          pattern: test-service-image-*
+
+      - name: Load the test service images into the cluster
+        run: |
+          for archive in test-service-images/*/image.tar; do
+            kind load image-archive "$archive" --name kind
+          done
+
       # Scenario failures are read from the test report, they do not fail the run.
       - name: Run consul-login integration tests
         id: consul_login_tests
@@ -37,15 +94,15 @@ jobs:
         with:
           repository: Netcracker/qubership-core-test-apps
           branch: ${{ github.ref_name }}
-          path: repos/consul-login
-          test-folder: consul-login-integration-tests
+          path: repos/test-apps
+          test-folder: consul-login/integration-tests
           test-service-name: consul-login-tests
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       # The name of the artifact and the layout inside it are what the report job expects.
       - name: Aggregate Surefire reports
         run: |
-          module=repos/consul-login/consul-login-integration-tests
+          module=repos/test-apps/consul-login/integration-tests
           mkdir -p artifacts/consul-login
           cp -r "$module/target/surefire-reports" artifacts/consul-login/ || true
           if [ -d "$module/target/reports" ]; then
