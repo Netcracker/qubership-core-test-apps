@@ -4,7 +4,7 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-maas-failover-test-service-go/probe"
 	"github.com/netcracker/qubership-maas-failover-test-service-go/workload"
 )
