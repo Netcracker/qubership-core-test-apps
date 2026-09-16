@@ -5,7 +5,7 @@ import (
 
 	"github.com/netcracker/qubership-core-lib-go-rest-utils/v2/consul-propertysource"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2"
 	fibersecurity "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/security"
 	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/server"
