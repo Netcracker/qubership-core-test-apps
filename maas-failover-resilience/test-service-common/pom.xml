@@ -25,7 +25,7 @@
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <cloud.core.java.bom.version>12.0.2</cloud.core.java.bom.version>
+        <cloud.core.java.bom.version>12.2.2</cloud.core.java.bom.version>
         <!-- Compile-time only, see the dependency block: each application supplies its own. -->
         <kafka-clients.version>3.9.1</kafka-clients.version>
         <slf4j.version>2.0.17</slf4j.version>
