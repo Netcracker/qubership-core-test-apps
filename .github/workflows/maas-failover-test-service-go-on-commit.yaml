@@ -1,0 +1,29 @@
+name: Maas-failover-test-service-go build
+
+# No image is published: the integration test job builds it from the commit it runs on. This is the
+# compile check that keeps a broken module from reaching that job.
+
+on:
+  push:
+    paths:
+      - 'maas-failover-resilience/test-service-go/**'
+      - '.github/workflows/maas-failover-test-service-go-on-commit.yaml'
+  pull_request:
+    types: [ opened, synchronize, reopened ]
+    paths:
+      - 'maas-failover-resilience/test-service-go/**'
+      - '.github/workflows/maas-failover-test-service-go-on-commit.yaml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: maas-failover-resilience/test-service-go/test-service-go/go.mod
+      - name: Build and vet
+        working-directory: maas-failover-resilience/test-service-go/test-service-go
+        run: |
+          go build ./...
+          go vet ./...

@@ -1,0 +1,118 @@
+name: Run MaaS failover integration tests
+run-name: "[apps=${{ inputs.apps || 'spring,go' }}]"
+
+# A cluster of its own: the suite repeatedly kills the Patroni leader and a maas-agent instance,
+# which is not something the other suites should have to run alongside. It also needs a second
+# Patroni node and a registered RabbitMQ instance, neither of which the other suites install.
+
+on:
+  workflow_call:
+    inputs:
+      core-bootstrap-branch:
+        description: 'Branch of core-bootstrap repo'
+        required: false
+        default: 'main'
+        type: string
+      test-branch:
+        description: 'Branch to look for in core services & test repositories. If branch not found in specific repo, checkout will fallback to main'
+        required: false
+        default: 'main'
+        type: string
+      apps:
+        description: 'Test applications to install and drive, comma separated: spring, go'
+        required: false
+        default: 'spring,go'
+        type: string
+      fail-on-test-failure:
+        description: 'Fail the job when a test fails. Set to false by callers that publish the results themselves'
+        required: false
+        default: true
+        type: boolean
+
+  workflow_dispatch:
+    inputs:
+      core-bootstrap-branch:
+        description: 'Branch of core-bootstrap repo'
+        required: false
+        default: 'main'
+        type: string
+      test-branch:
+        description: 'Branch to use in core services & test repositories. If branch not found in specific repo, checkout will fallback to main'
+        required: false
+        default: 'main'
+        type: string
+      apps:
+        description: 'Test applications to install and drive, comma separated: spring, go'
+        required: false
+        default: 'spring,go'
+        type: string
+      fail-on-test-failure:
+        description: 'Fail the job when a test fails'
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  maas-failover-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Kind cluster and deploy Cloud Core
+        uses: ./.github/actions/setup-kind-with-cloud-core
+        with:
+          core-bootstrap-branch: ${{ inputs.core-bootstrap-branch || 'main' }}
+          test-branch: ${{ inputs.test-branch || 'main' }}
+          install-maas: 'true'
+          install-istio: 'false'
+          # a second Patroni node, so the leader has somewhere to move; a registered RabbitMQ
+          # instance, which the bootstrap skips by default and the vhost scenarios need
+          aux-bootstrap-args: 'PATRONI_REPLICAS_NUMBER=2 RABBIT_INSTANCES=rabbitmq-1'
+
+      - name: Run the MaaS failover integration tests
+        id: failover_tests
+        continue-on-error: true
+        uses: ./.github/actions/run-maas-failover-tests
+        with:
+          apps: ${{ inputs.apps || 'spring,go' }}
+          # the services stay up, so the diagnostics step below can collect their state
+          cleanup: 'false'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Aggregate Surefire reports
+        if: always()
+        run: |
+          module=maas-failover-resilience/integration-tests
+          mkdir -p artifacts/maas-failover-resilience
+          cp -r "$module/target/surefire-reports" artifacts/maas-failover-resilience/ || true
+          if [ -d "$module/target/reports" ]; then
+            cp -r "$module/target/reports" artifacts/maas-failover-resilience/ || true
+          fi
+
+      - name: Upload Surefire reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: surefire-reports-maas-failover
+          path: artifacts/*
+
+      - name: Collect Kubernetes diagnostics
+        if: ${{ failure() || steps.failover_tests.outcome == 'failure' }}
+        uses: ./.github/actions/collect-k8s-diagnostics
+        with:
+          collect-logs-for: 'app.kubernetes.io/part-of=maas-failover-test-app,name=maas-agent,name=maas-service'
+          artifact-suffix: '-maas-failover'
+
+      - name: Report the test outcome
+        if: ${{ steps.failover_tests.outcome == 'failure' }}
+        env:
+          FAIL_ON_TEST_FAILURE: ${{ inputs.fail-on-test-failure }}
+        run: |
+          if [ "$FAIL_ON_TEST_FAILURE" = "false" ]; then
+            echo "::warning::MaaS failover integration tests failed, see the uploaded reports"
+            exit 0
+          fi
+          echo "::error::MaaS failover integration tests failed, see the uploaded reports"
+          exit 1
