@@ -1,4 +1,4 @@
-FROM ghcr.io/netcracker/qubership-java-base:21-alpine-2.4.1@sha256:3292f3d70adf9862e4c4a1d1d9a8a820543a31d14a48212c95d9194d2f1e626f
+FROM ghcr.io/netcracker/qubership-java-base:21-alpine-2.5.4@sha256:e2c93e22e265a36801183291e9825ba6969b8281f96a043f4adb3fce05368abc
 LABEL maintainer="qubership"
 
 COPY --chown=10001:0 target/consul-login-test-service-spring-*.jar /app/consul-login-test-service-spring.jar
