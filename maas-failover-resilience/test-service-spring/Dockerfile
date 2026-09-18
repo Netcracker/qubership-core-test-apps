@@ -1,4 +1,4 @@
-FROM ghcr.io/netcracker/qubership-java-base:21-alpine-2.3.7@sha256:0703cab49931a129f16f39e11d108a4c15e9455a32508fc3f6690ae719aa826d
+FROM ghcr.io/netcracker/qubership-java-base:21-alpine-2.5.4@sha256:e2c93e22e265a36801183291e9825ba6969b8281f96a043f4adb3fce05368abc
 LABEL maintainer="qubership"
 
 COPY --chown=10001:0 target/maas-failover-test-service-spring-*.jar /app/maas-failover-test-service-spring.jar
