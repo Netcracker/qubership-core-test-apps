@@ -8,10 +8,8 @@ require (
 	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.9.9
 	github.com/netcracker/qubership-core-lib-go-maas-client/v3 v3.5.9
 	github.com/netcracker/qubership-core-lib-go-maas-core/v3 v3.5.10
-	github.com/netcracker/qubership-core-lib-go-maas-segmentio/v3 v3.5.9
 	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.7.8
 	github.com/netcracker/qubership-core-lib-go/v3 v3.13.5
-	github.com/segmentio/kafka-go v0.4.51
 )
 
 require (
@@ -41,7 +39,7 @@ require (
 	github.com/hashicorp/go-rootcerts v1.0.2 // indirect
 	github.com/hashicorp/golang-lru v1.0.2 // indirect
 	github.com/hashicorp/serf v0.10.4 // indirect
-	github.com/klauspost/compress v1.18.6 // indirect
+	github.com/klauspost/compress v1.18.7 // indirect
 	github.com/knadh/koanf/maps v0.1.2 // indirect
 	github.com/knadh/koanf/parsers/yaml v1.1.0 // indirect
 	github.com/knadh/koanf/providers/env/v2 v2.0.0 // indirect
@@ -57,7 +55,6 @@ require (
 	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.6.7 // indirect
 	github.com/netcracker/qubership-core-lib-go-stomp-websocket/v3 v3.5.9 // indirect
 	github.com/openzipkin/zipkin-go v0.4.3 // indirect
-	github.com/pierrec/lz4/v4 v4.1.21 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.23.2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
@@ -69,9 +66,6 @@ require (
 	github.com/valyala/fasthttp v1.72.0 // indirect
 	github.com/vibrantbyte/go-antpath v1.1.1 // indirect
 	github.com/viney-shih/go-lock v1.1.2 // indirect
-	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
-	github.com/xdg-go/scram v1.1.2 // indirect
-	github.com/xdg-go/stringprep v1.0.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/propagators/b3 v1.44.0 // indirect
 	go.opentelemetry.io/otel v1.44.0 // indirect
@@ -85,6 +79,5 @@ require (
 	golang.org/x/net v0.56.0 // indirect
 	golang.org/x/sync v0.21.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect
-	golang.org/x/text v0.39.0 // indirect
 	google.golang.org/protobuf v1.36.8 // indirect
 )
