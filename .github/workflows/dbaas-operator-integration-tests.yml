@@ -59,6 +59,8 @@ jobs:
   clean-install:
     if: contains(inputs.scenarios, 'clean-install')
     runs-on: ubuntu-latest
+    env:
+      REPORT_DIR: artifacts/dbaas-operator-clean-install
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -85,11 +87,24 @@ jobs:
           collect-logs-for: ${{ env.LOGS_FOR }}
           artifact-suffix: -dbaas-operator-clean-install
 
+      - name: Write Surefire report
+        if: always()
+        run: ./dbaas-operator-tests/checks.sh report dbaas-operator.clean-install --job-status "${{ job.status }}"
+
+      - name: Upload Surefire report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: surefire-reports-dbaas-operator-clean-install
+          path: artifacts/*
+
   # B: install Cloud Core as today, then add the DBaaS Operator and upgrade Cloud Core onto it.
   # The databases created over REST must be adopted, not replaced.
   upgrade:
     if: contains(inputs.scenarios, 'upgrade')
     runs-on: ubuntu-latest
+    env:
+      REPORT_DIR: artifacts/dbaas-operator-upgrade
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -131,11 +146,24 @@ jobs:
           collect-logs-for: ${{ env.LOGS_FOR }}
           artifact-suffix: -dbaas-operator-upgrade
 
+      - name: Write Surefire report
+        if: always()
+        run: ./dbaas-operator-tests/checks.sh report dbaas-operator.upgrade --job-status "${{ job.status }}"
+
+      - name: Upload Surefire report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: surefire-reports-dbaas-operator-upgrade
+          path: artifacts/*
+
   # C: a claim that does not match what the service requests must stop the service. If it does not,
   # the checks above cannot detect a fallback and their passes mean nothing.
   negative-control:
     if: contains(inputs.scenarios, 'negative-control')
     runs-on: ubuntu-latest
+    env:
+      REPORT_DIR: artifacts/dbaas-operator-negative-control
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -167,3 +195,14 @@ jobs:
         with:
           collect-logs-for: ${{ env.LOGS_FOR }}
           artifact-suffix: -dbaas-operator-negative-control
+
+      - name: Write Surefire report
+        if: always()
+        run: ./dbaas-operator-tests/checks.sh report dbaas-operator.negative-control --job-status "${{ job.status }}"
+
+      - name: Upload Surefire report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: surefire-reports-dbaas-operator-negative-control
+          path: artifacts/*
