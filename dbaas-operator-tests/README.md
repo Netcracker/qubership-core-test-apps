@@ -31,8 +31,9 @@ those branches; config-server and site-management only change their charts.
 To run the checks against your own cluster, for example one installed with `cloud-core-local-dev`:
 
 ```bash
-export CORE_NAMESPACE=core PG_NAMESPACE=postgres DBAAS_NAMESPACE=dbaas
 ./checks.sh assert --expect-no-legacy-secret
 ```
 
-`checks.sh` without arguments prints the other subcommands. It needs `kubectl` and `jq`.
+The namespaces default to those of `cloud-core-local-dev`; set `CORE_NAMESPACE`, `PG_NAMESPACE`, or
+`DBAAS_NAMESPACE` only if yours differ. `checks.sh` without arguments prints the other subcommands. It needs
+`kubectl` and `jq`.
