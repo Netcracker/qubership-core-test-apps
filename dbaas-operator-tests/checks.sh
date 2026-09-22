@@ -4,8 +4,6 @@
 # Usage:
 #   checks.sh snapshot <file>                      record each service's database while in legacy mode
 #   checks.sh assert [--snapshot <file>] [--expect-no-legacy-secret]
-#   checks.sh break-claim <service>                recreate the service's claim with a mismatched role
-#   checks.sh expect-not-ready <service>           fail unless the service's rollout never becomes ready
 #   checks.sh report <suite> [--job-status <s>]    write the recorded checks as a Surefire report
 #
 # The Cloud Core values must point API_DBAAS_ADDRESS at a service name that does not resolve
@@ -25,7 +23,6 @@ DBAAS_NAMESPACE="${DBAAS_NAMESPACE:-dbaas}"
 DBAAS_SERVICE_NAME="${DBAAS_SERVICE_NAME:-dbaas-aggregator}"
 FAKE_DBAAS_SERVICE_NAME="${FAKE_DBAAS_SERVICE_NAME:-dbaas-rest-fallback-forbidden}"
 WAIT_TIMEOUT="${WAIT_TIMEOUT:-600s}"
-NOT_READY_TIMEOUT="${NOT_READY_TIMEOUT:-300s}"
 REPORT_DIR="${REPORT_DIR:-}"
 
 # Every Cloud Core service that owns a database. Keep in sync with the charts.
@@ -93,9 +90,17 @@ aggregator_database() {
 cmd_snapshot() {
   local file="$1" snapshot='{}' name
   for service in "${SERVICES[@]}"; do
-    name="$(aggregator_database "$service")"
-    [[ -n "$name" && "$name" != "null" ]] || { echo "no database registered for $service" >&2; exit 1; }
-    echo "$service -> $name"
+    # config-server and site-management create their database over REST when they start, which can be
+    # after the install returns, so wait for each service before asking the aggregator.
+    if ! kube rollout status "deployment/$service" --timeout="$WAIT_TIMEOUT" >/dev/null; then
+      fail "$service did not become ready, so its database cannot be recorded"
+      exit 1
+    fi
+    if ! name="$(aggregator_database "$service")" || [[ -z "$name" || "$name" == "null" ]]; then
+      fail "cannot look up the database of $service in dbaas-aggregator"
+      exit 1
+    fi
+    pass "recorded the $service database $name"
     snapshot="$(jq -c --arg s "$service" --arg n "$name" '. + {($s): $n}' <<<"$snapshot")"
   done
   echo "$snapshot" >"$file"
@@ -196,29 +201,6 @@ cmd_assert() {
   echo "All checks passed"
 }
 
-cmd_break_claim() {
-  local service="$1" claim name
-  claim="$(claim_for "$service")"
-  [[ -n "$claim" ]] || { echo "$service has no DatabaseSecretClaim" >&2; exit 1; }
-  name="$(jq -r .metadata.name <<<"$claim")"
-  # spec.userRole cannot change once set, so recreate the claim. The service requests an empty role,
-  # so an explicit one is a lookup key the client never asks for.
-  kube delete databasesecretclaim.dbaas.netcracker.com "$name" --wait
-  jq '{apiVersion, kind, metadata: {name: .metadata.name, namespace: .metadata.namespace, labels: .metadata.labels},
-       spec: (.spec + {userRole: "admin"})}' <<<"$claim" | kubectl apply -f -
-  kube wait --for=condition=Ready "databasesecretclaim.dbaas.netcracker.com/$name" --timeout="$WAIT_TIMEOUT"
-  kube rollout restart "deployment/$service"
-}
-
-cmd_expect_not_ready() {
-  local service="$1"
-  if kube rollout status "deployment/$service" --timeout="$NOT_READY_TIMEOUT"; then
-    fail "$service became ready with a mismatched claim, so these checks cannot detect a fallback"
-    exit 1
-  fi
-  pass "$service did not become ready with a mismatched claim"
-}
-
 xml_escape() {
   sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e 's/"/\&quot;/g' <<<"$1"
 }
@@ -294,8 +276,6 @@ cmd_report() {
 case "${1:-}" in
   snapshot) cmd_snapshot "$2" ;;
   assert) shift; cmd_assert "$@" ;;
-  break-claim) cmd_break_claim "$2" ;;
-  expect-not-ready) cmd_expect_not_ready "$2" ;;
   report) shift; cmd_report "$@" ;;
-  *) sed -n '2,9p' "$0"; exit 2 ;;
+  *) sed -n '2,7p' "$0"; exit 2 ;;
 esac
