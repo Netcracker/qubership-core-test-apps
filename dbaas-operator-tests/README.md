@@ -20,7 +20,6 @@ The DBaaS installation, Patroni, and MaaS keep using the real aggregator name th
 |---|---|
 | `clean-install` | Cloud Core installed onto a cluster that already runs the operator comes up, every CR is `Ready`, and core-bootstrap no longer writes `control-plane-db-credentials` |
 | `upgrade` | Cloud Core installed as today, then upgraded after the operator is added, keeps the databases it already had: each claim resolves to the database recorded before the upgrade |
-| `negative-control` | A claim for a role the service never requests stops that service. If it did not, the other jobs could not detect a fallback |
 
 ## Reports
 

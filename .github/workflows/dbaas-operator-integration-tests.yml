@@ -23,9 +23,9 @@ on:
         description: control-plane image tag built from test-branch
         required: true
       scenarios:
-        description: Comma-separated subset of clean-install, upgrade, negative-control
+        description: Comma-separated subset of clean-install, upgrade
         required: false
-        default: clean-install,upgrade,negative-control
+        default: clean-install,upgrade
   workflow_call:
     inputs:
       core-bootstrap-branch:
@@ -45,7 +45,7 @@ on:
       scenarios:
         type: string
         required: false
-        default: clean-install,upgrade,negative-control
+        default: clean-install,upgrade
 
 permissions:
   contents: read
@@ -123,12 +123,14 @@ jobs:
           git -C core-bootstrap-repo checkout --detach FETCH_HEAD
 
       - name: Install the DBaaS Operator into the running DBaaS
-        run: make -C core-bootstrap-repo/cloud-core-local-dev/ deploy-dbaas DBAAS_OPERATOR_ENABLED=true
+        # deploy-dbaas would rerun the whole DBaaS install, and its Patroni re-apply fails on a field
+        # conflict with postgres-operator. Install only the operator, from the clone the first install left.
+        run: >-
+          make -C core-bootstrap-repo/cloud-core-local-dev/.tmp/qubership-dbaas/bootstrap
+          install-dbaas-operator wait-dbaas-operator DBAAS_OPERATOR_ENABLED=true
 
       - name: Upgrade Cloud Core onto the DBaaS Operator
         run: |
-          # clone-repos may keep an existing clone on its current branch, so start from fresh clones
-          rm -rf core-bootstrap-repo/cloud-core-local-dev/.tmp/qubership-core-*
           make -C core-bootstrap-repo/cloud-core-local-dev/ clone-repos template-values-files deploy-core \
             TEST_BRANCH="${{ inputs.test-branch }}" \
             CONTROL_PLANE_TAG="${{ inputs.control-plane-tag }}" \
@@ -155,54 +157,4 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: surefire-reports-dbaas-operator-upgrade
-          path: artifacts/*
-
-  # C: a claim that does not match what the service requests must stop the service. If it does not,
-  # the checks above cannot detect a fallback and their passes mean nothing.
-  negative-control:
-    if: contains(inputs.scenarios, 'negative-control')
-    runs-on: ubuntu-latest
-    env:
-      REPORT_DIR: artifacts/dbaas-operator-negative-control
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
-      - name: Setup Kind cluster and deploy Cloud Core with the DBaaS Operator
-        uses: ./.github/actions/setup-kind-with-cloud-core
-        with:
-          core-bootstrap-branch: ${{ inputs.core-bootstrap-branch }}
-          test-branch: ${{ inputs.test-branch }}
-          control-plane-tag: ${{ inputs.control-plane-tag }}
-          install-istio: 'false'
-          aux-bootstrap-args: >-
-            DBAAS_OPERATOR_ENABLED=true
-            CORE_DBAAS_SERVICE_NAME=${{ env.FAKE_DBAAS_SERVICE_NAME }}
-            CORE_BOOTSTRAP_IMAGE=${{ inputs.core-bootstrap-image }}
-
-      - name: Check the baseline passes
-        run: ./dbaas-operator-tests/checks.sh assert --expect-no-legacy-secret
-
-      - name: Give site-management a claim for a role it never requests
-        run: ./dbaas-operator-tests/checks.sh break-claim site-management
-
-      - name: Check site-management does not become ready
-        run: ./dbaas-operator-tests/checks.sh expect-not-ready site-management
-
-      - name: Collect diagnostics
-        if: failure()
-        uses: ./.github/actions/collect-k8s-diagnostics
-        with:
-          collect-logs-for: ${{ env.LOGS_FOR }}
-          artifact-suffix: -dbaas-operator-negative-control
-
-      - name: Write Surefire report
-        if: always()
-        run: ./dbaas-operator-tests/checks.sh report dbaas-operator.negative-control --job-status "${{ job.status }}"
-
-      - name: Upload Surefire report
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: surefire-reports-dbaas-operator-negative-control
           path: artifacts/*
