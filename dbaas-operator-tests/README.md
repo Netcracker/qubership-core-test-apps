@@ -22,6 +22,17 @@ The DBaaS installation, Patroni, and MaaS keep using the real aggregator name th
 | `upgrade` | Cloud Core installed as today, then upgraded after the operator is added, keeps the databases it already had: each claim resolves to the database recorded before the upgrade |
 | `negative-control` | A claim for a role the service never requests stops that service. If it did not, the other jobs could not detect a fallback |
 
+## Reports
+
+Each job publishes a Surefire report, as the Java suites in this repository do, so the results can join the
+integration tests report. With `REPORT_DIR` set, every check is recorded, and `checks.sh report` writes
+`surefire-reports/TEST-<suite>.xml` and `reports/surefire.html` there. The workflow uploads them as
+`surefire-reports-dbaas-operator-<scenario>`.
+
+The report runs even when an earlier step failed. If the cluster setup failed and no check ran, or a step failed
+outside the checks, it records a `setup` error, so a scenario that never ran shows as failed rather than disappearing
+from the report.
+
 ## Running
 
 The workflow is `DBaaS Operator integration tests`. It takes the branch of the core-bootstrap and service repositories
