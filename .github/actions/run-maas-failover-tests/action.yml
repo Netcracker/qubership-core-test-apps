@@ -1,0 +1,95 @@
+name: Run MaaS failover integration tests
+description: >
+  Builds the failover test service images from the checked-out sources, loads them into the kind
+  cluster, installs them and runs the MaaS failover integration tests.
+
+inputs:
+  namespace:
+    description: Kubernetes namespace to install the failover test services into
+    required: false
+    default: core
+  apps:
+    description: Comma-separated platforms to install and test, for example "spring,go"
+    required: false
+    default: spring,go
+  tag:
+    description: Tag for the locally built images. Only has to be unique within the cluster.
+    required: false
+    default: it
+  cluster:
+    description: Name of the kind cluster the images are loaded into
+    required: false
+    default: kind
+  maas-agent-url:
+    description: Address of the MaaS agent the client under test talks to
+    required: false
+    default: http://maas-agent:8080
+  cleanup:
+    description: >
+      Uninstall the test services when the run ends. Only worth doing when the cluster is short on
+      resources: otherwise leaving them in place lets the workflow collect their state at the end.
+    required: false
+    default: 'false'
+  github-token:
+    description: >
+      GitHub token for Maven. setup-java writes a settings.xml whose github server reads
+      GITHUB_ACTOR and GITHUB_TOKEN from the environment, and the dependencies live in
+      GitHub Packages.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # Built here rather than pulled: a published image is tagged from the branch, so a change that
+    # touches only the suite would run against whatever was published last, and a change that
+    # touches an application would race its own image build.
+    - name: Build and load the failover test service images
+      shell: bash
+      env:
+        GITHUB_ACTOR: ${{ github.actor }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        APPS: ${{ inputs.apps }}
+        TAG: ${{ inputs.tag }}
+        CLUSTER: ${{ inputs.cluster }}
+      run: |
+        set -e
+        suite=maas-failover-resilience
+        images=""
+        if [[ ",$APPS," == *",spring,"* ]]; then
+          mvn -B -f $suite/test-apps-java/pom.xml package -DskipTests
+          docker build -t "maas-failover-test-service-spring:$TAG" \
+              -f $suite/test-service-spring/Dockerfile $suite/test-service-spring
+          images="$images maas-failover-test-service-spring:$TAG"
+        fi
+        if [[ ",$APPS," == *",go,"* ]]; then
+          docker build -t "maas-failover-test-service-go:$TAG" \
+              -f $suite/test-service-go/Dockerfile $suite/test-service-go
+          images="$images maas-failover-test-service-go:$TAG"
+        fi
+        # shellcheck disable=SC2086 # the list is deliberately word-split into separate arguments
+        kind load docker-image $images --name "$CLUSTER"
+
+    - name: Run the MaaS failover integration tests
+      shell: bash
+      env:
+        GITHUB_ACTOR: ${{ github.actor }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        NAMESPACE: ${{ inputs.namespace }}
+        APPS: ${{ inputs.apps }}
+        TAG: ${{ inputs.tag }}
+        MAAS_AGENT_URL: ${{ inputs.maas-agent-url }}
+      run: |
+        set -e
+        ./maas-failover-resilience/install/test-apps.sh install \
+            --namespace "$NAMESPACE" --apps "$APPS" --tag "$TAG" --local-images \
+            --maas-agent "$MAAS_AGENT_URL"
+
+        ./run-it/run-integration-tests.sh kind-kind "$NAMESPACE" kind-control-plane:10.244.0.1 \
+            maas-failover-resilience:maas-failover-resilience/integration-tests
+
+    - name: Uninstall the failover test services
+      if: always() && inputs.cleanup == 'true'
+      shell: bash
+      run: >
+        ./maas-failover-resilience/install/test-apps.sh uninstall
+        --namespace ${{ inputs.namespace }} --apps ${{ inputs.apps }}
