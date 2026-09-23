@@ -261,13 +261,12 @@ on:
         type: string
 
 jobs:
-  integration-tests:
+  select-tests:
     runs-on: ubuntu-latest
+    outputs:
+      suites: ${{ steps.integrations_tests_selection.outputs.suites }}
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
       - name: Document workflow input values
         shell: bash
         run: |
@@ -323,6 +322,70 @@ jobs:
           echo "run-tests-for=${{ inputs.run-tests-for || 'all' }}"
           echo "::endgroup::"
 
+      - name: Resolve integration tests to run
+        id: integrations_tests_selection
+        shell: bash
+        env:
+          RUN_TESTS_FOR: ${{ inputs.run-tests-for || 'all' }}
+        run: |
+          all_suites=(mesh-tests paas-mediation control-plane site-management maas-agent)
+          normalized="$(echo "$RUN_TESTS_FOR" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]' | tr '_' '-')"
+
+          suites=()
+          if [[ -z "$normalized" || "$normalized" == "false" || "$normalized" == "none" ]]; then
+            # still deploy the stand, just run no suite on it
+            suites=(none)
+          elif [[ "$normalized" == "true" || "$normalized" == "all" ]]; then
+            suites=("${all_suites[@]}")
+          else
+            IFS=',' read -ra requested <<< "$normalized"
+            for service in "${requested[@]}"; do
+              [[ -z "$service" ]] && continue
+              if [[ " ${all_suites[*]} " != *" $service "* ]]; then
+                echo "::error::Unknown integration test service: $service"
+                echo "::error::Allowed values: all, none, ${all_suites[*]}"
+                exit 1
+              fi
+              [[ " ${suites[*]} " == *" $service "* ]] || suites+=("$service")
+            done
+            [[ ${#suites[@]} -gt 0 ]] || suites=(none)
+          fi
+
+          echo "suites=$(printf '%s\n' "${suites[@]}" | jq -R . | jq -cs .)" >> "$GITHUB_OUTPUT"
+
+  # every suite gets its own runner and its own stand, so suites no longer compete for CPU, memory and disk
+  integration-tests:
+    name: integration-tests (${{ matrix.suite }})
+    needs: select-tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: ${{ fromJSON(needs.select-tests.outputs.suites) }}
+    env:
+      ARTIFACT_SUFFIX: ${{ inputs.test-usecase != '' && format('-{0}-{1}', inputs.test-usecase, matrix.suite) || format('-{0}', matrix.suite) }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Free runner disk space and add swap
+        shell: bash
+        run: |
+          df -h / && free -h
+          # Drop preinstalled toolchains the tests never use (~30 GB)
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup \
+            /usr/share/swift /usr/local/share/powershell /usr/local/share/chromium /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          # Extra 8 GB swap so kind pods don't get OOM-killed on memory spikes
+          sudo swapoff -a
+          sudo rm -f /mnt/swapfile
+          sudo fallocate -l 8G /mnt/swapfile
+          sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+          df -h / && free -h
+
       - name: Setup Kind cluster and deploy Cloud Core
         uses: ./.github/actions/setup-kind-with-cloud-core
         with:
@@ -351,68 +414,9 @@ jobs:
           # to preserve some resources for tests
           kubectl scale deployment site-management -n core --replicas=0
 
-      - name: Resolve integration tests to run
-        id: integrations_tests_selection
-        shell: bash
-        env:
-          RUN_TESTS_FOR: ${{ inputs.run-tests-for || 'all' }}
-        run: |
-          selected="$RUN_TESTS_FOR"
-          normalized="$(echo "$selected" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
-
-          mesh_tests=false
-          paas_mediation=false
-          control_plane=false
-          site_management=false
-          maas_agent=false
-
-          if [[ -z "$normalized" || "$normalized" == "false" || "$normalized" == "none" ]]; then
-            :
-          elif [[ "$normalized" == "true" || "$normalized" == "all" ]]; then
-            mesh_tests=true
-            paas_mediation=true
-            control_plane=true
-            site_management=true
-            maas_agent=true
-          else
-            IFS=',' read -ra services <<< "$normalized"
-            for service in "${services[@]}"; do
-              case "$service" in
-                mesh-tests|mesh_tests)
-                  mesh_tests=true
-                  ;;
-                paas-mediation|paas_mediation)
-                  paas_mediation=true
-                  ;;
-                control-plane|control_plane)
-                  control_plane=true
-                  ;;
-                site-management|site_management)
-                  site_management=true
-                  ;;
-                maas-agent|maas_agent)
-                  maas_agent=true
-                  ;;
-                "")
-                  ;;
-                *)
-                  echo "::error::Unknown integration test service: $service"
-                  echo "::error::Allowed values: all, none, mesh-tests, paas-mediation, control-plane, site-management, maas-agent"
-                  exit 1
-                  ;;
-              esac
-            done
-          fi
-
-          echo "mesh_tests=$mesh_tests" >> "$GITHUB_OUTPUT"
-          echo "paas_mediation=$paas_mediation" >> "$GITHUB_OUTPUT"
-          echo "control_plane=$control_plane" >> "$GITHUB_OUTPUT"
-          echo "site_management=$site_management" >> "$GITHUB_OUTPUT"
-          echo "maas_agent=$maas_agent" >> "$GITHUB_OUTPUT"
-
       - name: Run mesh integration tests (test apps in ${{ inputs.mesh-type || 'Core' }} mesh mode)
         id: mesh_tests
-        if: ${{ steps.integrations_tests_selection.outputs.mesh_tests == 'true' }}
+        if: ${{ matrix.suite == 'mesh-tests' }}
         continue-on-error: true
         uses: ./.github/actions/run-mesh-tests
         with:
@@ -423,13 +427,13 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Name mesh tests result with inputs.test-usecase
-        if: ${{ steps.integrations_tests_selection.outputs.mesh_tests == 'true' && inputs.test-usecase }}
+        if: ${{ matrix.suite == 'mesh-tests' && inputs.test-usecase }}
         run: |
           mv mesh-integration-tests "mesh-tests-${{ inputs.test-usecase }}"
 
       - name: Run paas-mediation integration tests
         id: paas_tests
-        if: ${{ steps.integrations_tests_selection.outputs.paas_mediation == 'true' }}
+        if: ${{ matrix.suite == 'paas-mediation' }}
         continue-on-error: true
         uses: ./.github/actions/run-integrations-tests
         with:
@@ -444,7 +448,7 @@ jobs:
 
       - name: Run control-plane integration tests
         id: control_plane_tests
-        if: ${{ steps.integrations_tests_selection.outputs.control_plane == 'true' }}
+        if: ${{ matrix.suite == 'control-plane' }}
         continue-on-error: true
         uses: ./.github/actions/run-integrations-tests
         with:
@@ -458,7 +462,7 @@ jobs:
 
       - name: Run site-management integration tests
         id: site_management_tests
-        if: ${{ steps.integrations_tests_selection.outputs.site_management == 'true' }}
+        if: ${{ matrix.suite == 'site-management' }}
         continue-on-error: true
         uses: ./.github/actions/run-integrations-tests
         with:
@@ -472,7 +476,7 @@ jobs:
 
       - name: Run maas-agent integration tests
         id: maas_agent_tests
-        if: ${{ steps.integrations_tests_selection.outputs.maas_agent == 'true' }}
+        if: ${{ matrix.suite == 'maas-agent' }}
         continue-on-error: true
         uses: ./.github/actions/run-integrations-tests
         with:
@@ -505,18 +509,18 @@ jobs:
       - name: Upload Surefire reports
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: surefire-reports${{ inputs.test-usecase != '' && format('-{0}', inputs.test-usecase) || '' }}
+          name: surefire-reports${{ env.ARTIFACT_SUFFIX }}
           path: artifacts/*
 
       - name: Collect Istio debug info
         if: ${{ inputs.install-istio && (failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure') }}
         uses: ./.github/actions/collect-istio-debug-info
         with:
-          artifact-suffix: ${{ inputs.test-usecase != '' && format('-{0}', inputs.test-usecase) || '' }}
+          artifact-suffix: ${{ env.ARTIFACT_SUFFIX }}
 
       - name: Collect Kubernetes diagnostics
         if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure' }}
         uses: ./.github/actions/collect-k8s-diagnostics
         with:
           collect-logs-for: ${{ inputs.collect-logs-for || '' }}
-          artifact-suffix: ${{ inputs.test-usecase != '' && format('-{0}', inputs.test-usecase) || '' }}
+          artifact-suffix: ${{ env.ARTIFACT_SUFFIX }}
