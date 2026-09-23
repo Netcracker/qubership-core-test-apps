@@ -7,7 +7,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.10.0
 	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.8.1-0.20260916135923-51b88a0872b6
-	github.com/netcracker/qubership-core-lib-go/v3 v3.14.0
+	github.com/netcracker/qubership-core-lib-go/v3 v3.14.1
 )
 
 require (
