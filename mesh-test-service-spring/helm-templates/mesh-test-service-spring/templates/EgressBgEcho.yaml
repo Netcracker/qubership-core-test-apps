@@ -37,7 +37,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: egress-bg-echo
-        image: '{{ .Values.EGRESS_BG_ECHO_IMAGE }}'
+        image: '{{ .Values.EGRESS_ECHO_IMAGE }}'
         command: ["nginx", "-c", "/etc/nginx/egress-bg/nginx.conf", "-g", "daemon off;"]
         securityContext:
           runAsNonRoot: true
