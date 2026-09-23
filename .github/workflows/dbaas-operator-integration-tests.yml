@@ -8,40 +8,20 @@ name: DBaaS Operator integration tests
 on:
   workflow_dispatch:
     inputs:
-      core-bootstrap-branch:
-        description: Branch of the core-bootstrap repository with the DBaaS Operator changes
-        required: false
-        default: feat/dbaas-mounted-secret-migration
       test-branch:
         description: Branch of the Core service repositories; falls back to main where it does not exist
         required: false
         default: feat/dbaas-mounted-secret-migration
-      core-bootstrap-image:
-        description: core-bootstrap image built from core-bootstrap-branch, e.g. ghcr.io/netcracker/core-bootstrap:<tag>
-        required: true
-      control-plane-tag:
-        description: control-plane image tag built from test-branch
-        required: true
       scenarios:
         description: Comma-separated subset of clean-install, upgrade
         required: false
         default: clean-install,upgrade
   workflow_call:
     inputs:
-      core-bootstrap-branch:
-        type: string
-        required: false
-        default: feat/dbaas-mounted-secret-migration
       test-branch:
         type: string
         required: false
         default: feat/dbaas-mounted-secret-migration
-      core-bootstrap-image:
-        type: string
-        required: true
-      control-plane-tag:
-        type: string
-        required: true
       scenarios:
         type: string
         required: false
@@ -52,6 +32,11 @@ permissions:
 
 env:
   FAKE_DBAAS_SERVICE_NAME: dbaas-rest-fallback-forbidden
+  # The branch and images carrying this work, inlined because they only exist while it is open.
+  # Once it is merged, drop them and let the action's defaults (main, latest) apply.
+  CORE_BOOTSTRAP_BRANCH: feat/dbaas-mounted-secret-migration
+  CORE_BOOTSTRAP_IMAGE: ghcr.io/netcracker/core-bootstrap:feat-dbaas-mounted-secret-migration-snapshot
+  CONTROL_PLANE_TAG: feat-dbaas-mounted-secret-migration-snapshot
   LOGS_FOR: name=control-plane,name=config-server,name=site-management,name=dbaas-agent,name=dbaas-operator
 
 jobs:
@@ -68,14 +53,14 @@ jobs:
       - name: Setup Kind cluster and deploy Cloud Core with the DBaaS Operator
         uses: ./.github/actions/setup-kind-with-cloud-core
         with:
-          core-bootstrap-branch: ${{ inputs.core-bootstrap-branch }}
+          core-bootstrap-branch: ${{ env.CORE_BOOTSTRAP_BRANCH }}
           test-branch: ${{ inputs.test-branch }}
-          control-plane-tag: ${{ inputs.control-plane-tag }}
+          control-plane-tag: ${{ env.CONTROL_PLANE_TAG }}
           install-istio: 'false'
           aux-bootstrap-args: >-
             DBAAS_OPERATOR_ENABLED=true
             CORE_DBAAS_SERVICE_NAME=${{ env.FAKE_DBAAS_SERVICE_NAME }}
-            CORE_BOOTSTRAP_IMAGE=${{ inputs.core-bootstrap-image }}
+            CORE_BOOTSTRAP_IMAGE=${{ env.CORE_BOOTSTRAP_IMAGE }}
 
       - name: Check databases come from the DBaaS Operator
         run: ./dbaas-operator-tests/checks.sh assert --expect-no-legacy-secret
@@ -119,7 +104,7 @@ jobs:
 
       - name: Switch core-bootstrap to the DBaaS Operator branch
         run: |
-          git -C core-bootstrap-repo fetch --depth 1 origin "${{ inputs.core-bootstrap-branch }}"
+          git -C core-bootstrap-repo fetch --depth 1 origin "${{ env.CORE_BOOTSTRAP_BRANCH }}"
           git -C core-bootstrap-repo checkout --detach FETCH_HEAD
 
       - name: Install the DBaaS Operator into the running DBaaS
@@ -133,10 +118,10 @@ jobs:
         run: |
           make -C core-bootstrap-repo/cloud-core-local-dev/ clone-repos template-values-files deploy-core \
             TEST_BRANCH="${{ inputs.test-branch }}" \
-            CONTROL_PLANE_TAG="${{ inputs.control-plane-tag }}" \
+            CONTROL_PLANE_TAG="${{ env.CONTROL_PLANE_TAG }}" \
             DBAAS_OPERATOR_ENABLED=true \
             CORE_DBAAS_SERVICE_NAME="$FAKE_DBAAS_SERVICE_NAME" \
-            CORE_BOOTSTRAP_IMAGE="${{ inputs.core-bootstrap-image }}"
+            CORE_BOOTSTRAP_IMAGE="${{ env.CORE_BOOTSTRAP_IMAGE }}"
 
       - name: Check the existing databases were adopted
         run: ./dbaas-operator-tests/checks.sh assert --snapshot "$RUNNER_TEMP/databases-before.json"
