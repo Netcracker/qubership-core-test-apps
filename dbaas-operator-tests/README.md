@@ -34,9 +34,11 @@ from the report.
 
 ## Running
 
-The workflow is `DBaaS Operator integration tests`. It takes the branch of the core-bootstrap and service repositories
-and the images built from them. core-bootstrap and control-plane carry code changes, so they need images built from
-those branches; config-server and site-management only change their charts.
+The workflow is `DBaaS Operator integration tests`. The core-bootstrap branch and the core-bootstrap and
+control-plane images are inlined in it, because they exist only while this work is open: those two carry code
+changes, while config-server and site-management only change their charts. Once this merges, drop them from the
+workflow and the action's defaults, `main` and `latest`, apply. `test-branch` stays an input, so the service charts
+can be taken from another branch.
 
 To run the checks against your own cluster, for example one installed with `cloud-core-local-dev`:
 
