@@ -75,16 +75,34 @@ claim_for() { # service -> the service's DatabaseSecretClaim as JSON
 }
 
 # Asks dbaas-aggregator, from inside the cluster, which database a service's classifier resolves to.
+# The request runs from the control-plane pod, which has curl, as cloud-core-local-dev does for its
+# own cleanup: that needs no extra image and no pod of its own.
 aggregator_database() {
-  local service="$1" user password body
+  local service="$1" user password body response name attempt
   user="$(kubectl -n "$PG_NAMESPACE" get secret dbaas-aggregator-registration-credentials -o jsonpath='{.data.username}' | base64 -d)"
   password="$(kubectl -n "$PG_NAMESPACE" get secret dbaas-aggregator-registration-credentials -o jsonpath='{.data.password}' | base64 -d)"
-  body="$(jq -nc --argjson c "$(classifier "$service")" --arg ns "$CORE_NAMESPACE" --arg origin "$service" \
-    '{classifier: ($c + {namespace: $ns}), originService: $origin}')"
-  kube run "dbaas-lookup-$service-$RANDOM" --rm -i --quiet --restart=Never --image=curlimages/curl:8.11.1 -- \
-    curl -sSf -u "$user:$password" -H 'Content-Type: application/json' -X POST -d "$body" \
-    "http://$DBAAS_SERVICE_NAME.$DBAAS_NAMESPACE.svc.cluster.local:8080/api/v3/dbaas/$CORE_NAMESPACE/databases/get-by-classifier/postgresql" |
-    jq -r '.connectionProperties.name'
+  if [[ -z "$user" || -z "$password" ]]; then
+    echo "secret $PG_NAMESPACE/dbaas-aggregator-registration-credentials has no username or password" >&2
+    return 1
+  fi
+  body="$(jq -nc --argjson c "$(classifier "$service")" --arg ns "$CORE_NAMESPACE" --arg origin "$service"     '{classifier: ($c + {namespace: $ns}), originService: $origin}')"
+
+  for attempt in 1 2 3; do
+    # Both streams are captured, so a failure is reported instead of vanishing.
+    response="$(kube exec deploy/control-plane -- curl -sS -u "$user:$password"       -H 'Content-Type: application/json' -X POST -d "$body"       "http://$DBAAS_SERVICE_NAME.$DBAAS_NAMESPACE.svc.cluster.local:8080/api/v3/dbaas/$CORE_NAMESPACE/databases/get-by-classifier/postgresql" 2>&1)" || {
+      echo "attempt $attempt: the request failed: $(head -c 300 <<<"$response")" >&2
+      sleep 5
+      continue
+    }
+    name="$(jq -r '.connectionProperties.name // empty' <<<"$response" 2>/dev/null || true)"
+    if [[ -n "$name" ]]; then
+      echo "$name"
+      return 0
+    fi
+    echo "attempt $attempt: no database name in the response: $(head -c 300 <<<"$response")" >&2
+    sleep 5
+  done
+  return 1
 }
 
 cmd_snapshot() {
@@ -96,8 +114,8 @@ cmd_snapshot() {
       fail "$service did not become ready, so its database cannot be recorded"
       exit 1
     fi
-    if ! name="$(aggregator_database "$service")" || [[ -z "$name" || "$name" == "null" ]]; then
-      fail "cannot look up the database of $service in dbaas-aggregator"
+    if ! name="$(aggregator_database "$service")"; then
+      fail "cannot look up the database of $service in dbaas-aggregator; see the errors above"
       exit 1
     fi
     pass "recorded the $service database $name"
