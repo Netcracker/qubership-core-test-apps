@@ -1,0 +1,23 @@
+name: DBaaS Operator integration tests
+
+# Placeholder, so that the real workflow can be dispatched from a branch.
+#
+# GitHub offers workflow_dispatch in the Actions UI only for workflows that exist on the default
+# branch, and it then runs the copy taken from the branch selected in the dialog. This file exists
+# so that entry appears. The jobs live on the branch carrying them, and replace this file when that
+# work merges: Netcracker/qubership-core-test-apps#164.
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  placeholder:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Point at the branch that carries the tests
+        run: |
+          echo "This is the placeholder on the default branch; no tests ran."
+          echo "Pick the branch that carries them in the Run workflow dialog."
+          exit 1
