@@ -1,0 +1,19 @@
+# The dev resource profile of the MaaS chart, with the monitoring resources turned off.
+#
+# The chart ships a PodMonitor, a PrometheusRule and two GrafanaDashboards behind
+# MONITORING_ENABLED, which defaults to true. Helm cannot render them without the
+# monitoring operator CRDs, and a kind cluster does not install those, so the MaaS
+# release fails before it starts. The bootstrap passes this file to helm last, which
+# is the only place a caller can override the value from outside.
+#
+# Everything below the toggle is a copy of
+# qubership-maas/helm-templates/maas-service/resource-profiles/dev.yaml. Keep it in
+# step with that file, or drop this one once the bootstrap disables monitoring itself.
+
+MONITORING_ENABLED: false
+
+MEMORY_LIMIT: "100Mi"
+CPU_REQUEST: "400m"
+CPU_LIMIT: "2000m"
+REPLICAS: 1
+DB_POOL_SIZE: 5
