@@ -68,8 +68,9 @@ jobs:
           install-maas: 'true'
           install-istio: 'false'
           # a second Patroni node, so the leader has somewhere to move; a registered RabbitMQ
-          # instance, which the bootstrap skips by default and the vhost scenarios need
-          aux-bootstrap-args: 'PATRONI_REPLICAS_NUMBER=2 RABBIT_INSTANCES=rabbitmq-1'
+          # instance, which the bootstrap skips by default and the vhost scenarios need; MaaS
+          # from main, because the tag the bootstrap pins predates the read-only cache fix
+          aux-bootstrap-args: 'PATRONI_REPLICAS_NUMBER=2 RABBIT_INSTANCES=rabbitmq-1 MAAS_TAG=latest'
 
       - name: Run the MaaS failover integration tests
         id: failover_tests

@@ -3,6 +3,7 @@ package controller
 import (
 	"os"
 	"runtime"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/netcracker/qubership-maas-failover-test-service-go/probe"
@@ -109,10 +110,10 @@ func goroutinesByFunction() map[string]int {
 	byFunction := make(map[string]int)
 	for _, record := range records[:count] {
 		frames := runtime.CallersFrames(record.Stack())
-		started := ""
+		started := "runtime"
 		for {
 			frame, more := frames.Next()
-			if frame.Function != "" {
+			if frame.Function != "" && !strings.HasPrefix(frame.Function, "runtime.") {
 				started = frame.Function
 			}
 			if !more {
