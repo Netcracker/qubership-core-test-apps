@@ -53,7 +53,7 @@ require (
 	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.11.0
 	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.10.0
 	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.8.0
-	github.com/netcracker/qubership-core-lib-go/v3 v3.14.0
+	github.com/netcracker/qubership-core-lib-go/v3 v3.14.1
 	github.com/openzipkin/zipkin-go v0.4.3 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.24.1 // indirect
