@@ -14,10 +14,34 @@ inputs:
     description: Appended to the artifact name, to keep parallel runs apart
     required: false
     default: ''
+  log-stream-dir:
+    description: Directory stream-pod-logs wrote to, uploaded with the rest and emptied of followers
+    required: false
+    default: pod-logs-stream
 
 runs:
   using: composite
   steps:
+    - name: Stop pod log streams
+      shell: bash
+      env:
+        LOG_STREAM_DIR: ${{ inputs.log-stream-dir }}
+      run: |
+        set +e
+        if [ -f "$LOG_STREAM_DIR/.pids" ]; then
+          while read -r pid; do
+            kill "$pid" 2>/dev/null
+          done < "$LOG_STREAM_DIR/.pids"
+          # the follower is a subshell, kubectl is its child and outlives it
+          pkill -f "kubectl logs -f" 2>/dev/null
+          sleep 1
+          rm -f "$LOG_STREAM_DIR/.pids"
+          echo "Streamed logs:"
+          ls -la "$LOG_STREAM_DIR" || true
+        else
+          echo "No streams were started"
+        fi
+
     - name: Collect cluster state and pod logs
       shell: bash
       env:
@@ -155,3 +179,4 @@ runs:
         path: |
           cluster-state.txt
           pods-logs.txt
+          ${{ inputs.log-stream-dir }}

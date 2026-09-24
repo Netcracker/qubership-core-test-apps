@@ -1,0 +1,76 @@
+name: Stream pod logs
+description: >
+  Follows the logs of the pods matching the given label selectors into files for the whole run.
+  Collecting logs after the fact loses them: a service logging every query fills a tail of a few
+  hundred lines in seconds, and the kubelet rotates what is left. Stopped by collect-k8s-diagnostics,
+  which uploads the files alongside the rest of the diagnostics.
+
+inputs:
+  collect-logs-for:
+    description: >
+      Label selectors whose pods should be followed, comma separated, as label=value pairs.
+      Example: 'name=maas-agent,name=maas-service'
+    required: false
+    default: ''
+  output-dir:
+    description: Directory the streams are written to, relative to the workspace
+    required: false
+    default: pod-logs-stream
+
+runs:
+  using: composite
+  steps:
+    - name: Start pod log streams
+      shell: bash
+      env:
+        COLLECT_LOGS_FOR: ${{ inputs.collect-logs-for }}
+        OUTPUT_DIR: ${{ inputs.output-dir }}
+      run: |
+        set +e
+        if [ -z "$COLLECT_LOGS_FOR" ]; then
+          echo "No label selectors given, nothing to follow"
+          exit 0
+        fi
+
+        mkdir -p "$OUTPUT_DIR"
+        pid_file="$OUTPUT_DIR/.pids"
+        : > "$pid_file"
+        follow() {
+          local ns="$1" selector="$2" out="$3"
+          (
+            first=1
+            while true; do
+              if [ "$first" = 1 ]; then
+                kubectl logs -f -n "$ns" -l "$selector" --prefix --timestamps \
+                  --tail=-1 --max-log-requests=20
+                first=0
+              else
+                kubectl logs -f -n "$ns" -l "$selector" --prefix --timestamps \
+                  --since=10s --max-log-requests=20
+              fi
+              sleep 2
+            done
+          ) >> "$out" 2>&1 &
+          echo $! >> "$pid_file"
+        }
+
+        IFS=',' read -ra SELECTORS <<< "$COLLECT_LOGS_FOR"
+        for raw in "${SELECTORS[@]}"; do
+          selector=$(echo "$raw" | xargs)
+          [ -z "$selector" ] && continue
+
+          namespaces=$(kubectl get pods -A -l "$selector" \
+            -o jsonpath='{range .items[*]}{.metadata.namespace}{"\n"}{end}' 2>/dev/null | sort -u)
+          if [ -z "$namespaces" ]; then
+            echo "No pods match $selector yet, not following it"
+            continue
+          fi
+
+          safe=$(echo "$selector" | tr -c 'A-Za-z0-9._-' '_')
+          for ns in $namespaces; do
+            echo "Following $selector in $ns"
+            follow "$ns" "$selector" "$OUTPUT_DIR/${ns}_${safe}.log"
+          done
+        done
+
+        echo "Streams started: $(wc -l < "$pid_file")"

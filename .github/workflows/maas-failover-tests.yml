@@ -23,6 +23,11 @@ on:
         required: false
         default: 'spring,go'
         type: string
+      maas-tag:
+        description: 'MaaS image tag: latest, a release like v5.5.10, or a branch build like my-branch-snapshot'
+        required: false
+        default: 'latest'
+        type: string
       fail-on-test-failure:
         description: 'Fail the job when a test fails. Set to false by callers that publish the results themselves'
         required: false
@@ -46,6 +51,11 @@ on:
         required: false
         default: 'spring,go'
         type: string
+      maas-tag:
+        description: 'MaaS image tag: latest, a release like v5.5.10, or a branch build like my-branch-snapshot'
+        required: false
+        default: 'latest'
+        type: string
       fail-on-test-failure:
         description: 'Fail the job when a test fails'
         required: false
@@ -68,14 +78,19 @@ jobs:
           install-maas: 'true'
           install-istio: 'false'
           # a second Patroni node, so the leader has somewhere to move; a registered RabbitMQ
-          # instance, which the bootstrap skips by default and the vhost scenarios need; MaaS
-          # from main, because the tag the bootstrap pins predates the read-only cache fix,
-          # and with main comes a chart that needs monitoring CRDs this cluster has not got
+          # instance, which the bootstrap skips by default and the vhost scenarios need; the
+          # latest MaaS, because the tag the bootstrap pins by default predates the read-only
+          # cache fix, and what comes with it needs monitoring CRDs this cluster has not got
           aux-bootstrap-args: >-
             PATRONI_REPLICAS_NUMBER=2
             RABBIT_INSTANCES=rabbitmq-1
-            MAAS_TAG=latest
+            MAAS_TAG=${{ inputs.maas-tag || 'latest' }}
             MAAS_PROFILE_FILE=${{ github.workspace }}/.github/values/maas-dev-no-monitoring.yaml
+
+      - name: Start pod log streams
+        uses: ./.github/actions/stream-pod-logs
+        with:
+          collect-logs-for: 'app.kubernetes.io/part-of=maas-failover-test-app,name=maas-agent,name=maas-service'
 
       - name: Run the MaaS failover integration tests
         id: failover_tests
