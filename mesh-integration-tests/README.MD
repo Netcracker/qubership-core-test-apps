@@ -79,6 +79,14 @@ ls -la target/surefire-reports/
 cat target/surefire-reports/TEST-*.xml
 ```
 
+### Running on macOS
+- The extension binds every port-forward to its own loopback address (`127.0.0.2`, `127.0.0.3`, ...). macOS only
+  has `127.0.0.1` on `lo0`, so the second `@PortForward` field loops forever on `BindException` with nothing logged.
+  Add the aliases first:
+  ```bash
+  for i in 2 3 4 5 6 7 8 9; do sudo ifconfig lo0 alias 127.0.0.$i up; done
+  ```
+
 ### Troubleshooting
 - cluster.local doesn’t resolve:
   - Add a hosts entry mapping cluster.local to the API server IP, or ensure DNS resolves it.

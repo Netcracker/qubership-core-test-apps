@@ -1,0 +1,117 @@
+{{- if .Values.EGRESS_BG_TESTS_ENABLED }}
+# The two outbound endpoints of the egress Blue/Green tests: a production
+# integration and its stub. One nginx serves both, on two listeners, and each
+# Service below points at one of them. The JSON it answers with names the
+# endpoint that was reached, and echoes the x-version-name header, so a test
+# can tell which endpoint the egress gateway chose and that the header made
+# it through.
+#
+# Deployed identically on both mesh types: it is the *target* of egress
+# traffic, not a mesh resource, so nothing here is guarded by SERVICE_MESH_TYPE.
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: egress-bg-echo
+  labels:
+    name: egress-bg-echo
+    app.kubernetes.io/part-of: 'mesh-test-app'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+spec:
+  replicas: 1
+  revisionHistoryLimit: {{ .Values.RC_REVISIONS }}
+  selector:
+    matchLabels:
+      name: egress-bg-echo
+  template:
+    metadata:
+      labels:
+        name: egress-bg-echo
+        app.kubernetes.io/part-of: 'mesh-test-app'
+      annotations:
+        egress-bg-echo/config-checksum: '{{ include (print $.Template.BasePath "/EgressBgEchoConfig.yaml") . | sha256sum }}'
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: egress-bg-echo
+        image: '{{ .Values.EGRESS_ECHO_IMAGE }}'
+        command: ["nginx", "-c", "/etc/nginx/egress-bg/nginx.conf", "-g", "daemon off;"]
+        securityContext:
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          seccompProfile:
+            type: RuntimeDefault
+          capabilities:
+            drop:
+            - ALL
+        ports:
+        - name: bg-prod
+          containerPort: 8081
+          protocol: TCP
+        - name: bg-stub
+          containerPort: 8082
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 20m
+            memory: 32Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+        volumeMounts:
+        - name: nginx-conf
+          mountPath: /etc/nginx/egress-bg
+          readOnly: true
+        - name: tmp
+          mountPath: /tmp
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8081
+          initialDelaySeconds: 2
+          periodSeconds: 5
+      volumes:
+      - name: nginx-conf
+        configMap:
+          name: egress-bg-echo
+      - name: tmp
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bg-prod
+  labels:
+    app.kubernetes.io/part-of: 'mesh-test-app'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+spec:
+  type: ClusterIP
+  selector:
+    name: egress-bg-echo
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8081
+    protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bg-stub
+  labels:
+    app.kubernetes.io/part-of: 'mesh-test-app'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+spec:
+  type: ClusterIP
+  selector:
+    name: egress-bg-echo
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8082
+    protocol: TCP
+{{- end }}

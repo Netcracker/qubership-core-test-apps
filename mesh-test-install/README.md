@@ -2,6 +2,7 @@
 
 This directory contains bash scripts to manage the mesh test services:
 - **mesh-test-apps.sh** - Install/uninstall helm packages in the correct order
+- **egress-bg/** - notes on the [egress Blue/Green tests](egress-bg/README.md)
 
 ## Prerequisites
 
