@@ -90,11 +90,38 @@ func (c *Controller) Diag(ctx *fiber.Ctx) error {
 		storages[probe.Type()] = probe.Diagnostics()
 	}
 	return ctx.JSON(fiber.Map{
-		"threadCount":         runtime.NumGoroutine(),
-		"openFileDescriptors": openFileDescriptors(),
-		"heapUsedBytes":       memory.HeapAlloc,
-		"storages":            storages,
+		"threadCount":          runtime.NumGoroutine(),
+		"goroutinesByFunction": goroutinesByFunction(),
+		"openFileDescriptors":  openFileDescriptors(),
+		"heapUsedBytes":        memory.HeapAlloc,
+		"storages":             storages,
 	})
+}
+
+// goroutinesByFunction counts goroutines by the function each was started in, which is
+// what tells connection pool goroutines apart from the rest of the growth.
+func goroutinesByFunction() map[string]int {
+	records := make([]runtime.StackRecord, runtime.NumGoroutine()+32)
+	count, ok := runtime.GoroutineProfile(records)
+	if !ok {
+		return nil
+	}
+	byFunction := make(map[string]int)
+	for _, record := range records[:count] {
+		frames := runtime.CallersFrames(record.Stack())
+		started := ""
+		for {
+			frame, more := frames.Next()
+			if frame.Function != "" {
+				started = frame.Function
+			}
+			if !more {
+				break
+			}
+		}
+		byFunction[started]++
+	}
+	return byFunction
 }
 
 func handleMode(ctx *fiber.Ctx) probe.HandleMode {
