@@ -23,11 +23,6 @@ on:
         required: false
         default: 'spring,go'
         type: string
-      maas-tag:
-        description: 'MaaS image tag: latest, a release like v5.5.10, or a branch build like my-branch-snapshot'
-        required: false
-        default: 'latest'
-        type: string
       fail-on-test-failure:
         description: 'Fail the job when a test fails. Set to false by callers that publish the results themselves'
         required: false
@@ -50,11 +45,6 @@ on:
         description: 'Test applications to install and drive, comma separated: spring, go'
         required: false
         default: 'spring,go'
-        type: string
-      maas-tag:
-        description: 'MaaS image tag: latest, a release like v5.5.10, or a branch build like my-branch-snapshot'
-        required: false
-        default: 'latest'
         type: string
       fail-on-test-failure:
         description: 'Fail the job when a test fails'
@@ -84,7 +74,7 @@ jobs:
           aux-bootstrap-args: >-
             PATRONI_REPLICAS_NUMBER=2
             RABBIT_INSTANCES=rabbitmq-1
-            MAAS_TAG=${{ inputs.maas-tag || 'latest' }}
+            MAAS_TAG=latest
             MAAS_PROFILE_FILE=${{ github.workspace }}/.github/values/maas-dev-no-monitoring.yaml
 
       - name: Start pod log streams
