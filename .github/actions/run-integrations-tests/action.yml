@@ -28,6 +28,12 @@ inputs:
     description: 'Executor mode for tests — EXEC_IN_POD or PORT_FORWARD'
     required: false
     default: 'PORT_FORWARD'
+  java-libs-versions:
+    description: >
+      JSON file with qubership-core-java-libs versions, as use-java-libs-ref writes it. When set,
+      the poms of the tests are pointed at those versions before they run.
+    required: false
+    default: ''
   github-token:
     description: GitHub token for Maven/GitHub Packages access
     required: true
@@ -51,6 +57,16 @@ runs:
         repository: ${{ inputs.repository }}
         ref: main
         path: ${{ inputs.path }}
+
+    - name: Point the tests at the java-libs versions under test
+      if: ${{ inputs.java-libs-versions != '' }}
+      shell: bash
+      env:
+        VERSIONS: ${{ inputs.java-libs-versions }}
+        TESTS_DIR: ${{ inputs.path }}/${{ inputs.test-folder }}
+      run: |
+        find "$TESTS_DIR" -name pom.xml -not -path '*/target/*' -print0 \
+          | xargs -0 --no-run-if-empty python3 "$GITHUB_ACTION_PATH/../../scripts/java-libs-versions.py" apply "$VERSIONS"
 
     - name: Run integration tests
       shell: bash

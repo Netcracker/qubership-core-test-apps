@@ -1,0 +1,65 @@
+name: Use a java-libs build
+description: >
+  Installs a qubership-core-java-libs build (the artifact of the Build java-libs workflow) into the
+  local Maven repository of the job and rewrites the poms of this repository to the versions its
+  modules carry, so that the test applications and the suites are built against that state of the
+  libraries instead of the released versions. The build carries versions of its own
+  (X.Y.Z-<ref>-SNAPSHOT, see build-java-libs.yml), so a Maven cache restored before or after this
+  action cannot replace them.
+
+inputs:
+  artifact:
+    description: Name of the artifact the Build java-libs workflow uploaded
+    required: true
+  path:
+    description: >
+      Checkout whose poms to rewrite, every pom tracked there: this repository by default, or
+      the checkout of a service built against the libraries
+    required: false
+    default: '.'
+
+outputs:
+  versions-file:
+    description: JSON file with the version of every java-libs module, for rewriting other poms
+    value: ${{ steps.install.outputs.versions-file }}
+
+runs:
+  using: composite
+  steps:
+    - name: Download the java-libs build
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+      with:
+        name: ${{ inputs.artifact }}
+        path: ${{ runner.temp }}/java-libs
+
+    - name: Install the java-libs build into the local Maven repository
+      id: install
+      shell: bash
+      run: |
+        mkdir -p "$HOME/.m2/repository"
+        tar -C "$HOME/.m2/repository" -xzf "$RUNNER_TEMP/java-libs/java-libs-m2.tar.gz"
+        echo "versions-file=$RUNNER_TEMP/java-libs/java-libs-versions.json" >> "$GITHUB_OUTPUT"
+
+    # Maven would otherwise replace a snapshot it has locally with a newer published one of the
+    # same version, main's for instance; -nsu keeps the installed ones. MAVEN_ARGS is read by
+    # Maven 3.9 and newer, so it reaches every later Maven call of the job.
+    - name: Keep Maven on the installed snapshots
+      shell: bash
+      run: echo "MAVEN_ARGS=${MAVEN_ARGS:+$MAVEN_ARGS }-nsu" >> "$GITHUB_ENV"
+
+    - name: Rewrite the poms
+      shell: bash
+      working-directory: ${{ inputs.path }}
+      env:
+        VERSIONS: ${{ steps.install.outputs.versions-file }}
+      run: |
+        git ls-files -z '*pom.xml' \
+          | xargs -0 --no-run-if-empty python3 "$GITHUB_ACTION_PATH/../../scripts/java-libs-versions.py" apply "$VERSIONS" \
+          | tee "$RUNNER_TEMP/java-libs-changes.txt"
+        {
+          echo "## java-libs versions in use: ${{ inputs.path }}"
+          echo ""
+          echo '```'
+          cat "$RUNNER_TEMP/java-libs-changes.txt"
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"

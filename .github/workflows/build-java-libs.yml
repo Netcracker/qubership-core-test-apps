@@ -1,0 +1,150 @@
+name: Build java-libs
+
+# Builds qubership-core-java-libs at a ref once and hands the result to the test jobs as an
+# artifact: the Maven repository entries of every module, and the versions they carry. The test
+# jobs install them into their own local repository (see the use-java-libs action), so nothing
+# has to be published for the ref: snapshots of java-libs branches are not reliably in GitHub
+# Packages. The snapshot versions get a suffix of the ref, as core-infra's version-suffix does, so
+# they never mix with main's.
+
+on:
+  workflow_call:
+    inputs:
+      java-libs-ref:
+        description: >
+          Branch, tag or commit of qubership-core-java-libs. A pull request can be given as its
+          number, "#204", "pull/204" or "refs/pull/204/head" (or ".../merge" for the merge commit).
+        required: true
+        type: string
+      repository:
+        description: Repository to build
+        required: false
+        default: Netcracker/qubership-core-java-libs
+        type: string
+    outputs:
+      artifact:
+        description: Name of the artifact with the build, for the use-java-libs action
+        value: ${{ jobs.build.outputs.artifact }}
+      sha:
+        description: Commit of java-libs that was built
+        value: ${{ jobs.build.outputs.sha }}
+      image-tag:
+        description: Tag for images built against this build, java-libs-<short commit>
+        value: ${{ jobs.build.outputs.image-tag }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      artifact: ${{ steps.package.outputs.artifact }}
+      sha: ${{ steps.sha.outputs.sha }}
+      image-tag: ${{ steps.sha.outputs.image-tag }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Normalize the java-libs ref
+        id: ref
+        env:
+          REF: ${{ inputs.java-libs-ref }}
+        run: |
+          ref="$(echo "$REF" | tr -d '[:space:]')"
+          # a bare number of up to six digits is a pull request, a longer one may be a commit
+          if [[ "$ref" =~ ^([0-9]{1,6})$ || "$ref" =~ ^#([0-9]+)$ ]]; then
+            ref="refs/pull/${BASH_REMATCH[1]}/head"
+          elif [[ "$ref" =~ ^(refs/)?pull/([0-9]+)(/head|/merge)?$ ]]; then
+            ref="refs/pull/${BASH_REMATCH[2]}${BASH_REMATCH[3]:-/head}"
+          fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          # the suffix of the snapshot versions: pr-<number> for a pull request, the ref otherwise,
+          # sanitized the same way core-infra's version-suffix does it
+          if [[ "$ref" =~ ^refs/pull/([0-9]+)/ ]]; then
+            suffix="pr-${BASH_REMATCH[1]}"
+          else
+            suffix="$ref"
+          fi
+          suffix="$(printf '%s' "$suffix" | sed 's/[^a-zA-Z0-9]/-/g; s/-\+/-/g; s/^-//' | cut -c1-50 | sed 's/-$//')"
+          echo "suffix=$suffix" >> "$GITHUB_OUTPUT"
+
+      - name: Check out java-libs
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ${{ inputs.repository }}
+          ref: ${{ steps.ref.outputs.ref }}
+          path: java-libs
+          persist-credentials: false
+
+      - name: Resolve the java-libs commit
+        id: sha
+        run: |
+          sha="$(git -C java-libs rev-parse HEAD)"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "image-tag=java-libs-${sha:0:12}" >> "$GITHUB_OUTPUT"
+
+      # The same rewrite as core-infra's version-suffix (generic-maven-build.yaml): X.Y.Z-SNAPSHOT
+      # becomes X.Y.Z-<suffix>-SNAPSHOT. The versions of this build then collide neither with the
+      # snapshots main publishes nor with whatever a Maven cache restores over the local repository.
+      - name: Isolate SNAPSHOT versions
+        working-directory: java-libs
+        env:
+          SUFFIX: ${{ steps.ref.outputs.suffix }}
+        run: |
+          find . -name pom.xml \
+            -exec sed -i "s/\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)-SNAPSHOT/\1-${SUFFIX}-SNAPSHOT/g" {} +
+          if git diff --quiet; then
+            echo "::error::No X.Y.Z-SNAPSHOT version found in any pom.xml of java-libs"
+            exit 1
+          fi
+          git diff --stat | tail -1
+
+      - name: Read the java-libs versions
+        run: python3 .github/scripts/java-libs-versions.py collect java-libs > java-libs-versions.json
+
+      - name: Install java-libs into the local Maven repository
+        uses: netcracker/qubership-workflow-hub/actions/maven-snapshot-deploy@6b356d28e46b2d4683cccb1d91f92643d7f0c513 # v2.0.11
+        with:
+          working-directory: java-libs
+          target-store: github
+          maven-command: install
+          additional-mvn-args: '-ntp -T 1C -DskipTests -Djacoco.skip=true -Dmaven.javadoc.skip=true -Dmaven.source.skip=true -Dgpg.skip=true'
+          upload-artifact: 'false'
+
+      # Only the modules of java-libs go into the artifact, not the dependencies the build pulled
+      # in; the test jobs resolve those as they always do.
+      - name: Package the installed modules
+        id: package
+        run: |
+          repo="$HOME/.m2/repository"
+          jq -r '.modules | to_entries[] | "\(.key) \(.value)"' java-libs-versions.json \
+            | while read -r ga version; do
+                dir="${ga%%:*}"; dir="${dir//.//}/${ga#*:}/$version"
+                if [ -d "$repo/$dir" ]; then echo "$dir"; fi
+              done > modules.txt
+          tar -C "$repo" -czf java-libs-m2.tar.gz -T modules.txt
+          echo "Packaged $(wc -l < modules.txt) modules, $(du -h java-libs-m2.tar.gz | cut -f1)"
+          # unique within the run, since several workflows of one run may build their own
+          echo "artifact=java-libs-${{ steps.sha.outputs.sha }}-$(cat /proc/sys/kernel/random/uuid | cut -c1-8)" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the build
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ${{ steps.package.outputs.artifact }}
+          path: |
+            java-libs-m2.tar.gz
+            java-libs-versions.json
+          retention-days: 1
+
+      - name: Document the build
+        env:
+          REPOSITORY: ${{ inputs.repository }}
+          REF: ${{ steps.ref.outputs.ref }}
+          SHA: ${{ steps.sha.outputs.sha }}
+          SUFFIX: ${{ steps.ref.outputs.suffix }}
+        run: |
+          {
+            echo "## java-libs under test"
+            echo ""
+            echo "\`$REPOSITORY\` at \`$REF\` ([\`${SHA:0:12}\`](https://github.com/$REPOSITORY/commit/$SHA)), built in this run"
+            echo ""
+            echo "Snapshot versions carry the suffix \`$SUFFIX\`: \`X.Y.Z-$SUFFIX-SNAPSHOT\`."
+          } >> "$GITHUB_STEP_SUMMARY"
