@@ -1,0 +1,23 @@
+name: Integration tests for a java-libs ref
+
+# Placeholder, so that the real workflow can be dispatched from a branch.
+
+on:
+  workflow_dispatch:
+    inputs:
+      java-libs-ref:
+        description: 'qubership-core-java-libs branch, tag, commit or PR number (204, #204)'
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  placeholder:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Point at the branch that carries the tests
+        run: |
+          echo "This is the placeholder on the default branch; no tests ran."
+          echo "Pick the branch that carries them in the Run workflow dialog."
+          exit 1
