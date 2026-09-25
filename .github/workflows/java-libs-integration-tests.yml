@@ -1,15 +1,23 @@
 name: Integration tests for a java-libs ref
 run-name: "[java-libs=${{ inputs.java-libs-ref }}] [tests=${{ inputs.run-tests-for }}]"
 
-# Runs the integration tests against qubership-core-java-libs at a branch, tag, commit or pull
-# request, before that change is released. Nothing is published:
+# Runs the suites that exercise qubership-core-java-libs against a branch, tag, commit or pull
+# request of it, before that change is released. Nothing is published:
 #   1. java-libs is built at the ref and handed on as an artifact (build-java-libs.yml);
-#   2. the Cloud Core services that use it and the Java test services are built against it (the
-#      Maven action of core-infra's builds, then docker/build-push-action), each into a docker
-#      image saved as an artifact, tagged java-libs-<commit>;
-#   3. integration-tests.yml loads those images into its cluster, points the tags of these
-#      components at them, and builds the integration test modules against the same libraries.
-# The other components run their published images.
+#   2. every Java service that uses it is built against it (the Maven action of core-infra's
+#      builds, then docker/build-push-action) into a docker image saved as an artifact, tagged
+#      java-libs-<commit>: the Java services of Cloud Core (config-server, core-operator,
+#      dbaas-aggregator) and the Java mesh test services;
+#   3. the suites load those images into their cluster and point the tags of these components at
+#      them. The Java test services the consul-login suite builds itself, and every integration
+#      test module, are built against the same java-libs build.
+# The Go components run their published images: they do not use java-libs.
+#
+# Suites: the mesh tests (integration-tests.yml; the Java test services and Cloud Core) and the
+# consul-login tests (Quarkus and Spring consul config libraries). The paas-mediation,
+# control-plane, site-management and maas-agent suites of integration-tests.yml test Go services
+# and are left out unless run-tests-for names them. The MaaS failover suite (maas-client) is not
+# wired in yet: it pins the MaaS tag its own way, apart from the images built here.
 
 on:
   workflow_dispatch:
@@ -19,7 +27,7 @@ on:
         required: true
         type: string
       services-branch:
-        description: 'Branch of the services and test repositories (config-server, core-operator, integration tests); main where it does not exist'
+        description: 'Branch of the services and test repositories (config-server, core-operator, dbaas, integration tests); main where it does not exist'
         required: false
         default: 'main'
         type: string
@@ -29,14 +37,14 @@ on:
         default: 'main'
         type: string
       run-tests-for:
-        description: 'Integration tests to run: all, or comma-separated test names (mesh-tests,paas-mediation,control-plane,site-management,maas-agent)'
+        description: 'Suites of integration-tests.yml: mesh-tests by default, or all, or comma-separated names (mesh-tests,paas-mediation,control-plane,site-management,maas-agent)'
         required: false
-        default: 'all'
+        default: 'mesh-tests'
         type: string
-      with-istio:
-        description: 'Also run with Istio (fallback and migrated modes)'
+      consul-login:
+        description: 'Run the consul-login suite'
         required: false
-        default: false
+        default: true
         type: boolean
 
 jobs:
@@ -51,28 +59,51 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # repository: empty for this repository. maven-dir: where the pom to build is, dockerfile
+        # and context: as the service's own docker config has them, relative to the checkout.
+        # retag: published images whose chart takes the same tag, carried along unchanged.
         include:
-          # repository empty: this repository
           - name: config-server
             repository: Netcracker/qubership-core-config-server
-            module: .
+            maven-dir: .
+            java-version: '21'
+            dockerfile: Dockerfile
+            context: .
             image: ghcr.io/netcracker/qubership-core-config-server
           - name: core-operator
             repository: Netcracker/qubership-core-core-operator
-            module: .
+            maven-dir: .
+            java-version: '21'
+            dockerfile: Dockerfile
+            context: .
             image: ghcr.io/netcracker/qubership-core-core-operator
+          # the dbaas bootstrap uses one TAG for the aggregator and its declarative hook image
+          - name: dbaas-aggregator
+            repository: Netcracker/qubership-dbaas
+            maven-dir: .
+            java-version: '25'
+            dockerfile: dbaas/Dockerfile
+            context: dbaas
+            image: ghcr.io/netcracker/qubership-dbaas
+            retag: ghcr.io/netcracker/qubership-dbaas-validation-image
           - name: mesh-test-service-spring
             repository: ''
-            module: mesh-test-service-spring
+            maven-dir: mesh-test-service-spring
+            java-version: '21'
+            dockerfile: mesh-test-service-spring/Dockerfile
+            context: mesh-test-service-spring
             image: ghcr.io/netcracker/qubership-core-mesh-test-service-spring
           - name: mesh-test-service-quarkus
             repository: ''
-            module: mesh-test-service-quarkus
+            maven-dir: mesh-test-service-quarkus
+            java-version: '21'
+            dockerfile: mesh-test-service-quarkus/Dockerfile
+            context: mesh-test-service-quarkus
             image: ghcr.io/netcracker/qubership-core-mesh-test-service-quarkus
     env:
       # where the sources of the service are: its own checkout, or this repository
       SOURCES: ${{ matrix.repository != '' && 'service' || '.' }}
-      IMAGE: ${{ matrix.image }}:${{ needs.java-libs.outputs.image-tag }}
+      TAG: ${{ needs.java-libs.outputs.image-tag }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -111,7 +142,8 @@ jobs:
       - name: Build ${{ matrix.name }}
         uses: netcracker/qubership-workflow-hub/actions/maven-snapshot-deploy@6b356d28e46b2d4683cccb1d91f92643d7f0c513 # v2.0.11
         with:
-          working-directory: ${{ env.SOURCES }}/${{ matrix.module }}
+          java-version: ${{ matrix.java-version }}
+          working-directory: ${{ env.SOURCES }}/${{ matrix.maven-dir }}
           target-store: github
           maven-command: package
           additional-mvn-args: '-ntp -DskipTests'
@@ -122,17 +154,32 @@ jobs:
       - name: Build the image
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
-          context: ${{ env.SOURCES }}/${{ matrix.module }}
-          file: ${{ env.SOURCES }}/${{ matrix.module }}/Dockerfile
+          context: ${{ env.SOURCES }}/${{ matrix.context }}
+          file: ${{ env.SOURCES }}/${{ matrix.dockerfile }}
           provenance: false
           push: false
           load: true
-          tags: ${{ env.IMAGE }}
+          tags: ${{ matrix.image }}:${{ env.TAG }}
+
+      - name: Carry ${{ matrix.retag }} along under the same tag
+        if: ${{ matrix.retag }}
+        env:
+          RETAG: ${{ matrix.retag }}
+        run: |
+          docker pull "$RETAG:latest"
+          docker tag "$RETAG:latest" "$RETAG:$TAG"
 
       - name: Save the image
+        env:
+          IMAGE: ${{ matrix.image }}
+          RETAG: ${{ matrix.retag }}
         run: |
-          docker save -o "${{ matrix.name }}.tar" "$IMAGE"
-          echo "Built \`$IMAGE\`" >> "$GITHUB_STEP_SUMMARY"
+          # shellcheck disable=SC2086 # RETAG is empty or one image
+          docker save -o "${{ matrix.name }}.tar" "$IMAGE:$TAG" ${RETAG:+"$RETAG:$TAG"}
+          {
+            echo "Built \`$IMAGE:$TAG\`"
+            if [ -n "$RETAG" ]; then echo "Carried \`$RETAG:latest\` along as \`$RETAG:$TAG\`"; fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload the image
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -151,6 +198,8 @@ jobs:
       core-operator-tag: ${{ needs.java-libs.outputs.image-tag }}
       mesh-test-spring-tag: ${{ needs.java-libs.outputs.image-tag }}
       mesh-test-quarkus-tag: ${{ needs.java-libs.outputs.image-tag }}
+      # dbaas-aggregator and its hook image: the dbaas bootstrap takes the plain TAG
+      aux-bootstrap-args: TAG=${{ needs.java-libs.outputs.image-tag }}
       test-branch: ${{ inputs.services-branch }}
       core-bootstrap-branch: ${{ inputs.core-bootstrap-branch }}
       install-istio: false
@@ -159,40 +208,61 @@ jobs:
       test-usecase: 'core-mesh'
       run-tests-for: ${{ inputs.run-tests-for }}
 
-  istio-fallback:
-    needs: [java-libs, images]
-    if: ${{ inputs.with-istio }}
-    uses: ./.github/workflows/integration-tests.yml
+  # builds its test services itself, from this repository, against the java-libs build
+  consul-login:
+    needs: java-libs
+    if: ${{ inputs.consul-login }}
+    uses: ./.github/workflows/consul-login-integration-tests.yml
     with:
       java-libs-artifact: ${{ needs.java-libs.outputs.artifact }}
-      images-artifact-pattern: java-libs-image-*
-      config-server-tag: ${{ needs.java-libs.outputs.image-tag }}
-      core-operator-tag: ${{ needs.java-libs.outputs.image-tag }}
-      mesh-test-spring-tag: ${{ needs.java-libs.outputs.image-tag }}
-      mesh-test-quarkus-tag: ${{ needs.java-libs.outputs.image-tag }}
-      test-branch: ${{ inputs.services-branch }}
       core-bootstrap-branch: ${{ inputs.core-bootstrap-branch }}
-      install-istio: true
-      install-maas: true
-      mesh-type: 'Core'
-      test-usecase: 'istio-fallback'
-      run-tests-for: ${{ inputs.run-tests-for }}
 
-  istio-migrated:
-    needs: [java-libs, images]
-    if: ${{ inputs.with-istio }}
-    uses: ./.github/workflows/integration-tests.yml
-    with:
-      java-libs-artifact: ${{ needs.java-libs.outputs.artifact }}
-      images-artifact-pattern: java-libs-image-*
-      config-server-tag: ${{ needs.java-libs.outputs.image-tag }}
-      core-operator-tag: ${{ needs.java-libs.outputs.image-tag }}
-      mesh-test-spring-tag: ${{ needs.java-libs.outputs.image-tag }}
-      mesh-test-quarkus-tag: ${{ needs.java-libs.outputs.image-tag }}
-      test-branch: ${{ inputs.services-branch }}
-      core-bootstrap-branch: ${{ inputs.core-bootstrap-branch }}
-      install-istio: true
-      install-maas: true
-      mesh-type: 'Istio'
-      test-usecase: 'istio-migrated'
-      run-tests-for: ${{ inputs.run-tests-for }}
+  # The suites keep going when a test fails, so that every report is collected: the verdict on
+  # the java-libs ref is given here, from the reports of all of them.
+  verdict:
+    needs: [java-libs, images, core-mesh, consul-login]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the test reports
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: surefire-reports*
+          path: reports
+
+      - name: Sum up the test reports
+        env:
+          RESULTS: ${{ toJson(needs) }}
+        run: |
+          set -e
+          {
+            echo "## java-libs ${{ inputs.java-libs-ref }}: test results"
+            echo ""
+            echo "| Suite | Tests | Failed | Errors | Skipped |"
+            echo "| --- | ---: | ---: | ---: | ---: |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          bad=0
+          shopt -s nullglob
+          for suite in reports/*/*/; do
+            tests=0 failures=0 errors=0 skipped=0
+            for f in "$suite"surefire-reports/TEST-*.xml; do
+              line=$(grep -o '<testsuite [^>]*>' "$f" | head -n1)
+              for k in tests failures errors skipped; do
+                v=$(echo "$line" | sed -n "s/.* $k=\"\([0-9]*\)\".*/\1/p")
+                eval "$k=\$(( $k + ${v:-0} ))"
+              done
+            done
+            echo "| $(basename "$suite") | $tests | $failures | $errors | $skipped |" >> "$GITHUB_STEP_SUMMARY"
+            if [ "$tests" -eq 0 ] || [ $((failures + errors)) -gt 0 ]; then bad=1; fi
+          done
+          # a job that failed or was skipped for a failure has no reports to show
+          failed_jobs=$(echo "$RESULTS" | jq -r 'to_entries[] | select(.value.result == "failure" or .value.result == "cancelled") | .key')
+          if [ -n "$failed_jobs" ]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Failed jobs: $(echo $failed_jobs)" >> "$GITHUB_STEP_SUMMARY"
+            bad=1
+          fi
+          if [ "$bad" -ne 0 ]; then
+            echo "::error::Tests failed against java-libs ${{ inputs.java-libs-ref }}, see the summary"
+            exit 1
+          fi

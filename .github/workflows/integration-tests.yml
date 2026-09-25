@@ -137,6 +137,11 @@ on:
         required: false
         default: ''
         type: string
+      aux-bootstrap-args:
+        description: 'Extra KEY=VALUE variables for the cloud-core bootstrap, space separated, for components without an input of their own (TAG=... for dbaas, for instance)'
+        required: false
+        default: ''
+        type: string
       collect-logs-for:
         description: 'Labels of services which logs are required to collect for debugging. Comma-separated label_name=value pairs (name=mesh-test-service-spring-v1,app=control-plane, app.kubernetes.io/name=public-gateway)'
         required: false
@@ -309,6 +314,7 @@ jobs:
             echo "| run-tests-for | \`${{ inputs.run-tests-for || 'all' }}\` |"
             echo "| java-libs-artifact | \`${{ inputs.java-libs-artifact || '' }}\` |"
             echo "| images-artifact-pattern | \`${{ inputs.images-artifact-pattern || '' }}\` |"
+            echo "| aux-bootstrap-args | \`${{ inputs.aux-bootstrap-args || '' }}\` |"
           } >> "$GITHUB_STEP_SUMMARY"
 
           echo "::group::Workflow input values"
@@ -335,6 +341,7 @@ jobs:
           echo "run-tests-for=${{ inputs.run-tests-for || 'all' }}"
           echo "java-libs-artifact=${{ inputs.java-libs-artifact || '' }}"
           echo "images-artifact-pattern=${{ inputs.images-artifact-pattern || '' }}"
+          echo "aux-bootstrap-args=${{ inputs.aux-bootstrap-args || '' }}"
           echo "::endgroup::"
 
       # The integration test modules resolve these versions; the services themselves come as images
@@ -366,7 +373,9 @@ jobs:
           mesh-type: ${{ inputs.mesh-type || 'Core' }}
           # the action no longer sets a Patroni replica count of its own, and these suites were
           # running against one node
-          aux-bootstrap-args: 'PATRONI_REPLICAS_NUMBER=1'
+          aux-bootstrap-args: >-
+            PATRONI_REPLICAS_NUMBER=1
+            ${{ inputs.aux-bootstrap-args || '' }}
 
       - name: preserve-cpu-resources-workaround
         if: ${{ inputs.do-resources-workaround }}

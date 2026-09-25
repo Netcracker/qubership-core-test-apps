@@ -4,6 +4,11 @@ run-name: Consul login integration tests
 on:
   workflow_call:
     inputs:
+      java-libs-artifact:
+        description: 'Artifact of a Build java-libs run of this workflow run. The Java test services and tests are built against those library versions; empty keeps the released ones'
+        required: false
+        default: ''
+        type: string
       core-bootstrap-branch:
         description: 'Branch of core-bootstrap repo'
         required: false
@@ -37,6 +42,12 @@ jobs:
           distribution: temurin
           cache: maven
           server-id: github
+
+      - name: Point the service at the java-libs build
+        if: ${{ inputs.java-libs-artifact != '' && matrix.service != 'go' }}
+        uses: ./.github/actions/use-java-libs
+        with:
+          artifact: ${{ inputs.java-libs-artifact }}
 
       # The service resolves the login library from GitHub Packages, which the generated settings.xml reads
       # GITHUB_ACTOR and GITHUB_TOKEN for.

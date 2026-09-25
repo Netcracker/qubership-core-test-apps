@@ -17,17 +17,18 @@
     </licenses>
 
     <properties>
-        <quarkus.version>3.33.2.1</quarkus.version>
-        <quarkus-plugin.version>${quarkus.version}</quarkus-plugin.version>
-        <quarkus.platform.version>${quarkus.version}</quarkus.platform.version>
+        <!-- The Quarkus platform, as the other Quarkus services import it (the core-operator and
+             dbaas services, consul-login/test-service-quarkus): one version for the BOM and the
+             plugin, which a build against a java-libs ref aligns with the platform java-libs uses. -->
+        <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
+        <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
+        <quarkus.platform.version>3.33.3.1</quarkus.platform.version>
         <compiler-plugin.version>3.15.0</compiler-plugin.version>
         <maven.compiler.parameters>true</maven.compiler.parameters>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <quarkus.platform.artifact-id>quarkus-universe-bom</quarkus.platform.artifact-id>
-        <quarkus.platform.group-id>io.quarkus</quarkus.platform.group-id>
         <quarkus.core.version>10.3.0</quarkus.core.version>
         <surefire-plugin.version>3.5.6</surefire-plugin.version>
         <lombok.version>1.18.46</lombok.version>
@@ -117,9 +118,9 @@
     <build>
         <plugins>
             <plugin>
-                <groupId>io.quarkus</groupId>
+                <groupId>${quarkus.platform.group-id}</groupId>
                 <artifactId>quarkus-maven-plugin</artifactId>
-                <version>${quarkus-plugin.version}</version>
+                <version>${quarkus.platform.version}</version>
                 <executions>
                     <execution>
                         <goals>
