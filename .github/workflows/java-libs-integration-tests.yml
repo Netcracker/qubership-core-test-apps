@@ -1,0 +1,198 @@
+name: Integration tests for a java-libs ref
+run-name: "[java-libs=${{ inputs.java-libs-ref }}] [tests=${{ inputs.run-tests-for }}]"
+
+# Runs the integration tests against qubership-core-java-libs at a branch, tag, commit or pull
+# request, before that change is released. Nothing is published:
+#   1. java-libs is built at the ref and handed on as an artifact (build-java-libs.yml);
+#   2. the Cloud Core services that use it and the Java test services are built against it (the
+#      Maven action of core-infra's builds, then docker/build-push-action), each into a docker
+#      image saved as an artifact, tagged java-libs-<commit>;
+#   3. integration-tests.yml loads those images into its cluster, points the tags of these
+#      components at them, and builds the integration test modules against the same libraries.
+# The other components run their published images.
+
+on:
+  workflow_dispatch:
+    inputs:
+      java-libs-ref:
+        description: 'qubership-core-java-libs branch, tag, commit or PR number (204, #204)'
+        required: true
+        type: string
+      services-branch:
+        description: 'Branch of the services and test repositories (config-server, core-operator, integration tests); main where it does not exist'
+        required: false
+        default: 'main'
+        type: string
+      core-bootstrap-branch:
+        description: 'Branch of core-bootstrap repo'
+        required: false
+        default: 'main'
+        type: string
+      run-tests-for:
+        description: 'Integration tests to run: all, or comma-separated test names (mesh-tests,paas-mediation,control-plane,site-management,maas-agent)'
+        required: false
+        default: 'all'
+        type: string
+      with-istio:
+        description: 'Also run with Istio (fallback and migrated modes)'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  java-libs:
+    uses: ./.github/workflows/build-java-libs.yml
+    with:
+      java-libs-ref: ${{ inputs.java-libs-ref }}
+
+  images:
+    needs: java-libs
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # repository empty: this repository
+          - name: config-server
+            repository: Netcracker/qubership-core-config-server
+            module: .
+            image: ghcr.io/netcracker/qubership-core-config-server
+          - name: core-operator
+            repository: Netcracker/qubership-core-core-operator
+            module: .
+            image: ghcr.io/netcracker/qubership-core-core-operator
+          - name: mesh-test-service-spring
+            repository: ''
+            module: mesh-test-service-spring
+            image: ghcr.io/netcracker/qubership-core-mesh-test-service-spring
+          - name: mesh-test-service-quarkus
+            repository: ''
+            module: mesh-test-service-quarkus
+            image: ghcr.io/netcracker/qubership-core-mesh-test-service-quarkus
+    env:
+      # where the sources of the service are: its own checkout, or this repository
+      SOURCES: ${{ matrix.repository != '' && 'service' || '.' }}
+      IMAGE: ${{ matrix.image }}:${{ needs.java-libs.outputs.image-tag }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Resolve the branch of ${{ matrix.repository }}
+        id: branch
+        if: ${{ matrix.repository != '' }}
+        env:
+          REPOSITORY: ${{ matrix.repository }}
+          BRANCH: ${{ inputs.services-branch }}
+        run: |
+          if git ls-remote --exit-code --heads "https://github.com/$REPOSITORY.git" "$BRANCH" > /dev/null; then
+            echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::$REPOSITORY has no branch $BRANCH, building main"
+            echo "branch=main" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out ${{ matrix.repository }}
+        if: ${{ matrix.repository != '' }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ${{ matrix.repository }}
+          ref: ${{ steps.branch.outputs.branch }}
+          path: service
+          persist-credentials: false
+
+      - name: Point ${{ matrix.name }} at the java-libs build
+        uses: ./.github/actions/use-java-libs
+        with:
+          artifact: ${{ needs.java-libs.outputs.artifact }}
+          path: ${{ env.SOURCES }}
+
+      # The Maven step of core-infra's generic-maven-build, without its checkout: the sources are
+      # the ones rewritten above, possibly of another repository
+      - name: Build ${{ matrix.name }}
+        uses: netcracker/qubership-workflow-hub/actions/maven-snapshot-deploy@6b356d28e46b2d4683cccb1d91f92643d7f0c513 # v2.0.11
+        with:
+          working-directory: ${{ env.SOURCES }}/${{ matrix.module }}
+          target-store: github
+          maven-command: package
+          additional-mvn-args: '-ntp -DskipTests'
+          upload-artifact: 'false'
+
+      # The builder qubership-workflow-hub's docker-action uses, loading the image into the local
+      # docker instead of pushing it: the image travels to the test cluster as an artifact.
+      - name: Build the image
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: ${{ env.SOURCES }}/${{ matrix.module }}
+          file: ${{ env.SOURCES }}/${{ matrix.module }}/Dockerfile
+          provenance: false
+          push: false
+          load: true
+          tags: ${{ env.IMAGE }}
+
+      - name: Save the image
+        run: |
+          docker save -o "${{ matrix.name }}.tar" "$IMAGE"
+          echo "Built \`$IMAGE\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the image
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: java-libs-image-${{ matrix.name }}
+          path: ${{ matrix.name }}.tar
+          retention-days: 1
+
+  core-mesh:
+    needs: [java-libs, images]
+    uses: ./.github/workflows/integration-tests.yml
+    with:
+      java-libs-artifact: ${{ needs.java-libs.outputs.artifact }}
+      images-artifact-pattern: java-libs-image-*
+      config-server-tag: ${{ needs.java-libs.outputs.image-tag }}
+      core-operator-tag: ${{ needs.java-libs.outputs.image-tag }}
+      mesh-test-spring-tag: ${{ needs.java-libs.outputs.image-tag }}
+      mesh-test-quarkus-tag: ${{ needs.java-libs.outputs.image-tag }}
+      test-branch: ${{ inputs.services-branch }}
+      core-bootstrap-branch: ${{ inputs.core-bootstrap-branch }}
+      install-istio: false
+      install-maas: true
+      mesh-type: 'Core'
+      test-usecase: 'core-mesh'
+      run-tests-for: ${{ inputs.run-tests-for }}
+
+  istio-fallback:
+    needs: [java-libs, images]
+    if: ${{ inputs.with-istio }}
+    uses: ./.github/workflows/integration-tests.yml
+    with:
+      java-libs-artifact: ${{ needs.java-libs.outputs.artifact }}
+      images-artifact-pattern: java-libs-image-*
+      config-server-tag: ${{ needs.java-libs.outputs.image-tag }}
+      core-operator-tag: ${{ needs.java-libs.outputs.image-tag }}
+      mesh-test-spring-tag: ${{ needs.java-libs.outputs.image-tag }}
+      mesh-test-quarkus-tag: ${{ needs.java-libs.outputs.image-tag }}
+      test-branch: ${{ inputs.services-branch }}
+      core-bootstrap-branch: ${{ inputs.core-bootstrap-branch }}
+      install-istio: true
+      install-maas: true
+      mesh-type: 'Core'
+      test-usecase: 'istio-fallback'
+      run-tests-for: ${{ inputs.run-tests-for }}
+
+  istio-migrated:
+    needs: [java-libs, images]
+    if: ${{ inputs.with-istio }}
+    uses: ./.github/workflows/integration-tests.yml
+    with:
+      java-libs-artifact: ${{ needs.java-libs.outputs.artifact }}
+      images-artifact-pattern: java-libs-image-*
+      config-server-tag: ${{ needs.java-libs.outputs.image-tag }}
+      core-operator-tag: ${{ needs.java-libs.outputs.image-tag }}
+      mesh-test-spring-tag: ${{ needs.java-libs.outputs.image-tag }}
+      mesh-test-quarkus-tag: ${{ needs.java-libs.outputs.image-tag }}
+      test-branch: ${{ inputs.services-branch }}
+      core-bootstrap-branch: ${{ inputs.core-bootstrap-branch }}
+      install-istio: true
+      install-maas: true
+      mesh-type: 'Istio'
+      test-usecase: 'istio-migrated'
+      run-tests-for: ${{ inputs.run-tests-for }}

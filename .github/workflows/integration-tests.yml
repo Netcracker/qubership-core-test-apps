@@ -127,6 +127,16 @@ on:
         required: false
         default: 'all'
         type: string
+      java-libs-artifact:
+        description: 'Artifact of a Build java-libs run of this workflow run. The integration test modules are built against those library versions; empty keeps the released ones'
+        required: false
+        default: ''
+        type: string
+      images-artifact-pattern:
+        description: 'Pattern of artifacts of this workflow run with docker save archives of images built in it, loaded into the cluster before Cloud Core is deployed. Point the *-tag inputs at their tags to use them'
+        required: false
+        default: ''
+        type: string
       collect-logs-for:
         description: 'Labels of services which logs are required to collect for debugging. Comma-separated label_name=value pairs (name=mesh-test-service-spring-v1,app=control-plane, app.kubernetes.io/name=public-gateway)'
         required: false
@@ -297,6 +307,8 @@ jobs:
             echo "| mesh-type | \`${{ inputs.mesh-type || 'Core' }}\` |"
             echo "| test-usecase | \`${{ inputs.test-usecase || '' }}\` |"
             echo "| run-tests-for | \`${{ inputs.run-tests-for || 'all' }}\` |"
+            echo "| java-libs-artifact | \`${{ inputs.java-libs-artifact || '' }}\` |"
+            echo "| images-artifact-pattern | \`${{ inputs.images-artifact-pattern || '' }}\` |"
           } >> "$GITHUB_STEP_SUMMARY"
 
           echo "::group::Workflow input values"
@@ -321,12 +333,23 @@ jobs:
           echo "mesh-type=${{ inputs.mesh-type || 'Core' }}"
           echo "test-usecase=${{ inputs.test-usecase || '' }}"
           echo "run-tests-for=${{ inputs.run-tests-for || 'all' }}"
+          echo "java-libs-artifact=${{ inputs.java-libs-artifact || '' }}"
+          echo "images-artifact-pattern=${{ inputs.images-artifact-pattern || '' }}"
           echo "::endgroup::"
+
+      # The integration test modules resolve these versions; the services themselves come as images
+      - name: Point the integration tests at the java-libs build
+        id: java_libs
+        if: ${{ inputs.java-libs-artifact != '' }}
+        uses: ./.github/actions/use-java-libs
+        with:
+          artifact: ${{ inputs.java-libs-artifact }}
 
       - name: Setup Kind cluster and deploy Cloud Core
         uses: ./.github/actions/setup-kind-with-cloud-core
         with:
           core-bootstrap-branch: ${{ inputs.core-bootstrap-branch }}
+          images-artifact-pattern: ${{ inputs.images-artifact-pattern || '' }}
           install-maas: ${{ inputs.install-maas || 'false' }}
           install-istio: ${{ inputs.install-istio || 'false' }}
           istio-repo-branch: ${{ inputs.istio-repo-branch }}
@@ -440,6 +463,7 @@ jobs:
           test-service-name: paas-mediation-tests
           mesh-type: ${{ inputs.mesh-type || 'Core' }}
           exec-mode: ${{ inputs.install-istio && 'EXEC_IN_POD' || 'PORT_FORWARD' }}
+          java-libs-versions: ${{ steps.java_libs.outputs.versions-file }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run control-plane integration tests
@@ -454,6 +478,7 @@ jobs:
           test-folder: integration-tests
           test-service-name: control-plane-tests
           mesh-type: ${{ inputs.mesh-type || 'Core' }}
+          java-libs-versions: ${{ steps.java_libs.outputs.versions-file }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run site-management integration tests
@@ -468,6 +493,7 @@ jobs:
           test-folder: integration-tests
           test-service-name: site-management-tests
           mesh-type: ${{ inputs.mesh-type || 'Core' }}
+          java-libs-versions: ${{ steps.java_libs.outputs.versions-file }}
           github-token: ${{ secrets.GITHUB_TOKEN }}  
 
       - name: Run maas-agent integration tests
@@ -482,6 +508,7 @@ jobs:
           test-folder: integration-tests
           test-service-name: maas-agent-tests
           mesh-type: ${{ inputs.mesh-type || 'Core' }}
+          java-libs-versions: ${{ steps.java_libs.outputs.versions-file }}
           github-token: ${{ secrets.GITHUB_TOKEN }}  
 
       - name: Aggregate Surefire reports

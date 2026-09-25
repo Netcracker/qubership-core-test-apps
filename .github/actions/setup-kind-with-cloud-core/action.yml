@@ -73,6 +73,15 @@ inputs:
     required: false
     default: ''
 
+  images-artifact-pattern:
+    description: >
+      Pattern of artifacts of this run holding docker save archives (*.tar) of images built in the
+      run. They are loaded into the cluster before Cloud Core is deployed, so a component whose tag
+      points at such an image runs it instead of pulling one: the charts pull only when the image
+      is not present. Nothing is loaded when empty.
+    required: false
+    default: ''
+
 runs:
   using: composite
   steps:
@@ -80,6 +89,30 @@ runs:
       uses: ./.github/actions/setup-kind
       with:
         core-bootstrap-branch: ${{ inputs.core-bootstrap-branch }}
+
+    - name: Download the images built in this run
+      if: ${{ inputs.images-artifact-pattern != '' }}
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+      with:
+        pattern: ${{ inputs.images-artifact-pattern }}
+        path: ${{ runner.temp }}/local-images
+
+    - name: Load the images built in this run into the cluster
+      if: ${{ inputs.images-artifact-pattern != '' }}
+      shell: bash
+      run: |
+        set -e
+        shopt -s nullglob globstar
+        archives=("$RUNNER_TEMP"/local-images/**/*.tar)
+        if [ ${#archives[@]} -eq 0 ]; then
+          echo "::error::No image archives in the artifacts matching ${{ inputs.images-artifact-pattern }}"
+          exit 1
+        fi
+        for archive in "${archives[@]}"; do
+          echo "Loading $archive"
+          kind load image-archive "$archive" --name kind
+        done
+        rm -rf "$RUNNER_TEMP/local-images"
 
     - name: Deploy cloud core
       shell: bash
