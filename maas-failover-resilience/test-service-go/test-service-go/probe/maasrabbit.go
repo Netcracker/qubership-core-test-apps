@@ -54,12 +54,12 @@ func (p *MaasRabbit) Diagnostics() map[string]any {
 
 func (p *MaasRabbit) client(mode HandleMode) rabbit.MaasClient {
 	if mode == PerCall {
-		return maascore.NewRabbitClient()
+		return maascore.NewRabbitClient(maascore.WithHttpClient(maasHttpClient()))
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.heldClient == nil {
-		p.heldClient = maascore.NewRabbitClient()
+		p.heldClient = maascore.NewRabbitClient(maascore.WithHttpClient(maasHttpClient()))
 	}
 	return p.heldClient
 }
