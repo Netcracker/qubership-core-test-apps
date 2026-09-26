@@ -1,23 +1,145 @@
 name: DBaaS Operator integration tests
 
-# Placeholder, so that the real workflow can be dispatched from a branch.
-#
-# GitHub offers workflow_dispatch in the Actions UI only for workflows that exist on the default
-# branch, and it then runs the copy taken from the branch selected in the dialog. This file exists
-# so that entry appears. The jobs live on the branch carrying them, and replace this file when that
-# work merges: Netcracker/qubership-core-test-apps#164.
+# Proves that Cloud Core services resolve their databases through the DBaaS Operator, with no
+# REST fallback: Cloud Core is given an API_DBAAS_ADDRESS whose service name does not resolve, so
+# a service only becomes ready if it found its database in the Secret the operator mounted.
+# See dbaas-operator-tests/README.md.
 
 on:
   workflow_dispatch:
+    inputs:
+      test-branch:
+        description: Branch of the Core service repositories; falls back to main where it does not exist
+        required: false
+        default: feat/dbaas-mounted-secret-migration
+      scenarios:
+        description: Comma-separated subset of clean-install, upgrade
+        required: false
+        default: clean-install,upgrade
+  workflow_call:
+    inputs:
+      test-branch:
+        type: string
+        required: false
+        default: feat/dbaas-mounted-secret-migration
+      scenarios:
+        type: string
+        required: false
+        default: clean-install,upgrade
 
-permissions: {}
+permissions:
+  contents: read
+
+env:
+  FAKE_DBAAS_SERVICE_NAME: dbaas-rest-fallback-forbidden
+  # The branch and images carrying this work, inlined because they only exist while it is open.
+  # Once it is merged, drop them and let the action's defaults (main, latest) apply.
+  CORE_BOOTSTRAP_BRANCH: feat/dbaas-mounted-secret-migration
+  CORE_BOOTSTRAP_IMAGE: ghcr.io/netcracker/core-bootstrap:feat-dbaas-mounted-secret-migration-snapshot
+  CONTROL_PLANE_TAG: feat-dbaas-mounted-secret-migration-snapshot
+  LOGS_FOR: name=control-plane,name=config-server,name=site-management,name=dbaas-agent,name=dbaas-operator
 
 jobs:
-  placeholder:
+  # A: install Cloud Core on a cluster that already runs the DBaaS Operator.
+  clean-install:
+    if: contains(inputs.scenarios, 'clean-install')
     runs-on: ubuntu-latest
+    env:
+      REPORT_DIR: artifacts/dbaas-operator-clean-install
     steps:
-      - name: Point at the branch that carries the tests
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Kind cluster and deploy Cloud Core with the DBaaS Operator
+        uses: ./.github/actions/setup-kind-with-cloud-core
+        with:
+          core-bootstrap-branch: ${{ env.CORE_BOOTSTRAP_BRANCH }}
+          test-branch: ${{ inputs.test-branch }}
+          control-plane-tag: ${{ env.CONTROL_PLANE_TAG }}
+          install-istio: 'false'
+          aux-bootstrap-args: >-
+            DBAAS_OPERATOR_ENABLED=true
+            CORE_DBAAS_SERVICE_NAME=${{ env.FAKE_DBAAS_SERVICE_NAME }}
+            CORE_BOOTSTRAP_IMAGE=${{ env.CORE_BOOTSTRAP_IMAGE }}
+
+      - name: Check databases come from the DBaaS Operator
+        run: ./dbaas-operator-tests/checks.sh assert --expect-no-legacy-secret
+
+      - name: Collect diagnostics
+        if: failure()
+        uses: ./.github/actions/collect-k8s-diagnostics
+        with:
+          collect-logs-for: ${{ env.LOGS_FOR }}
+          artifact-suffix: -dbaas-operator-clean-install
+
+      - name: Write Surefire report
+        if: always()
+        run: ./dbaas-operator-tests/checks.sh report dbaas-operator.clean-install --job-status "${{ job.status }}"
+
+      - name: Upload Surefire report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: surefire-reports-dbaas-operator-clean-install
+          path: artifacts/*
+
+  # B: install Cloud Core as today, then add the DBaaS Operator and upgrade Cloud Core onto it.
+  # The databases created over REST must be adopted, not replaced.
+  upgrade:
+    if: contains(inputs.scenarios, 'upgrade')
+    runs-on: ubuntu-latest
+    env:
+      REPORT_DIR: artifacts/dbaas-operator-upgrade
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Kind cluster and deploy Cloud Core from main, without the DBaaS Operator
+        uses: ./.github/actions/setup-kind-with-cloud-core
+        with:
+          install-istio: 'false'
+
+      - name: Record each service's database
+        run: ./dbaas-operator-tests/checks.sh snapshot "$RUNNER_TEMP/databases-before.json"
+
+      - name: Switch core-bootstrap to the DBaaS Operator branch
         run: |
-          echo "This is the placeholder on the default branch; no tests ran."
-          echo "Pick the branch that carries them in the Run workflow dialog."
-          exit 1
+          git -C core-bootstrap-repo fetch --depth 1 origin "${{ env.CORE_BOOTSTRAP_BRANCH }}"
+          git -C core-bootstrap-repo checkout --detach FETCH_HEAD
+
+      - name: Install the DBaaS Operator into the running DBaaS
+        # deploy-dbaas would rerun the whole DBaaS install, and its Patroni re-apply fails on a field
+        # conflict with postgres-operator. Install only the operator, from the clone the first install left.
+        run: >-
+          make -C core-bootstrap-repo/cloud-core-local-dev/.tmp/qubership-dbaas/bootstrap
+          install-dbaas-operator wait-dbaas-operator DBAAS_OPERATOR_ENABLED=true
+
+      - name: Upgrade Cloud Core onto the DBaaS Operator
+        run: |
+          make -C core-bootstrap-repo/cloud-core-local-dev/ clone-repos template-values-files deploy-core \
+            TEST_BRANCH="${{ inputs.test-branch }}" \
+            CONTROL_PLANE_TAG="${{ env.CONTROL_PLANE_TAG }}" \
+            DBAAS_OPERATOR_ENABLED=true \
+            CORE_DBAAS_SERVICE_NAME="$FAKE_DBAAS_SERVICE_NAME" \
+            CORE_BOOTSTRAP_IMAGE="${{ env.CORE_BOOTSTRAP_IMAGE }}"
+
+      - name: Check the existing databases were adopted
+        run: ./dbaas-operator-tests/checks.sh assert --snapshot "$RUNNER_TEMP/databases-before.json"
+
+      - name: Collect diagnostics
+        if: failure()
+        uses: ./.github/actions/collect-k8s-diagnostics
+        with:
+          collect-logs-for: ${{ env.LOGS_FOR }}
+          artifact-suffix: -dbaas-operator-upgrade
+
+      - name: Write Surefire report
+        if: always()
+        run: ./dbaas-operator-tests/checks.sh report dbaas-operator.upgrade --job-status "${{ job.status }}"
+
+      - name: Upload Surefire report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: surefire-reports-dbaas-operator-upgrade
+          path: artifacts/*
