@@ -3,7 +3,7 @@ package main
 import (
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/health"
 	fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2"
 	fibersecurity "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/security"
