@@ -77,11 +77,6 @@ jobs:
             MAAS_TAG=latest
             MAAS_PROFILE_FILE=${{ github.workspace }}/.github/values/maas-dev-no-monitoring.yaml
 
-      - name: Start pod log streams
-        uses: ./.github/actions/stream-pod-logs
-        with:
-          collect-logs-for: 'app.kubernetes.io/part-of=maas-failover-test-app,name=maas-agent,name=maas-service'
-
       - name: Run the MaaS failover integration tests
         id: failover_tests
         continue-on-error: true
