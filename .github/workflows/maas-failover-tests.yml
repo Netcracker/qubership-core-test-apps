@@ -68,8 +68,14 @@ jobs:
           install-maas: 'true'
           install-istio: 'false'
           # a second Patroni node, so the leader has somewhere to move; a registered RabbitMQ
-          # instance, which the bootstrap skips by default and the vhost scenarios need
-          aux-bootstrap-args: 'PATRONI_REPLICAS_NUMBER=2 RABBIT_INSTANCES=rabbitmq-1'
+          # instance, which the bootstrap skips by default and the vhost scenarios need; the
+          # latest MaaS, because the tag the bootstrap pins by default predates the read-only
+          # cache fix, and what comes with it needs monitoring CRDs this cluster has not got
+          aux-bootstrap-args: >-
+            PATRONI_REPLICAS_NUMBER=2
+            RABBIT_INSTANCES=rabbitmq-1
+            MAAS_TAG=latest
+            MAAS_PROFILE_FILE=${{ github.workspace }}/.github/values/maas-dev-no-monitoring.yaml
 
       - name: Run the MaaS failover integration tests
         id: failover_tests

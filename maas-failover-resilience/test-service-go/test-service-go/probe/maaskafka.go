@@ -56,12 +56,12 @@ func (p *MaasKafka) Diagnostics() map[string]any {
 
 func (p *MaasKafka) client(mode HandleMode) maaskafka.MaasClient {
 	if mode == PerCall {
-		return maascore.NewKafkaClient()
+		return maascore.NewKafkaClient(maascore.WithHttpClient(maasHttpClient()))
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.heldClient == nil {
-		p.heldClient = maascore.NewKafkaClient()
+		p.heldClient = maascore.NewKafkaClient(maascore.WithHttpClient(maasHttpClient()))
 	}
 	return p.heldClient
 }

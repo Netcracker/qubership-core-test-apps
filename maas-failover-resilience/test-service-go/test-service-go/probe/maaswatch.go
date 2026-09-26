@@ -59,7 +59,7 @@ func (p *MaasWatch) Init(ctx context.Context) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.client == nil {
-		p.client = maascore.NewKafkaClient()
+		p.client = maascore.NewKafkaClient(maascore.WithHttpClient(maasHttpClient()))
 	}
 	if p.cancel == nil {
 		// the watcher outlives the call that armed it, so it gets a context of its own
