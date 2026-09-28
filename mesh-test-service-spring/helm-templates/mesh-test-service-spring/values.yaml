@@ -67,4 +67,4 @@ EGRESS_TLS_TESTS_ENABLED: true
 
 # Image serving the simulated external site for egress tests. Any nginx that runs as non-root and
 # reads its config from -c will do; override to point at an internal mirror.
-EGRESS_ECHO_IMAGE: 'nginxinc/nginx-unprivileged:1.31-alpine@sha256:6a23acdfca2b9cfbcec61419e3f1426bcbedb91362f2f19306a8567423bb4612'
+EGRESS_ECHO_IMAGE: 'nginxinc/nginx-unprivileged:1.31-alpine@sha256:26b0bf6fbf07297983cb341998d79c831508787de26627dd2a112321b9c3a4af'
