@@ -1,0 +1,458 @@
+name: Integration tests for a go-lib ref
+run-name: "[go-lib=${{ inputs.go-lib-repository }}@${{ inputs.go-lib-ref }}] [tests=${{ inputs.run-tests-for }}]"
+
+# Runs the suites that exercise a qubership-core-lib-go-* repository against a branch, tag, commit
+# or pull request of it, before that change is released. Nothing is published: the Go services
+# that (directly or transitively) depend on it are pinned to the ref by the use-go-lib action and
+# built into docker images saved as artifacts, tagged go-libs-<commit>; the
+# suites load those images into their cluster and point the tags of these components at them.
+#
+# Unlike java-libs-integration-tests.yml there is no separate "build the library" job and no
+# artifact of its build: Go modules resolve directly from the git history of the library's own
+# repository (see the use-go-lib action), so nothing needs to be pre-built or installed anywhere
+# for the ref to be usable.
+#
+# The library repositories are independent of each other (unlike java-libs, which is one monorepo
+# for every Java core library), so not every service in the matrix below necessarily depends on
+# the one under test, and some depend on it only transitively through another
+# qubership-core-lib-go-* module. Each is checked (go list -m all, not a grep of its go.mod) before
+# it is rebuilt; a service that does not depend on it at all is left alone and keeps the image that
+# the bootstrap resolves for it.
+#
+# The replace directive in a service's go.mod only proves that one service still builds against the
+# ref and passes the integration suites; it says nothing about the other qubership-core-lib-go-* libraries
+# sitting between the ref and that service, or about libraries with no service exercising them
+# directly at all. The libs job below is the cascade check: every other library repository in the
+# org is a candidate (discover-libs), pinned the same way a service would be, and built and unit
+# tested on its own account when it turns out to depend on the ref, directly or transitively.
+
+on:
+  workflow_dispatch:
+    inputs:
+      go-lib-repository:
+        description: 'Go library repository, e.g. Netcracker/qubership-core-lib-go-fiber-server-utils'
+        required: true
+        type: string
+      go-lib-ref:
+        description: 'Branch, tag, commit or PR number (204, #204) of go-lib-repository'
+        required: true
+        type: string
+      services-branch:
+        description: 'Branch of the service repositories, the other libraries and the test repositories; main where it does not exist'
+        required: false
+        default: 'main'
+        type: string
+      core-bootstrap-branch:
+        description: 'Branch of core-bootstrap repo'
+        required: false
+        default: 'main'
+        type: string
+      run-tests-for:
+        description: 'Suites of integration-tests.yml: mesh-tests by default, or all, or comma-separated names (mesh-tests,paas-mediation,control-plane,site-management,maas-agent)'
+        required: false
+        default: 'mesh-tests'
+        type: string
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
+      image-tag: ${{ steps.sha.outputs.image-tag }}
+    steps:
+      - name: Normalize the go-lib ref
+        id: ref
+        run: |
+          ref="$(echo "$GO_LIB_REF" | tr -d '[:space:]')"
+          if [[ "$ref" =~ ^#?([0-9]{1,6})$ ]]; then
+            ref="refs/pull/${BASH_REMATCH[1]}/head"
+          elif [[ "$ref" =~ ^(refs/)?pull/([0-9]+)(/head|/merge)?$ ]]; then
+            ref="refs/pull/${BASH_REMATCH[2]}${BASH_REMATCH[3]:-/head}"
+          fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+        env:
+          GO_LIB_REF: ${{ inputs.go-lib-ref }}
+
+      - name: Resolve ${{ inputs.go-lib-repository }}@${{ steps.ref.outputs.ref }}
+        id: sha
+        env:
+          REPOSITORY: ${{ inputs.go-lib-repository }}
+          REF: ${{ steps.ref.outputs.ref }}
+        run: |
+          # a branch or tag is looked up by its full name: a bare name would also match the tail of
+          # other refs (other/main), and a branch wins over a tag of the same name. tail takes the
+          # peeled commit of an annotated tag.
+          case "$REF" in
+            refs/*) patterns=("$REF") ;;
+            *) patterns=("refs/heads/$REF" "refs/tags/$REF") ;;
+          esac
+          sha=""
+          for pattern in "${patterns[@]}"; do
+            sha="$(git ls-remote "https://github.com/$REPOSITORY.git" "$pattern" | tail -n1 | cut -f1)"
+            if [ -n "$sha" ]; then break; fi
+          done
+          if [ -z "$sha" ]; then
+            if [[ "$REF" =~ ^[0-9a-fA-F]{7,40}$ ]]; then
+              sha="$REF"
+            else
+              echo "::error::Could not resolve $REPOSITORY@$REF to a branch, tag or commit"
+              exit 1
+            fi
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "image-tag=go-libs-${sha:0:12}" >> "$GITHUB_OUTPUT"
+
+      - name: Document the build
+        env:
+          REPOSITORY: ${{ inputs.go-lib-repository }}
+          REF: ${{ steps.ref.outputs.ref }}
+          SHA: ${{ steps.sha.outputs.sha }}
+        run: |
+          {
+            echo "## go-lib under test"
+            echo ""
+            echo "\`$REPOSITORY\` at \`$REF\` ([\`${SHA:0:12}\`](https://github.com/$REPOSITORY/commit/$SHA))"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # Candidates for the libs job below: every other qubership-core-lib-go* repository in the org.
+  # Cheap on purpose (just the repo list, no checkout or module resolution) so the libs job itself
+  # can stay one leg per repository and decide in-graph for itself, the same way images does for
+  # services.
+  discover-libs:
+    runs-on: ubuntu-latest
+    outputs:
+      repositories: ${{ steps.list.outputs.repositories }}
+    steps:
+      - name: List qubership-core-lib-go* repositories, except go-lib-repository itself
+        id: list
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          UNDER_TEST: ${{ inputs.go-lib-repository }}
+        run: |
+          repositories="$(gh api 'orgs/Netcracker/repos?per_page=100' --paginate --jq '.[].name' \
+            | grep -E '^qubership-core-lib-go' \
+            | grep -vFx "${UNDER_TEST#*/}" \
+            | jq -R -s -c 'split("\n") | map(select(length > 0))')"
+          echo "repositories=$repositories" >> "$GITHUB_OUTPUT"
+          echo "Candidates: $repositories" >> "$GITHUB_STEP_SUMMARY"
+
+  # The cascade check: every other library that turns out to depend on the ref, directly or
+  # transitively, is pinned to it (same use-go-lib action and replace directive as a service) and
+  # built and unit tested on its own account. This is what actually proves the ref does not break
+  # a library sitting between it and a service, or a library no service exercises directly.
+  libs:
+    needs: [resolve, discover-libs]
+    if: ${{ needs.discover-libs.outputs.repositories != '[]' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        repository: ${{ fromJson(needs.discover-libs.outputs.repositories) }}
+    steps:
+      # needed for the local ./.github/actions/use-go-lib reference below, same as images
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Resolve the branch of Netcracker/${{ matrix.repository }}
+        id: branch
+        env:
+          REPOSITORY: Netcracker/${{ matrix.repository }}
+          BRANCH: ${{ inputs.services-branch }}
+        run: |
+          if git ls-remote --exit-code --heads "https://github.com/$REPOSITORY.git" "$BRANCH" > /dev/null; then
+            echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::$REPOSITORY has no branch $BRANCH, building main"
+            echo "branch=main" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out Netcracker/${{ matrix.repository }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: Netcracker/${{ matrix.repository }}
+          ref: ${{ steps.branch.outputs.branch }}
+          path: lib
+          persist-credentials: false
+
+      - name: Pin ${{ inputs.go-lib-repository }} in ${{ matrix.repository }}
+        id: use_go_lib
+        uses: ./.github/actions/use-go-lib
+        with:
+          repository: ${{ inputs.go-lib-repository }}
+          ref: ${{ needs.resolve.outputs.sha }}
+          path: lib
+
+      - name: Build ${{ matrix.repository }}
+        if: ${{ steps.use_go_lib.outputs.in-graph == 'true' }}
+        working-directory: lib
+        run: go build ./...
+
+      - name: Test ${{ matrix.repository }}
+        if: ${{ steps.use_go_lib.outputs.in-graph == 'true' }}
+        working-directory: lib
+        run: go test ./...
+
+  images:
+    needs: resolve
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # repository: empty for this repository. go-module-dir: where the go.mod to pin/build is.
+        # dockerfile and context: as the service's own docker config has them, relative to the
+        # checkout. ingress-gateway is deliberately left out: it ships Envoy and CoreDNS binaries
+        # with no Go code of its own, so there is nothing here to pin.
+        include:
+          - name: facade-operator
+            repository: Netcracker/qubership-core-facade-operator
+            go-module-dir: facade-operator-service
+            dockerfile: Dockerfile
+            context: .
+            image: ghcr.io/netcracker/qubership-core-facade-operator
+          - name: paas-mediation
+            repository: Netcracker/qubership-core-paas-mediation
+            go-module-dir: paas-mediation-service
+            dockerfile: Dockerfile
+            context: .
+            image: ghcr.io/netcracker/qubership-core-paas-mediation
+          - name: control-plane
+            repository: Netcracker/qubership-core-control-plane
+            go-module-dir: control-plane
+            dockerfile: Dockerfile
+            context: .
+            image: ghcr.io/netcracker/qubership-core-control-plane
+          - name: site-management
+            repository: Netcracker/qubership-core-site-management
+            go-module-dir: site-management-service
+            dockerfile: Dockerfile
+            context: .
+            image: ghcr.io/netcracker/qubership-core-site-management
+          - name: dbaas-agent
+            repository: Netcracker/qubership-core-dbaas-agent
+            go-module-dir: dbaas-agent-service
+            dockerfile: Dockerfile
+            context: .
+            image: ghcr.io/netcracker/qubership-core-dbaas-agent
+          - name: maas-agent
+            repository: Netcracker/qubership-core-maas-agent
+            go-module-dir: maas-agent-service
+            dockerfile: Dockerfile
+            context: .
+            image: ghcr.io/netcracker/qubership-core-maas-agent
+          - name: mesh-test-service-go
+            repository: ''
+            go-module-dir: mesh-test-service-go/test-service-go
+            dockerfile: mesh-test-service-go/Dockerfile
+            context: mesh-test-service-go
+            image: ghcr.io/netcracker/qubership-core-mesh-test-service-go
+    env:
+      # where the sources of the service are: its own checkout, or this repository
+      SOURCES: ${{ matrix.repository != '' && 'service' || '.' }}
+      TAG: ${{ needs.resolve.outputs.image-tag }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Resolve the branch of ${{ matrix.repository }}
+        id: branch
+        if: ${{ matrix.repository != '' }}
+        env:
+          REPOSITORY: ${{ matrix.repository }}
+          BRANCH: ${{ inputs.services-branch }}
+        run: |
+          if git ls-remote --exit-code --heads "https://github.com/$REPOSITORY.git" "$BRANCH" > /dev/null; then
+            echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::$REPOSITORY has no branch $BRANCH, building main"
+            echo "branch=main" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out ${{ matrix.repository }}
+        if: ${{ matrix.repository != '' }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ${{ matrix.repository }}
+          ref: ${{ steps.branch.outputs.branch }}
+          path: service
+          persist-credentials: false
+
+      - name: Pin ${{ inputs.go-lib-repository }} in ${{ matrix.name }}
+        id: use_go_lib
+        uses: ./.github/actions/use-go-lib
+        with:
+          repository: ${{ inputs.go-lib-repository }}
+          ref: ${{ needs.resolve.outputs.sha }}
+          path: ${{ env.SOURCES }}/${{ matrix.go-module-dir }}
+
+      # The builder qubership-workflow-hub's docker-action uses, loading the image into the local
+      # docker instead of pushing it: the image travels to the test cluster as an artifact. Only
+      # run when the service actually depends on the go-lib ref, in-graph is false otherwise.
+      - name: Build the image
+        if: ${{ steps.use_go_lib.outputs.in-graph == 'true' }}
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: ${{ env.SOURCES }}/${{ matrix.context }}
+          file: ${{ env.SOURCES }}/${{ matrix.dockerfile }}
+          provenance: false
+          push: false
+          load: true
+          tags: ${{ matrix.image }}:${{ env.TAG }}
+
+      - name: Save the image
+        if: ${{ steps.use_go_lib.outputs.in-graph == 'true' }}
+        env:
+          IMAGE: ${{ matrix.image }}
+        run: |
+          docker save -o "${{ matrix.name }}.tar" "$IMAGE:$TAG"
+          echo "Built \`$IMAGE:$TAG\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the image
+        if: ${{ steps.use_go_lib.outputs.in-graph == 'true' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: go-libs-image-${{ matrix.name }}
+          path: ${{ matrix.name }}.tar
+          retention-days: 1
+
+  # A matrix job cannot report which of its legs actually rebuilt an image as separate outputs, so
+  # this aggregates it from which go-libs-image-* artifacts exist. Only a service that was rebuilt
+  # gets a tag of its own, in the arguments of the bootstrap; every other service keeps the tag
+  # that the bootstrap resolves for it, and a tag for an image that was never built would make the
+  # bootstrap try to deploy it.
+  aggregate:
+    needs: [resolve, images]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    outputs:
+      rebuilt: ${{ steps.tags.outputs.rebuilt }}
+      aux-bootstrap-args: ${{ steps.tags.outputs.aux-bootstrap-args }}
+      mesh-test-go-tag: ${{ steps.tags.outputs.mesh-test-go-tag }}
+    steps:
+      - name: Download the images built in this run
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: go-libs-image-*
+          path: images
+        continue-on-error: true # no artifact is valid: no service depends on the ref, and core-mesh is skipped
+
+      - name: Resolve which services were rebuilt against the go-lib ref
+        id: tags
+        env:
+          TAG: ${{ needs.resolve.outputs.image-tag }}
+        run: |
+          declare -A variable=(
+            [facade-operator]=FACADE_OPERATOR_TAG
+            [paas-mediation]=PAAS_MEDIATION_TAG
+            [control-plane]=CONTROL_PLANE_TAG
+            [site-management]=SITE_MANAGEMENT_TAG
+            [dbaas-agent]=DBAAS_AGENT_TAG
+            [maas-agent]=MAAS_AGENT_TAG
+          )
+          # the local images are not in ghcr.io, so the bootstrap's lookup is off
+          args="CHECK_IMAGES=false"
+          # one matched artifact is unpacked straight into images/, several into a folder each, so
+          # an image is told by the name of its archive
+          built() { [ -n "$(find images -name "$1.tar" 2>/dev/null)" ]; }
+          for name in "${!variable[@]}"; do
+            if built "$name"; then
+              args="$args ${variable[$name]}=$TAG"
+            fi
+          done
+          echo "aux-bootstrap-args=$args" >> "$GITHUB_OUTPUT"
+          if [ -n "$(find images -name '*.tar' 2>/dev/null)" ]; then
+            echo "rebuilt=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "rebuilt=false" >> "$GITHUB_OUTPUT"
+          fi
+          # the mesh test service is deployed by the mesh tests, not by the bootstrap
+          if built mesh-test-service-go; then
+            echo "mesh-test-go-tag=$TAG" >> "$GITHUB_OUTPUT"
+          else
+            echo "mesh-test-go-tag=latest" >> "$GITHUB_OUTPUT"
+          fi
+
+  # nothing to deploy when no service depends on the ref: the libs job still decides the verdict
+  core-mesh:
+    needs: [resolve, images, aggregate]
+    if: ${{ needs.aggregate.outputs.rebuilt == 'true' }}
+    uses: ./.github/workflows/integration-tests.yml
+    with:
+      images-artifact-pattern: go-libs-image-*
+      aux-bootstrap-args: ${{ needs.aggregate.outputs.aux-bootstrap-args }}
+      mesh-test-go-tag: ${{ needs.aggregate.outputs.mesh-test-go-tag }}
+      test-branch: ${{ inputs.services-branch }}
+      core-bootstrap-branch: ${{ inputs.core-bootstrap-branch }}
+      install-istio: false
+      install-maas: true
+      mesh-type: 'Core'
+      test-usecase: 'go-libs'
+      run-tests-for: ${{ inputs.run-tests-for }}
+
+  # The suites keep going when a test fails, so that every report is collected: the verdict on
+  # the go-lib ref is given here, from the reports of all of them.
+  verdict:
+    needs: [resolve, discover-libs, libs, images, aggregate, core-mesh]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the test reports
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: surefire-reports*
+          path: reports
+
+      - name: Sum up the test reports
+        env:
+          RESULTS: ${{ toJson(needs) }}
+          CORE_MESH_RESULT: ${{ needs.core-mesh.result }}
+          GO_LIB_REF: ${{ inputs.go-lib-ref }}
+        run: |
+          set -e
+          {
+            echo "## go-lib $GO_LIB_REF: test results"
+            echo ""
+            echo "| Suite | Tests | Failed | Errors | Skipped |"
+            echo "| --- | ---: | ---: | ---: | ---: |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          bad=0 suites=0
+          shopt -s nullglob
+          # one artifact is unpacked straight into reports/, several into a folder each
+          while IFS= read -r dir; do
+            suite="$(dirname "$dir")/"
+            name=$(basename "$suite")
+            suites=$((suites + 1))
+            tests=0 failures=0 errors=0 skipped=0
+            for f in "$suite"surefire-reports/TEST-*.xml; do
+              line=$(grep -o '<testsuite [^>]*>' "$f" | head -n1)
+              for k in tests failures errors skipped; do
+                v=$(echo "$line" | sed -n "s/.* $k=\"\([0-9]*\)\".*/\1/p")
+                eval "$k=\$(( $k + ${v:-0} ))"
+              done
+            done
+            row="| $name | $tests | $failures | $errors | $skipped |"
+            echo "$row" | tee -a "$GITHUB_STEP_SUMMARY"
+            if [ "$tests" -eq 0 ]; then
+              echo "::error::$name: no tests ran"
+              bad=1
+            elif [ $((failures + errors)) -gt 0 ]; then
+              echo "::error::$name: $failures failed, $errors errors"
+              grep -l -E '<(failure|error)[ />]' "$suite"surefire-reports/TEST-*.xml | xargs -r -n1 basename | sed 's/^/  /'
+              bad=1
+            fi
+          done < <(find reports -type d -name surefire-reports | sort)
+          # core-mesh is skipped when no service depends on the ref, and then has no reports
+          if [ "$suites" -eq 0 ] && [ "$CORE_MESH_RESULT" != "skipped" ]; then
+            echo "::error::No test reports found"
+            bad=1
+          fi
+          # a job that failed or was skipped for a failure has no reports to show
+          failed_jobs=$(echo "$RESULTS" | jq -r 'to_entries[] | select(.value.result == "failure" or .value.result == "cancelled") | .key')
+          if [ -n "$failed_jobs" ]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Failed jobs: $(echo $failed_jobs)" >> "$GITHUB_STEP_SUMMARY"
+            bad=1
+          fi
+          if [ "$bad" -ne 0 ]; then
+            echo "::error::Tests failed against go-lib $GO_LIB_REF, see the summary"
+            exit 1
+          fi

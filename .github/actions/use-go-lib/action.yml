@@ -1,0 +1,158 @@
+name: Use a go-lib build
+description: >
+  Pins a qubership-core-lib-go-* repository at a branch, tag, commit or pull request into the
+  go.mod of a checkout (a service, or another library), so that checkout is built against that
+  state of the library instead of its released version. Unlike Maven, Go modules resolve directly
+  from the library's own git history (a pseudo-version of the given commit), so nothing needs to
+  be published or pre-built anywhere for the ref to be usable; there is no equivalent of
+  build-java-libs.yml for Go.
+
+  The library repositories are independent of each other (unlike java-libs, which is one monorepo
+  for every Java core library), so the checkout may not depend on this one at all, or only
+  transitively through another qubership-core-lib-go-* module. Both cases are handled: the
+  dependency graph is read with `go list -m all`, not a grep of go.mod, since a transitive
+  dependency several levels deep may not appear as a line in go.mod at all (Go 1.17+ graph
+  pruning). When the checkout does not depend on the repository at all, in-graph is false and
+  nothing is changed.
+
+  The pin is a `replace`, not just the `require` that `go get` alone would leave: minimal version
+  selection picks the highest version required anywhere in the graph, so if another module in the
+  checkout's dependencies already requires a newer released tag of this library than the ref's
+  pseudo-version, `go get` on its own would let that tag silently outrank the ref, and the pull
+  request would never reach the build. A `replace` overrides every path in the graph unconditionally.
+
+  The pin itself is fetched straight from GitHub, but a Docker build of the checkout runs
+  `go mod download` with the default GOPROXY, so the commit has to be one that the module proxy can
+  fetch: reachable from a branch or a tag of the library repository.
+
+inputs:
+  repository:
+    description: 'Go library repository, e.g. Netcracker/qubership-core-lib-go-fiber-server-utils'
+    required: true
+  ref:
+    description: >
+      Branch, tag, commit or pull request number (204, #204, pull/204) of the repository
+    required: true
+  path:
+    description: 'Directory of the checkout whose go.mod to pin, the one holding go.mod itself'
+    required: false
+    default: '.'
+
+outputs:
+  in-graph:
+    description: 'Whether the checkout at path depends on repository, directly or transitively'
+    value: ${{ steps.module.outputs.in-graph }}
+  module:
+    description: 'Full module path of repository (with its major-version suffix), when in-graph'
+    value: ${{ steps.module.outputs.module }}
+  sha:
+    description: 'Commit of repository that ref was resolved to'
+    value: ${{ steps.sha.outputs.sha }}
+  version:
+    description: 'Pseudo-version module was pinned to, when in-graph'
+    value: ${{ steps.pin.outputs.version }}
+
+runs:
+  using: composite
+  steps:
+    - name: Normalize the ref
+      id: ref
+      shell: bash
+      env:
+        REF: ${{ inputs.ref }}
+      run: |
+        ref="$(echo "$REF" | tr -d '[:space:]')"
+        # a bare number of up to six digits is a pull request, a longer one may be a commit
+        if [[ "$ref" =~ ^#?([0-9]{1,6})$ ]]; then
+          ref="refs/pull/${BASH_REMATCH[1]}/head"
+        elif [[ "$ref" =~ ^(refs/)?pull/([0-9]+)(/head|/merge)?$ ]]; then
+          ref="refs/pull/${BASH_REMATCH[2]}${BASH_REMATCH[3]:-/head}"
+        fi
+        echo "ref=$ref" >> "$GITHUB_OUTPUT"
+
+    - name: Resolve ${{ inputs.repository }}@${{ steps.ref.outputs.ref }} to a commit
+      id: sha
+      shell: bash
+      env:
+        REPOSITORY: ${{ inputs.repository }}
+        REF: ${{ steps.ref.outputs.ref }}
+      run: |
+        # a branch or tag is looked up by its full name: a bare name would also match the tail of
+        # other refs (other/main), and a branch wins over a tag of the same name. tail takes the
+        # peeled commit of an annotated tag.
+        case "$REF" in
+          refs/*) patterns=("$REF") ;;
+          *) patterns=("refs/heads/$REF" "refs/tags/$REF") ;;
+        esac
+        sha=""
+        for pattern in "${patterns[@]}"; do
+          sha="$(git ls-remote "https://github.com/$REPOSITORY.git" "$pattern" | tail -n1 | cut -f1)"
+          if [ -n "$sha" ]; then break; fi
+        done
+        if [ -z "$sha" ]; then
+          # not a branch, tag or pull request ref: accept it as-is if it already looks like a commit
+          if [[ "$REF" =~ ^[0-9a-fA-F]{7,40}$ ]]; then
+            sha="$REF"
+          else
+            echo "::error::Could not resolve $REPOSITORY@$REF to a branch, tag or commit"
+            exit 1
+          fi
+        fi
+        echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+    - name: Set up Go
+      uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+      with:
+        go-version-file: ${{ inputs.path }}/go.mod
+
+    - name: Check whether ${{ inputs.path }} depends on ${{ inputs.repository }}
+      id: module
+      shell: bash
+      working-directory: ${{ inputs.path }}
+      env:
+        REPOSITORY: ${{ inputs.repository }}
+      run: |
+        base="github.com/$(echo "$REPOSITORY" | tr '[:upper:]' '[:lower:]')"
+        # a failure of go list itself (a download error, a broken go.mod) must fail the step: read
+        # as an empty graph it would pass as "does not depend" and the ref would go untested
+        graph="$(go list -m all)"
+        # grep finds nothing for a module outside the graph, which pipefail would turn into a failure
+        module="$(printf '%s\n' "$graph" | awk '{print $1}' | grep -E "^${base}(/v[0-9]+)?\$" | head -n1 || true)"
+        if [ -z "$module" ]; then
+          echo "in-graph=false" >> "$GITHUB_OUTPUT"
+          echo "::notice::${{ inputs.path }} does not depend on $REPOSITORY, nothing to pin"
+        else
+          echo "in-graph=true" >> "$GITHUB_OUTPUT"
+          echo "module=$module" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Pin ${{ steps.module.outputs.module }} to ${{ steps.sha.outputs.sha }}
+      id: pin
+      if: ${{ steps.module.outputs.in-graph == 'true' }}
+      shell: bash
+      working-directory: ${{ inputs.path }}
+      env:
+        MODULE: ${{ steps.module.outputs.module }}
+        SHA: ${{ steps.sha.outputs.sha }}
+        # direct: fetch the commit straight from GitHub instead of relying on the module proxy's
+        # cache, which may not have seen this (possibly force-pushed) commit yet. sumdb off: a
+        # commit that was never released has no checksum in the public sum database to verify
+        # against.
+        #
+        # TODO: pull requests from forks. A commit that lives only in a fork is not reachable
+        # from any branch or tag of the library repository, so the module proxy cannot fetch it
+        # and the Docker build of a service (default GOPROXY) fails after this step succeeds.
+        # Check the library out into the build context and replace it with a local path instead.
+        GOPROXY: direct
+        GOSUMDB: 'off'
+      run: |
+        go get "$MODULE@$SHA"
+        version="$(go list -m -f '{{.Version}}' "$MODULE")"
+        go mod edit -replace "$MODULE=$MODULE@$version"
+        go mod tidy
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+        {
+          echo "## ${{ inputs.path }}: $MODULE"
+          echo ""
+          echo "Pinned to \`$version\` (commit \`${SHA:0:12}\`) via a replace directive"
+        } >> "$GITHUB_STEP_SUMMARY"
