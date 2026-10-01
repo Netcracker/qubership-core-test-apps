@@ -88,10 +88,10 @@ on:
         required: false
         default: 'latest'
         type: string
-      dummy-separator:
-        description: '--------------------------------'
+      maas-agent-tag:
+        description: 'Docker image tag for MaaS Agent'
         required: false
-        default: 'Mesh test services tags'
+        default: 'latest'
         type: string
       mesh-test-spring-tag:
         description: 'Docker image tag for Mesh test Spring service'
@@ -108,10 +108,10 @@ on:
         required: false
         default: 'latest'
         type: string        
-      dummy-separator-2:
-        description: '--------------------------------'
+      m2m-auth-mode:
+        description: 'M2M_AUTH_MODE of Cloud Core: legacy, hybrid, or k8s'
         required: false
-        default: 'Run integration tests'
+        default: 'legacy'
         type: string
       mesh-type:
         description: 'Mesh type for test services — Core or Istio'
@@ -215,10 +215,10 @@ on:
         required: false
         default: 'latest'
         type: string
-      dummy-separator:
-        description: '--------------------------------'
+      maas-agent-tag:
+        description: 'Docker image tag for MaaS Agent'
         required: false
-        default: 'Mesh test services tags'
+        default: 'latest'
         type: string
       mesh-test-spring-tag:
         description: 'Docker image tag for Mesh test Spring service'
@@ -235,11 +235,15 @@ on:
         required: false
         default: 'latest'
         type: string        
-      dummy-separator-2:
-        description: '--------------------------------'
+      m2m-auth-mode:
+        description: 'M2M_AUTH_MODE of Cloud Core: legacy, hybrid, or k8s'
         required: false
-        default: 'Run integration tests'
-        type: string
+        default: 'legacy'
+        type: choice
+        options:
+          - legacy
+          - hybrid
+          - k8s
       mesh-type:
         description: 'Mesh type for test services — Core or Istio'
         required: false
@@ -291,10 +295,12 @@ jobs:
             echo "| core-operator-tag | \`${{ inputs.core-operator-tag || 'latest' }}\` |"
             echo "| config-server-tag | \`${{ inputs.config-server-tag || 'latest' }}\` |"
             echo "| site-management-tag | \`${{ inputs.site-management-tag || 'latest' }}\` |"
+            echo "| maas-agent-tag | \`${{ inputs.maas-agent-tag || 'latest' }}\` |"
             echo "| mesh-test-spring-tag | \`${{ inputs.mesh-test-spring-tag || 'latest' }}\` |"
             echo "| mesh-test-quarkus-tag | \`${{ inputs.mesh-test-quarkus-tag || 'latest' }}\` |"
             echo "| mesh-test-go-tag | \`${{ inputs.mesh-test-go-tag || 'latest' }}\` |"
             echo "| mesh-type | \`${{ inputs.mesh-type || 'Core' }}\` |"
+            echo "| m2m-auth-mode | \`${{ inputs.m2m-auth-mode || 'legacy' }}\` |"
             echo "| test-usecase | \`${{ inputs.test-usecase || '' }}\` |"
             echo "| run-tests-for | \`${{ inputs.run-tests-for || 'all' }}\` |"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -315,10 +321,12 @@ jobs:
           echo "core-operator-tag=${{ inputs.core-operator-tag || 'latest' }}"
           echo "config-server-tag=${{ inputs.config-server-tag || 'latest' }}"
           echo "site-management-tag=${{ inputs.site-management-tag || 'latest' }}"
+          echo "maas-agent-tag=${{ inputs.maas-agent-tag || 'latest' }}"
           echo "mesh-test-spring-tag=${{ inputs.mesh-test-spring-tag || 'latest' }}"
           echo "mesh-test-quarkus-tag=${{ inputs.mesh-test-quarkus-tag || 'latest' }}"
           echo "mesh-test-go-tag=${{ inputs.mesh-test-go-tag || 'latest' }}"
           echo "mesh-type=${{ inputs.mesh-type || 'Core' }}"
+          echo "m2m-auth-mode=${{ inputs.m2m-auth-mode || 'legacy' }}"
           echo "test-usecase=${{ inputs.test-usecase || '' }}"
           echo "run-tests-for=${{ inputs.run-tests-for || 'all' }}"
           echo "::endgroup::"
@@ -339,11 +347,12 @@ jobs:
           core-operator-tag: ${{ inputs.core-operator-tag || 'latest' }}
           config-server-tag: ${{ inputs.config-server-tag || 'latest' }}
           site-management-tag: ${{ inputs.site-management-tag || 'latest' }}
+          maas-agent-tag: ${{ inputs.maas-agent-tag || 'latest' }}
           test-branch: ${{ inputs.test-branch || 'main' }}
           mesh-type: ${{ inputs.mesh-type || 'Core' }}
           # the action no longer sets a Patroni replica count of its own, and these suites were
           # running against one node
-          aux-bootstrap-args: 'PATRONI_REPLICAS_NUMBER=1'
+          aux-bootstrap-args: "PATRONI_REPLICAS_NUMBER=1 M2M_AUTH_MODE=${{ inputs.m2m-auth-mode || 'legacy' }}"
 
       - name: preserve-cpu-resources-workaround
         if: ${{ inputs.do-resources-workaround }}

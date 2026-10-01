@@ -40,6 +40,10 @@ inputs:
     description: Docker image tag for Site Management
     required: false
     default: latest
+  maas-agent-tag:
+    description: Docker image tag for MaaS Agent
+    required: false
+    default: latest
   install-maas:
     description: Whether to install MaaS (also sets CORE_CONFIG_MAAS_ENABLED)
     required: false
@@ -95,6 +99,7 @@ runs:
         CORE_OPERATOR_TAG="${{ inputs.core-operator-tag }}"
         CONFIG_SERVER_TAG="${{ inputs.config-server-tag }}"
         SITE_MANAGEMENT_TAG="${{ inputs.site-management-tag }}"
+        MAAS_AGENT_TAG="${{ inputs.maas-agent-tag }}"
         if [ "$FACADE_OPERATOR_TAG" != "latest" ] && [ -n "$FACADE_OPERATOR_TAG" ]; then
           MAKE_ARGS="$MAKE_ARGS FACADE_OPERATOR_TAG=$FACADE_OPERATOR_TAG"
         fi
@@ -118,6 +123,9 @@ runs:
         fi
         if [ "$SITE_MANAGEMENT_TAG" != "latest" ] && [ -n "$SITE_MANAGEMENT_TAG" ]; then
           MAKE_ARGS="$MAKE_ARGS SITE_MANAGEMENT_TAG=$SITE_MANAGEMENT_TAG"
+        fi
+        if [ "$MAAS_AGENT_TAG" != "latest" ] && [ -n "$MAAS_AGENT_TAG" ]; then
+          MAKE_ARGS="$MAKE_ARGS MAAS_AGENT_TAG=$MAAS_AGENT_TAG"
         fi
         ISTIO_REPO_BRANCH="${{ inputs.istio-repo-branch }}"
         CORE_MESH_CONFIG_REPO_BRANCH="${{ inputs.core-mesh-config-repo-branch }}"
