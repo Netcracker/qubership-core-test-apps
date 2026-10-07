@@ -213,11 +213,7 @@ jobs:
           install-maas: ${{ inputs.install-maas || 'false' }}
           install-istio: ${{ inputs.install-istio || 'false' }}
           mesh-type: ${{ inputs.mesh-type || 'Core' }}
-          # a Patroni replica count of one, which these suites were written for; the caller's
-          # arguments come after it, so that they can change it
-          aux-bootstrap-args: >-
-            PATRONI_REPLICAS_NUMBER=1
-            ${{ inputs.aux-bootstrap-args }}
+          aux-bootstrap-args: ${{ inputs.aux-bootstrap-args }}
 
       - name: preserve-cpu-resources-workaround
         if: ${{ inputs.do-resources-workaround }}
