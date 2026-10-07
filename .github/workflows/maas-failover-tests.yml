@@ -14,9 +14,14 @@ on:
         default: 'main'
         type: string
       test-branch:
-        description: 'Branch to look for in core services & test repositories. If branch not found in specific repo, checkout will fallback to main'
+        description: 'Branch of the core services and of the test repositories. A repository that has no such branch stays on main. Empty leaves the core services to the bootstrap, which uses main'
         required: false
-        default: 'main'
+        default: ''
+        type: string
+      aux-bootstrap-args:
+        description: 'Extra KEY=VALUE variables for the cloud-core bootstrap, space separated, applied last. Anything not above goes here: the tag of a core service (CONFIG_SERVER_TAG=my-tag), the branch or tag of a dependency (DBAAS_REPO_BRANCH=main, MAAS_BRANCH=main, ISTIO_REPO_BRANCH=main, CORE_MESH_CONFIG_REPO_BRANCH=main), M2M_AUTH_MODE=hybrid'
+        required: false
+        default: ''
         type: string
       apps:
         description: 'Test applications to install and drive, comma separated: spring, go'
@@ -37,9 +42,14 @@ on:
         default: 'main'
         type: string
       test-branch:
-        description: 'Branch to use in core services & test repositories. If branch not found in specific repo, checkout will fallback to main'
+        description: 'Branch of the core services and of the test repositories. A repository that has no such branch stays on main. Empty leaves the core services to the bootstrap, which uses main'
         required: false
-        default: 'main'
+        default: ''
+        type: string
+      aux-bootstrap-args:
+        description: 'Extra KEY=VALUE variables for the cloud-core bootstrap, space separated, applied last. Anything not above goes here: the tag of a core service (CONFIG_SERVER_TAG=my-tag), the branch or tag of a dependency (DBAAS_REPO_BRANCH=main, MAAS_BRANCH=main, ISTIO_REPO_BRANCH=main, CORE_MESH_CONFIG_REPO_BRANCH=main), M2M_AUTH_MODE=hybrid'
+        required: false
+        default: ''
         type: string
       apps:
         description: 'Test applications to install and drive, comma separated: spring, go'
@@ -64,18 +74,17 @@ jobs:
         uses: ./.github/actions/setup-kind-with-cloud-core
         with:
           core-bootstrap-branch: ${{ inputs.core-bootstrap-branch || 'main' }}
-          test-branch: ${{ inputs.test-branch || 'main' }}
+          test-branch: ${{ inputs.test-branch }}
           install-maas: 'true'
           install-istio: 'false'
-          # a second Patroni node, so the leader has somewhere to move; a registered RabbitMQ
-          # instance, which the bootstrap skips by default and the vhost scenarios need; the
-          # latest MaaS, because the tag the bootstrap pins by default predates the read-only
-          # cache fix, and what comes with it needs monitoring CRDs this cluster has not got
+          # a second Patroni node, so the leader has somewhere to move, and a registered RabbitMQ
+          # instance, which the bootstrap skips by default and the vhost scenarios need. The
+          # version of MaaS is the one the bootstrap takes. The caller's arguments come after
+          # these, so that they can change them.
           aux-bootstrap-args: >-
             PATRONI_REPLICAS_NUMBER=2
             RABBIT_INSTANCES=rabbitmq-1
-            MAAS_TAG=latest
-            MAAS_PROFILE_FILE=${{ github.workspace }}/.github/values/maas-dev-no-monitoring.yaml
+            ${{ inputs.aux-bootstrap-args }}
 
       - name: Run the MaaS failover integration tests
         id: failover_tests

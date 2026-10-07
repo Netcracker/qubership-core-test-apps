@@ -12,6 +12,9 @@ concurrency:
   group: "integration-tests-report"
   cancel-in-progress: true
 
+# The suites run against main of everything: core-bootstrap (its default), the core services (test-branch) and
+# each dependency, which the bootstrap otherwise takes at a pinned release (aux-bootstrap-args).
+
 jobs:
   run-tests-core-mesh:
     uses: ./.github/workflows/integration-tests.yml
@@ -21,6 +24,8 @@ jobs:
       mesh-type: 'Core'
       test-usecase: 'core-mesh'
       run-tests-for: 'all'
+      test-branch: main
+      aux-bootstrap-args: 'DBAAS_REPO_BRANCH=main MAAS_BRANCH=main ISTIO_REPO_BRANCH=main CORE_MESH_CONFIG_REPO_BRANCH=main'
 
   run-tests-istio-mesh-fallback-mode:
     uses: ./.github/workflows/integration-tests.yml
@@ -30,6 +35,8 @@ jobs:
       mesh-type: 'Core'
       test-usecase: 'istio-fallback'
       run-tests-for: 'all'
+      test-branch: main
+      aux-bootstrap-args: 'DBAAS_REPO_BRANCH=main MAAS_BRANCH=main ISTIO_REPO_BRANCH=main CORE_MESH_CONFIG_REPO_BRANCH=main'
 
   run-tests-istio-mesh-migrated-mode:
     uses: ./.github/workflows/integration-tests.yml
@@ -39,6 +46,8 @@ jobs:
       mesh-type: 'Istio'
       test-usecase: 'istio-migrated'
       run-tests-for: 'all'
+      test-branch: main
+      aux-bootstrap-args: 'DBAAS_REPO_BRANCH=main MAAS_BRANCH=main ISTIO_REPO_BRANCH=main CORE_MESH_CONFIG_REPO_BRANCH=main'
       
   run-tests-consul-login:
     uses: ./.github/workflows/consul-login-integration-tests.yml
@@ -47,6 +56,8 @@ jobs:
     uses: ./.github/workflows/maas-failover-tests.yml
     with:
       # the results are published in the report below, so a failed test must not skip it
+      test-branch: main
+      aux-bootstrap-args: 'DBAAS_REPO_BRANCH=main MAAS_BRANCH=main ISTIO_REPO_BRANCH=main CORE_MESH_CONFIG_REPO_BRANCH=main'
       fail-on-test-failure: false
 
   update-report:

@@ -14,9 +14,14 @@ on:
         default: 'main'
         type: string
       test-branch:
-        description: 'Branch to look for in core services & test repositories. If branch not found in specific repo, checkout will fallback to main'
+        description: 'Branch of the core services and of the test repositories. A repository that has no such branch stays on main. Empty leaves the core services to the bootstrap, which uses main'
         required: false
-        default: 'main'
+        default: ''
+        type: string
+      aux-bootstrap-args:
+        description: 'Extra KEY=VALUE variables for the cloud-core bootstrap, space separated, applied last. Anything not above goes here: the tag of a core service (CONFIG_SERVER_TAG=my-tag), the branch or tag of a dependency (DBAAS_REPO_BRANCH=main, MAAS_BRANCH=main, ISTIO_REPO_BRANCH=main, CORE_MESH_CONFIG_REPO_BRANCH=main), M2M_AUTH_MODE=hybrid'
+        required: false
+        default: ''
         type: string
       install-maas:
         description: 'Install MaaS'
@@ -28,66 +33,11 @@ on:
         required: false
         default: false
         type: boolean
-      istio-repo-branch:
-        description: 'Branch of the Istio repo'
-        required: false
-        default: 'main'
-        type: string
-      core-mesh-config-repo-branch:
-        description: 'Branch of the Core Mesh Config repo'
-        required: false
-        default: 'main'
-        type: string
       do-resources-workaround:
         description: 'Do resources workaround'
         required: false
         default: false
         type: boolean
-      dummy-separator-0:
-        description: '--------------------------------'
-        required: false
-        default: 'Docker image tags for core components'
-        type: string      
-      facade-operator-tag:
-        description: 'Docker image tag for Facade Operator'
-        required: false
-        default: 'latest'
-        type: string
-      ingress-gateway-tag:
-        description: 'Docker image tag for Ingress Gateway'
-        required: false
-        default: 'latest'
-        type: string
-      control-plane-tag:
-        description: 'Docker image tag for Control Plane'
-        required: false
-        default: 'latest'
-        type: string
-      paas-mediation-tag:
-        description: 'Docker image tag for PaaS Mediation'
-        required: false
-        default: 'latest'
-        type: string
-      dbaas-agent-tag:
-        description: 'Docker image tag for DBaaS Agent'
-        required: false
-        default: 'latest'
-        type: string
-      core-operator-tag:
-        description: 'Docker image tag for Core Operator'
-        required: false
-        default: 'latest'
-        type: string
-      config-server-tag:
-        description: 'Docker image tag for Config Server'
-        required: false
-        default: 'latest'
-        type: string
-      site-management-tag:
-        description: 'Docker image tag for Site Management'
-        required: false
-        default: 'latest'
-        type: string
       dummy-separator:
         description: '--------------------------------'
         required: false
@@ -141,10 +91,15 @@ on:
         default: 'main'
         type: string
       test-branch:
-        description: 'Branch to use in core services & test repositories. If branch not found in specific repo, checkout will fallback to main'
+        description: 'Branch of the core services and of the test repositories. A repository that has no such branch stays on main. Empty leaves the core services to the bootstrap, which uses main'
         required: false
-        default: 'main'
-        type: string        
+        default: ''
+        type: string
+      aux-bootstrap-args:
+        description: 'Extra KEY=VALUE variables for the cloud-core bootstrap, space separated, applied last. Anything not above goes here: the tag of a core service (CONFIG_SERVER_TAG=my-tag), the branch or tag of a dependency (DBAAS_REPO_BRANCH=main, MAAS_BRANCH=main, ISTIO_REPO_BRANCH=main, CORE_MESH_CONFIG_REPO_BRANCH=main), M2M_AUTH_MODE=hybrid'
+        required: false
+        default: ''
+        type: string
       install-maas:
         description: 'Install MaaS'
         required: false
@@ -155,66 +110,11 @@ on:
         required: false
         default: false
         type: boolean
-      istio-repo-branch:
-        description: 'Branch of the Istio repo'
-        required: false
-        default: 'main'
-        type: string
-      core-mesh-config-repo-branch:
-        description: 'Branch of the Core Mesh Config repo'
-        required: false
-        default: 'main'
-        type: string
       do-resources-workaround:
         description: 'Do resources workaround'
         required: false
         default: false
         type: boolean        
-      dummy-separator-0:
-        description: '--------------------------------'
-        required: false
-        default: 'Docker image tags for core components'
-        type: string      
-      facade-operator-tag:
-        description: 'Docker image tag for Facade Operator'
-        required: false
-        default: 'latest'
-        type: string
-      ingress-gateway-tag:
-        description: 'Docker image tag for Ingress Gateway'
-        required: false
-        default: 'latest'
-        type: string
-      control-plane-tag:
-        description: 'Docker image tag for Control Plane'
-        required: false
-        default: 'latest'
-        type: string
-      paas-mediation-tag:
-        description: 'Docker image tag for PaaS Mediation'
-        required: false
-        default: 'latest'
-        type: string
-      dbaas-agent-tag:
-        description: 'Docker image tag for DBaaS Agent'
-        required: false
-        default: 'latest'
-        type: string
-      core-operator-tag:
-        description: 'Docker image tag for Core Operator'
-        required: false
-        default: 'latest'
-        type: string
-      config-server-tag:
-        description: 'Docker image tag for Config Server'
-        required: false
-        default: 'latest'
-        type: string
-      site-management-tag:
-        description: 'Docker image tag for Site Management'
-        required: false
-        default: 'latest'
-        type: string
       dummy-separator:
         description: '--------------------------------'
         required: false
@@ -277,20 +177,11 @@ jobs:
             echo "| Input | Value |"
             echo "| --- | --- |"
             echo "| core-bootstrap-branch | \`${{ inputs.core-bootstrap-branch || 'main' }}\` |"
-            echo "| test-branch | \`${{ inputs.test-branch || 'main' }}\` |"
+            echo "| test-branch | \`${{ inputs.test-branch || '(left to the bootstrap)' }}\` |"
+            echo "| aux-bootstrap-args | \`${{ inputs.aux-bootstrap-args || '' }}\` |"
             echo "| install-maas | \`${{ (inputs.install-maas && 'true') || 'false' }}\` |"
             echo "| install-istio | \`${{ (inputs.install-istio && 'true') || 'false' }}\` |"
-            echo "| istio-repo-branch | \`${{ inputs.istio-repo-branch || 'main' }}\` |"
-            echo "| core-mesh-config-repo-branch | \`${{ inputs.core-mesh-config-repo-branch || 'main' }}\` |"
             echo "| do-resources-workaround | \`${{ (inputs.do-resources-workaround && 'true') || 'false' }}\` |"
-            echo "| facade-operator-tag | \`${{ inputs.facade-operator-tag || 'latest' }}\` |"
-            echo "| ingress-gateway-tag | \`${{ inputs.ingress-gateway-tag || 'latest' }}\` |"
-            echo "| control-plane-tag | \`${{ inputs.control-plane-tag || 'latest' }}\` |"
-            echo "| paas-mediation-tag | \`${{ inputs.paas-mediation-tag || 'latest' }}\` |"
-            echo "| dbaas-agent-tag | \`${{ inputs.dbaas-agent-tag || 'latest' }}\` |"
-            echo "| core-operator-tag | \`${{ inputs.core-operator-tag || 'latest' }}\` |"
-            echo "| config-server-tag | \`${{ inputs.config-server-tag || 'latest' }}\` |"
-            echo "| site-management-tag | \`${{ inputs.site-management-tag || 'latest' }}\` |"
             echo "| mesh-test-spring-tag | \`${{ inputs.mesh-test-spring-tag || 'latest' }}\` |"
             echo "| mesh-test-quarkus-tag | \`${{ inputs.mesh-test-quarkus-tag || 'latest' }}\` |"
             echo "| mesh-test-go-tag | \`${{ inputs.mesh-test-go-tag || 'latest' }}\` |"
@@ -301,20 +192,11 @@ jobs:
 
           echo "::group::Workflow input values"
           echo "core-bootstrap-branch=${{ inputs.core-bootstrap-branch || 'main' }}"
-          echo "test-branch=${{ inputs.test-branch || 'main' }}"
+          echo "test-branch=${{ inputs.test-branch || '' }}"
+          echo "aux-bootstrap-args=${{ inputs.aux-bootstrap-args || '' }}"
           echo "install-maas=${{ (inputs.install-maas && 'true') || 'false' }}"
           echo "install-istio=${{ (inputs.install-istio && 'true') || 'false' }}"
-          echo "istio-repo-branch=${{ inputs.istio-repo-branch || 'main' }}"
-          echo "core-mesh-config-repo-branch=${{ inputs.core-mesh-config-repo-branch || 'main' }}"
           echo "do-resources-workaround=${{ (inputs.do-resources-workaround && 'true') || 'false' }}"
-          echo "facade-operator-tag=${{ inputs.facade-operator-tag || 'latest' }}"
-          echo "ingress-gateway-tag=${{ inputs.ingress-gateway-tag || 'latest' }}"
-          echo "control-plane-tag=${{ inputs.control-plane-tag || 'latest' }}"
-          echo "paas-mediation-tag=${{ inputs.paas-mediation-tag || 'latest' }}"
-          echo "dbaas-agent-tag=${{ inputs.dbaas-agent-tag || 'latest' }}"
-          echo "core-operator-tag=${{ inputs.core-operator-tag || 'latest' }}"
-          echo "config-server-tag=${{ inputs.config-server-tag || 'latest' }}"
-          echo "site-management-tag=${{ inputs.site-management-tag || 'latest' }}"
           echo "mesh-test-spring-tag=${{ inputs.mesh-test-spring-tag || 'latest' }}"
           echo "mesh-test-quarkus-tag=${{ inputs.mesh-test-quarkus-tag || 'latest' }}"
           echo "mesh-test-go-tag=${{ inputs.mesh-test-go-tag || 'latest' }}"
@@ -327,23 +209,15 @@ jobs:
         uses: ./.github/actions/setup-kind-with-cloud-core
         with:
           core-bootstrap-branch: ${{ inputs.core-bootstrap-branch }}
+          test-branch: ${{ inputs.test-branch }}
           install-maas: ${{ inputs.install-maas || 'false' }}
           install-istio: ${{ inputs.install-istio || 'false' }}
-          istio-repo-branch: ${{ inputs.istio-repo-branch }}
-          core-mesh-config-repo-branch: ${{ inputs.core-mesh-config-repo-branch }}
-          facade-operator-tag: ${{ inputs.facade-operator-tag || 'latest' }}
-          ingress-gateway-tag: ${{ inputs.ingress-gateway-tag || 'latest' }}
-          control-plane-tag: ${{ inputs.control-plane-tag || 'latest' }}
-          paas-mediation-tag: ${{ inputs.paas-mediation-tag || 'latest' }}
-          dbaas-agent-tag: ${{ inputs.dbaas-agent-tag || 'latest' }}
-          core-operator-tag: ${{ inputs.core-operator-tag || 'latest' }}
-          config-server-tag: ${{ inputs.config-server-tag || 'latest' }}
-          site-management-tag: ${{ inputs.site-management-tag || 'latest' }}
-          test-branch: ${{ inputs.test-branch || 'main' }}
           mesh-type: ${{ inputs.mesh-type || 'Core' }}
-          # the action no longer sets a Patroni replica count of its own, and these suites were
-          # running against one node
-          aux-bootstrap-args: 'PATRONI_REPLICAS_NUMBER=1'
+          # a Patroni replica count of one, which these suites were written for; the caller's
+          # arguments come after it, so that they can change it
+          aux-bootstrap-args: >-
+            PATRONI_REPLICAS_NUMBER=1
+            ${{ inputs.aux-bootstrap-args }}
 
       - name: preserve-cpu-resources-workaround
         if: ${{ inputs.do-resources-workaround }}
