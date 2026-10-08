@@ -3,6 +3,7 @@ run-name: >-
   [Istio=${{ (inputs.install-istio && 'yes') || 'no' }}]
   [MaaS=${{ (inputs.install-maas && 'yes') || 'no' }}]
   [SERVICE_MESH_TYPE=${{ inputs.mesh-type || 'Core' }}]
+  [M2M_AUTH_MODE=${{ inputs.m2m-auth-mode || 'legacy' }}]
   [tests=${{ inputs.run-tests-for || 'all' }}]
 
 on:
@@ -62,6 +63,11 @@ on:
         description: '--------------------------------'
         required: false
         default: 'Run integration tests'
+        type: string
+      m2m-auth-mode:
+        description: 'M2M_AUTH_MODE of Cloud Core: legacy, hybrid, or k8s'
+        required: false
+        default: 'legacy'
         type: string
       mesh-type:
         description: 'Mesh type for test services — Core or Istio'
@@ -140,6 +146,15 @@ on:
         required: false
         default: 'Run integration tests'
         type: string
+      m2m-auth-mode:
+        description: 'M2M_AUTH_MODE of Cloud Core: legacy, hybrid, or k8s'
+        required: false
+        default: 'legacy'
+        type: choice
+        options:
+          - legacy
+          - hybrid
+          - k8s
       mesh-type:
         description: 'Mesh type for test services — Core or Istio'
         required: false
@@ -186,6 +201,7 @@ jobs:
             echo "| mesh-test-quarkus-tag | \`${{ inputs.mesh-test-quarkus-tag || 'latest' }}\` |"
             echo "| mesh-test-go-tag | \`${{ inputs.mesh-test-go-tag || 'latest' }}\` |"
             echo "| mesh-type | \`${{ inputs.mesh-type || 'Core' }}\` |"
+            echo "| m2m-auth-mode | \`${{ inputs.m2m-auth-mode || 'legacy' }}\` |"
             echo "| test-usecase | \`${{ inputs.test-usecase || '' }}\` |"
             echo "| run-tests-for | \`${{ inputs.run-tests-for || 'all' }}\` |"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -201,6 +217,7 @@ jobs:
           echo "mesh-test-quarkus-tag=${{ inputs.mesh-test-quarkus-tag || 'latest' }}"
           echo "mesh-test-go-tag=${{ inputs.mesh-test-go-tag || 'latest' }}"
           echo "mesh-type=${{ inputs.mesh-type || 'Core' }}"
+          echo "m2m-auth-mode=${{ inputs.m2m-auth-mode || 'legacy' }}"
           echo "test-usecase=${{ inputs.test-usecase || '' }}"
           echo "run-tests-for=${{ inputs.run-tests-for || 'all' }}"
           echo "::endgroup::"
@@ -213,7 +230,8 @@ jobs:
           install-maas: ${{ inputs.install-maas || 'false' }}
           install-istio: ${{ inputs.install-istio || 'false' }}
           mesh-type: ${{ inputs.mesh-type || 'Core' }}
-          aux-bootstrap-args: ${{ inputs.aux-bootstrap-args }}
+          # the caller's arguments come last, so that they can override the mode
+          aux-bootstrap-args: M2M_AUTH_MODE=${{ inputs.m2m-auth-mode || 'legacy' }} ${{ inputs.aux-bootstrap-args }}
 
       - name: preserve-cpu-resources-workaround
         if: ${{ inputs.do-resources-workaround }}
