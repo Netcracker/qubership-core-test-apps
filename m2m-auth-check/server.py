@@ -1,7 +1,10 @@
 """A stand-in for dbaas-aggregator and maas-service that records how each request authenticates.
 
 It answers every request with an empty JSON object, so a client that gets past authentication goes
-on to ask for more, and never uses the answer. What matters is the log: one line per request,
+on to ask for more, and never uses the answer. The one exception is the creation of a database, which
+the pre-hook of every core service sends before the service starts: it gets connection properties
+that point nowhere, enough for the hook to create the secret the service mounts. What matters is
+the log: one line per request,
 
     REQ {"host": ..., "method": ..., "path": ..., "auth": "basic|bearer|none", ...}
 
@@ -16,12 +19,29 @@ ACCEPT selects what the stand-in lets through, the other kind of credential gets
 import base64
 import json
 import os
+import re
 import sys
+import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ACCEPT = os.environ.get("ACCEPT", "all")
 PORT = int(os.environ.get("PORT", "8080"))
 KEPT_CLAIMS = ("iss", "aud", "sub", "exp", "kubernetes.io")
+CREATE_DATABASE = re.compile(r"^/api/v3/dbaas/[^/]+/databases/?(\?.*)?$")
+FAKE_DATABASE = {
+    "connectionProperties": {
+        "host": "postgres.invalid",
+        "port": 5432,
+        "name": "db",
+        "role": "admin",
+        "username": "user",
+        "password": "password",
+        "url": "jdbc:postgresql://postgres.invalid:5432/db",
+        "tls": "false",
+    }
+}
+# the requests arrive on several threads, and a line must not be cut by another
+LOG_LOCK = threading.Lock()
 
 
 def decode_claims(token):
@@ -74,9 +94,16 @@ class Handler(BaseHTTPRequestHandler):
                 "src": self.client_address[0],
             }
             record.update(detail)
-            print("REQ " + json.dumps(record, separators=(",", ":")), flush=True)
+            with LOG_LOCK:
+                sys.stdout.write("REQ " + json.dumps(record, separators=(",", ":")) + "\n")
+                sys.stdout.flush()
 
-        body = b"{}" if accepted else b'{"error":"unauthorized"}'
+        if not accepted:
+            body = b'{"error":"unauthorized"}'
+        elif self.command in ("PUT", "POST") and CREATE_DATABASE.match(self.path):
+            body = json.dumps(FAKE_DATABASE).encode()
+        else:
+            body = b"{}"
         self.send_response(status)
         if not accepted:
             self.send_header("WWW-Authenticate", "Basic realm=mock" if ACCEPT == "basic" else "Bearer")

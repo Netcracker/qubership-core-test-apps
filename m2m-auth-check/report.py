@@ -1,19 +1,26 @@
 """Summarizes how the core services authenticated to the stand-in for DBaaS and MaaS, and checks it.
 
-usage: report.py --log mock.log --pods pods.json [--basic any|require|forbid] [--bearer any|require|forbid]
-                 [--fallback] [--callers a,b,c]
+usage: report.py --log mock.log --pods pods.json [--k8s-token any|require|forbid] [--basic ...]
+                 [--other-bearer ...] [--basic-by-design a,b] [--callers a,b,c]
 
-mock.log   the log of the stand-in (lines that start with "REQ ")
+mock.log   the log of the stand-in (lines that contain "REQ {")
 pods.json  `kubectl get pods -A -o json`, to name the sender of a Basic credential by its address
 
 Prints a Markdown table, a line per sender, target and kind of credential, and exits 1 when a check
-fails:
-  --basic / --bearer  the kind of credential must (require), or must not (forbid), be seen at all
-  --fallback          some sender is refused with a bearer token and then comes back with Basic
-  --callers           these senders must all have been seen
-Whatever the options, a bearer token must be the Kubernetes token that sender is meant to send:
-issued for the service account of the sender, in the namespace of the core, for the audience of the
-target (dbaas or maas).
+fails. The kinds of credential are
+
+  k8s token     a bearer token issued by Kubernetes for a service account
+  basic         a user name and password
+  other bearer  any other bearer token, such as the legacy M2M token of the identity provider
+
+and each can be required (seen from some sender), forbidden (seen from none), or left alone (any).
+Senders named in --basic-by-design send a Basic credential in every mode, whatever M2M_AUTH_MODE is,
+and are left out when the Basic credentials are counted. --callers lists the senders that must all
+have been seen.
+
+Whatever the options, a k8s token must be the token that sender is meant to send: issued for the
+service account of the sender, in the namespace of the core, for the audience of the target (dbaas
+or maas).
 """
 import argparse
 import collections
@@ -23,15 +30,25 @@ import sys
 
 CORE_NAMESPACE = "core"
 POD_HASH = re.compile(r"-[a-z0-9]{8,10}-[a-z0-9]{5}$|-[a-z0-9]{5}$")
+K8S_TOKEN, BASIC, OTHER_BEARER = "k8s token", "basic", "other bearer"
 
 
 def load_requests(path):
+    """Reads the records of the stand-in, which may follow a timestamp or other prefix of a log line."""
+    decoder = json.JSONDecoder()
     requests = []
     for line in open(path, encoding="utf-8", errors="replace"):
-        # `kubectl logs` may put a timestamp or prefix ahead of the marker
-        marker = line.find("REQ {")
-        if marker >= 0:
-            requests.append(json.loads(line[marker + 4:]))
+        start = 0
+        while True:
+            marker = line.find("REQ {", start)
+            if marker < 0:
+                break
+            try:
+                record, end = decoder.raw_decode(line, marker + 4)
+            except ValueError:
+                break
+            requests.append(record)
+            start = end
     return requests
 
 
@@ -53,20 +70,33 @@ def target_of(host):
     return host or "?"
 
 
-def sender_of(request, pods):
+def service_account_of(claims):
+    account = ((claims.get("kubernetes.io") or {}).get("serviceaccount") or {}).get("name")
+    if account:
+        return account
+    subject = claims.get("sub") or ""
+    return subject.rsplit(":", 1)[-1] if subject.startswith("system:serviceaccount:") else None
+
+
+def kind_of(request):
+    if request["auth"] == "basic":
+        return BASIC
     if request["auth"] == "bearer":
         claims = request.get("claims") or {}
-        account = ((claims.get("kubernetes.io") or {}).get("serviceaccount") or {}).get("name")
-        if account:
-            return account
-        return (claims.get("sub") or "?").rsplit(":", 1)[-1]
+        if (claims.get("sub") or "").startswith("system:serviceaccount:") or "kubernetes.io" in claims:
+            return K8S_TOKEN
+        return OTHER_BEARER
+    return request["auth"]
+
+
+def sender_of(request, kind, pods):
+    if kind == K8S_TOKEN:
+        return service_account_of(request.get("claims") or {}) or "?"
     return pods.get(request["src"], request["src"])
 
 
 def token_problems(request, sender):
-    claims = request.get("claims")
-    if not claims:
-        return ["the token has no readable claims"]
+    claims = request.get("claims") or {}
     problems = []
     target = target_of(request["host"])
     audience = claims.get("aud")
@@ -83,33 +113,30 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--log", required=True)
     parser.add_argument("--pods", required=True)
-    parser.add_argument("--basic", choices=["any", "require", "forbid"], default="any")
-    parser.add_argument("--bearer", choices=["any", "require", "forbid"], default="any")
-    parser.add_argument("--fallback", action="store_true")
+    for option in ("k8s-token", "basic", "other-bearer"):
+        parser.add_argument("--" + option, choices=["any", "require", "forbid"], default="any")
+    parser.add_argument("--basic-by-design", default="")
     parser.add_argument("--callers", default="")
     args = parser.parse_args()
 
     requests = load_requests(args.log)
     pods = load_pod_names(args.pods)
+    by_design = {s for s in args.basic_by_design.split(",") if s}
 
     rows = collections.OrderedDict()
     problems = []
-    refused_with_bearer = set()
-    fell_back = set()
     for request in requests:
-        sender = sender_of(request, pods)
-        key = (sender, target_of(request["host"]), request["auth"])
-        row = rows.setdefault(key, {"ok": 0, "refused": 0, "details": set()})
+        kind = kind_of(request)
+        sender = sender_of(request, kind, pods)
+        key = (sender, target_of(request["host"]), kind)
+        row = rows.setdefault(key, {"ok": 0, "refused": 0, "notes": set()})
         row["ok" if request["status"] < 400 else "refused"] += 1
-        if request["auth"] == "basic":
-            row["details"].add(f"user {request.get('user')}")
-            if sender in refused_with_bearer:
-                fell_back.add(sender)
-        if request["auth"] == "bearer":
-            if request["status"] >= 400:
-                refused_with_bearer.add(sender)
+        if kind == BASIC:
+            note = f"user {request.get('user')}"
+            row["notes"].add(note + (", in every mode" if sender in by_design else ""))
+        if kind == K8S_TOKEN:
             for problem in token_problems(request, sender):
-                row["details"].add(problem)
+                row["notes"].add(problem)
                 problems.append(f"{sender} -> {key[1]}: {problem}")
 
     print("### Credentials the core services sent")
@@ -119,19 +146,20 @@ def main():
     else:
         print("| Sender | Target | Credential | Accepted | Refused | Notes |")
         print("| --- | --- | --- | --- | --- | --- |")
-        for (sender, target, auth), row in sorted(rows.items()):
-            print(f"| {sender} | {target} | {auth} | {row['ok']} | {row['refused']} | {'; '.join(sorted(row['details']))} |")
+        for (sender, target, kind), row in sorted(rows.items()):
+            print(f"| {sender} | {target} | {kind} | {row['ok']} | {row['refused']} | {'; '.join(sorted(row['notes']))} |")
     print()
 
-    kinds = {auth for (_, _, auth) in rows}
-    for kind, want in (("basic", args.basic), ("bearer", args.bearer)):
-        if want == "require" and kind not in kinds:
+    senders_by_kind = collections.defaultdict(set)
+    for (sender, _, kind) in rows:
+        if kind == BASIC and sender in by_design:
+            continue
+        senders_by_kind[kind].add(sender)
+    for kind, want in ((K8S_TOKEN, args.k8s_token), (BASIC, args.basic), (OTHER_BEARER, args.other_bearer)):
+        if want == "require" and not senders_by_kind[kind]:
             problems.append(f"no {kind} credential was seen, and one is expected")
-        if want == "forbid" and kind in kinds:
-            senders = sorted({s for (s, _, a) in rows if a == kind})
-            problems.append(f"a {kind} credential was seen from {', '.join(senders)}, and none is expected")
-    if args.fallback and not fell_back:
-        problems.append("no sender was refused with a bearer token and then sent Basic")
+        if want == "forbid" and senders_by_kind[kind]:
+            problems.append(f"a {kind} credential was seen from {', '.join(sorted(senders_by_kind[kind]))}, and none is expected")
     if args.callers:
         seen = {s for (s, _, _) in rows}
         for caller in args.callers.split(","):
