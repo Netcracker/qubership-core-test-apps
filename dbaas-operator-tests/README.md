@@ -37,8 +37,9 @@ from the report.
 The workflow is `DBaaS Operator integration tests`. The core-bootstrap branch and the core-bootstrap and
 control-plane images are inlined in it, because they exist only while this work is open: those two carry code
 changes, while config-server and site-management only change their charts. Once this merges, drop them from the
-workflow and the action's defaults, `main` and `latest`, apply. `test-branch` stays an input, so the service charts
-can be taken from another branch.
+workflow and the action's defaults, `main` and `latest`, apply. `CORETPL_CHART_DIR` is inlined for the same reason:
+the charts need `coretpl` 0.2.4, which is packaged from the core-bootstrap branch until it is published. `test-branch`
+stays an input, so the service charts can be taken from another branch.
 
 To run the checks against your own cluster, for example one installed with `cloud-core-local-dev`:
 
