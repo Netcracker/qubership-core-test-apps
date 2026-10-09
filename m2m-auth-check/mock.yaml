@@ -1,0 +1,85 @@
+# The stand-in for dbaas-aggregator and maas-service (server.py, mounted from the ConfigMap
+# auth-mock-script), and the Services under which the core services look for the real ones.
+# ACCEPT is replaced by the workflow before this is applied.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: m2m-mock
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dbaas
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: maas
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-mock
+  namespace: m2m-mock
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-mock
+  template:
+    metadata:
+      labels:
+        app: auth-mock
+    spec:
+      containers:
+        - name: mock
+          image: python:3.13-alpine
+          command: ["python", "-u", "/app/server.py"]
+          env:
+            - name: ACCEPT
+              value: "${ACCEPT}"
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            periodSeconds: 2
+          volumeMounts:
+            - name: script
+              mountPath: /app
+      volumes:
+        - name: script
+          configMap:
+            name: auth-mock-script
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-mock
+  namespace: m2m-mock
+spec:
+  selector:
+    app: auth-mock
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+# the names and namespaces the bootstrap gives the real ones
+apiVersion: v1
+kind: Service
+metadata:
+  name: dbaas-aggregator
+  namespace: dbaas
+spec:
+  type: ExternalName
+  externalName: auth-mock.m2m-mock.svc.cluster.local
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: maas-service
+  namespace: maas
+spec:
+  type: ExternalName
+  externalName: auth-mock.m2m-mock.svc.cluster.local

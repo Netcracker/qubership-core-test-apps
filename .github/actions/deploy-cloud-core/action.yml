@@ -1,0 +1,62 @@
+name: Deploy Cloud Core
+description: >
+  Deploys Cloud Core into the Kind cluster that setup-kind made, with the Makefile of the
+  qubership-core-bootstrap repo that action checked out. Use setup-kind-with-cloud-core to do both;
+  use the two separately to put something into the cluster before Cloud Core starts.
+
+inputs:
+  test-branch:
+    description: >
+      Branch to use in the repositories of the core services; a repository that has no such branch
+      stays on the baseline of the bootstrap, which is main. Empty leaves the choice to the bootstrap.
+    required: false
+    default: ''
+  mesh-type:
+    description: 'Mesh type for test services — Core or Istio'
+    required: false
+    default: 'Core'
+  install-maas:
+    description: Whether to install MaaS (also sets CORE_CONFIG_MAAS_ENABLED)
+    required: false
+    default: 'false'
+  install-istio:
+    description: Whether to install Istio
+    required: false
+    default: 'true'
+  aux-bootstrap-args:
+    description: >
+      Extra variables passed to the cloud-core local-dev make target, space separated, as
+      KEY=VALUE, and applied last, so they override everything above. This is where anything else
+      goes: the tag of a core service (CONFIG_SERVER_TAG=my-tag), the branch or tag of a dependency
+      (DBAAS_REPO_BRANCH=main, MAAS_BRANCH=main, ISTIO_REPO_BRANCH=main,
+      CORE_MESH_CONFIG_REPO_BRANCH=main), M2M_AUTH_MODE=hybrid, or a setting only one suite needs
+      (PATRONI_REPLICAS_NUMBER=2 RABBIT_INSTANCES=rabbitmq-1).
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Deploy cloud core
+      shell: bash
+      env:
+        INSTALL_MAAS: ${{ inputs.install-maas }}
+        INSTALL_ISTIO: ${{ inputs.install-istio }}
+        MESH_TYPE: ${{ inputs.mesh-type }}
+        TEST_BRANCH: ${{ inputs.test-branch }}
+        AUX_BOOTSTRAP_ARGS: ${{ inputs.aux-bootstrap-args }}
+      run: |
+        MAKE_ARGS="INSTALL_MAAS=$INSTALL_MAAS CORE_CONFIG_MAAS_ENABLED=$INSTALL_MAAS"
+        MAKE_ARGS="$MAKE_ARGS INSTALL_ISTIO=$INSTALL_ISTIO SERVICE_MESH_TYPE=$MESH_TYPE"
+        # left out when empty: the bootstrap has no default for it, and an empty assignment would
+        # still count as a TEST_BRANCH that no repository has
+        if [ -n "$TEST_BRANCH" ]; then
+          MAKE_ARGS="$MAKE_ARGS TEST_BRANCH=$TEST_BRANCH"
+        fi
+        # appended last, so a caller can override anything set above: make takes the last
+        # assignment of a variable on the command line. Left out when empty, because an empty
+        # assignment would still override the bootstrap default.
+        if [ -n "$AUX_BOOTSTRAP_ARGS" ]; then
+          MAKE_ARGS="$MAKE_ARGS $AUX_BOOTSTRAP_ARGS"
+        fi
+        make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/ install
