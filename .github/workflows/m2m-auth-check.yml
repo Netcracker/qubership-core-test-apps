@@ -95,6 +95,15 @@ jobs:
             --from-file=server.py=m2m-auth-check/server.py --dry-run=client -o yaml | kubectl apply -f -
           kubectl -n m2m-mock rollout status deploy/auth-mock --timeout=180s
 
+      # A hook that runs before a service is deleted when it succeeds, and its address then names
+      # no pod. The addresses are written down while the services run, to name the senders later.
+      - name: Record the addresses of the pods
+        run: |
+          nohup setsid bash -c 'while true; do
+            kubectl get pods -A -o jsonpath="{range .items[*]}{.status.podIP}{\" \"}{.metadata.name}{\"\n\"}{end}" >> "$GITHUB_WORKSPACE/pod-ips.txt" 2>/dev/null
+            sleep 2
+          done' > /dev/null 2>&1 &
+
       # The agents are installed in the legacy and hybrid modes, MaaS itself is not. make -k goes on
       # with the services that do not depend on one that failed.
       - name: Deploy Cloud Core
@@ -135,7 +144,7 @@ jobs:
             echo "The install of Cloud Core finished with: \`$INSTALL_OUTCOME\` (it may fail here, which does not matter)."
             echo ""
           } >> "$GITHUB_STEP_SUMMARY"
-          args=(--log mock.log --pods pods.json
+          args=(--log mock.log --pods pods.json --pod-ips pod-ips.txt
                 --k8s-token ${{ matrix.k8s-token }} --basic ${{ matrix.basic }} --other-bearer ${{ matrix.other-bearer }}
                 --basic-by-design core-app-chart-pre-hook,config-server --callers ${{ matrix.callers }})
           set +e
@@ -152,6 +161,7 @@ jobs:
           path: |
             mock.log
             pods.json
+            pod-ips.txt
             report.md
           if-no-files-found: warn
 

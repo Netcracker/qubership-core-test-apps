@@ -1,10 +1,12 @@
 """Summarizes how the core services authenticated to the stand-in for DBaaS and MaaS, and checks it.
 
-usage: report.py --log mock.log --pods pods.json [--k8s-token any|require|forbid] [--basic ...]
-                 [--other-bearer ...] [--basic-by-design a,b] [--callers a,b,c]
+usage: report.py --log mock.log --pods pods.json [--pod-ips pod-ips.txt] [--k8s-token any|require|forbid]
+                 [--basic ...] [--other-bearer ...] [--basic-by-design a,b] [--callers a,b,c]
 
-mock.log   the log of the stand-in (lines that contain "REQ {")
-pods.json  `kubectl get pods -A -o json`, to name the sender of a Basic credential by its address
+mock.log     the log of the stand-in (lines that contain "REQ {")
+pods.json    `kubectl get pods -A -o json`, to name the sender of a Basic credential by its address
+pod-ips.txt  lines of "<address> <pod name>" taken while the services ran, for the pods that are gone
+             by now, such as the hooks that run before a service and are deleted when they succeed
 
 Prints a Markdown table, a line per sender, target and kind of credential, and exits 1 when a check
 fails. The kinds of credential are
@@ -52,13 +54,19 @@ def load_requests(path):
     return requests
 
 
-def load_pod_names(path):
-    pods = {}
-    for item in json.load(open(path, encoding="utf-8")).get("items", []):
+def load_pod_names(pods_path, pod_ips_path=None):
+    names = collections.defaultdict(set)
+    for item in json.load(open(pods_path, encoding="utf-8")).get("items", []):
         ip = item.get("status", {}).get("podIP")
         if ip:
-            pods[ip] = POD_HASH.sub("", item["metadata"]["name"])
-    return pods
+            names[ip].add(POD_HASH.sub("", item["metadata"]["name"]))
+    if pod_ips_path:
+        for line in open(pod_ips_path, encoding="utf-8", errors="replace"):
+            fields = line.split()
+            if len(fields) == 2:
+                names[fields[0]].add(POD_HASH.sub("", fields[1]))
+    # an address that was reused by another pod is named after both
+    return {ip: "/".join(sorted(found)) for ip, found in names.items()}
 
 
 def target_of(host):
@@ -113,6 +121,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--log", required=True)
     parser.add_argument("--pods", required=True)
+    parser.add_argument("--pod-ips")
     for option in ("k8s-token", "basic", "other-bearer"):
         parser.add_argument("--" + option, choices=["any", "require", "forbid"], default="any")
     parser.add_argument("--basic-by-design", default="")
@@ -120,7 +129,7 @@ def main():
     args = parser.parse_args()
 
     requests = load_requests(args.log)
-    pods = load_pod_names(args.pods)
+    pods = load_pod_names(args.pods, args.pod_ips)
     by_design = {s for s in args.basic_by_design.split(",") if s}
 
     rows = collections.OrderedDict()
