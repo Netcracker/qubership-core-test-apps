@@ -37,6 +37,9 @@ env:
   CORE_BOOTSTRAP_BRANCH: feat/dbaas-mounted-secret-migration
   CORE_BOOTSTRAP_IMAGE: ghcr.io/netcracker/core-bootstrap:feat-dbaas-mounted-secret-migration-snapshot
   CONTROL_PLANE_TAG: feat-dbaas-mounted-secret-migration-snapshot
+  # The Core charts on the branch need coretpl 0.2.4, which is not published yet: make packages it
+  # from the core-bootstrap checkout instead. Relative to cloud-core-local-dev, where make runs.
+  CORETPL_CHART_DIR: ../coretpl
   LOGS_FOR: name=control-plane,name=config-server,name=site-management,name=dbaas-agent,name=dbaas-operator
 
 jobs:
