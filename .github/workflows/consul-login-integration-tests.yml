@@ -5,7 +5,7 @@ on:
   workflow_call:
     inputs:
       java-libs-artifact:
-        description: 'Artifact of a Build java-libs run of this workflow run. The Java test services and tests are built against those library versions; empty keeps the released ones'
+        description: 'Build java-libs artifact of this run to build the services against'
         required: false
         default: ''
         type: string

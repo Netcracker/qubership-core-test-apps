@@ -74,11 +74,7 @@ inputs:
     default: ''
 
   images-artifact-pattern:
-    description: >
-      Pattern of artifacts of this run holding docker save archives (*.tar) of images built in the
-      run. They are loaded into the cluster before Cloud Core is deployed, so a component whose tag
-      points at such an image runs it instead of pulling one: the charts pull only when the image
-      is not present. Nothing is loaded when empty.
+    description: Artifacts of this run with docker save archives to load into kind before the deploy
     required: false
     default: ''
 

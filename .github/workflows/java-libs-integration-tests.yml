@@ -1,23 +1,8 @@
 name: Integration tests for a java-libs ref
 run-name: "[java-libs=${{ inputs.java-libs-ref }}] [tests=${{ inputs.run-tests-for }}]"
 
-# Runs the suites that exercise qubership-core-java-libs against a branch, tag, commit or pull
-# request of it, before that change is released. Nothing is published:
-#   1. java-libs is built at the ref and handed on as an artifact (build-java-libs.yml);
-#   2. every Java service that uses it is built against it (the Maven action of core-infra's
-#      builds, then docker/build-push-action) into a docker image saved as an artifact, tagged
-#      java-libs-<commit>: the Java services of Cloud Core (config-server, core-operator,
-#      dbaas-aggregator) and the Java mesh test services;
-#   3. the suites load those images into their cluster and point the tags of these components at
-#      them. The Java test services the consul-login suite builds itself, and every integration
-#      test module, are built against the same java-libs build.
-# The Go components run their published images: they do not use java-libs.
-#
-# Suites: the mesh tests (integration-tests.yml; the Java test services and Cloud Core) and the
-# consul-login tests (Quarkus and Spring consul config libraries). The paas-mediation,
-# control-plane, site-management and maas-agent suites of integration-tests.yml test Go services
-# and are left out unless run-tests-for names them. The MaaS failover suite (maas-client) is not
-# wired in yet: it pins the MaaS tag its own way, apart from the images built here.
+# Builds java-libs at a ref, rebuilds the Java services that use it into images and runs the
+# suites against them. Go components keep their published images.
 
 on:
   workflow_dispatch:
@@ -59,9 +44,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # repository: empty for this repository. maven-dir: where the pom to build is, dockerfile
-        # and context: as the service's own docker config has them, relative to the checkout.
-        # retag: published images whose chart takes the same tag, carried along unchanged.
+        # repository: empty for this repository; retag: published image re-tagged as is;
+        # bootstrap-ref: pin in the bootstrap's dependencies.mk to build the repository at
         include:
           - name: config-server
             repository: Netcracker/qubership-core-config-server
@@ -77,9 +61,10 @@ jobs:
             dockerfile: Dockerfile
             context: .
             image: ghcr.io/netcracker/qubership-core-core-operator
-          # the dbaas bootstrap uses one TAG for the aggregator and its declarative hook image
+          # DBAAS_TAG covers the aggregator and its hook image
           - name: dbaas-aggregator
             repository: Netcracker/qubership-dbaas
+            bootstrap-ref: DBAAS_REPO_BRANCH
             maven-dir: .
             java-version: '25'
             dockerfile: dbaas/Dockerfile
@@ -101,26 +86,46 @@ jobs:
             context: mesh-test-service-quarkus
             image: ghcr.io/netcracker/qubership-core-mesh-test-service-quarkus
     env:
-      # where the sources of the service are: its own checkout, or this repository
       SOURCES: ${{ matrix.repository != '' && 'service' || '.' }}
       TAG: ${{ needs.java-libs.outputs.image-tag }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Resolve the branch of ${{ matrix.repository }}
+      # same resolution as the bootstrap: its pin unless services-branch exists there
+      - name: Resolve the ref of ${{ matrix.repository }}
         id: branch
         if: ${{ matrix.repository != '' }}
         env:
           REPOSITORY: ${{ matrix.repository }}
           BRANCH: ${{ inputs.services-branch }}
+          BOOTSTRAP_REF: ${{ matrix.bootstrap-ref }}
+          BOOTSTRAP_BRANCH: ${{ inputs.core-bootstrap-branch }}
         run: |
-          if git ls-remote --exit-code --heads "https://github.com/$REPOSITORY.git" "$BRANCH" > /dev/null; then
-            echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          set -e
+          url="https://github.com/$REPOSITORY.git"
+          has_branch() { git ls-remote --exit-code --heads "$url" "$1" > /dev/null; }
+          if [ -n "$BOOTSTRAP_REF" ] && ! { [ "$BRANCH" != main ] && has_branch "$BRANCH"; }; then
+            ref="$(curl -fsSL "https://raw.githubusercontent.com/Netcracker/qubership-core-bootstrap/$BOOTSTRAP_BRANCH/cloud-core-local-dev/dependencies.mk" \
+              | sed -n "s/^$BOOTSTRAP_REF[[:space:]]*?=[[:space:]]*\([^[:space:]#]*\).*/\1/p" | head -n1)"
+            if [ -z "$ref" ]; then
+              echo "::error::$BOOTSTRAP_REF not found in dependencies.mk of qubership-core-bootstrap@$BOOTSTRAP_BRANCH"
+              exit 1
+            fi
+            echo "::notice::$REPOSITORY is built at $ref, the $BOOTSTRAP_REF of the core bootstrap"
+          elif has_branch "$BRANCH"; then
+            ref="$BRANCH"
           else
             echo "::notice::$REPOSITORY has no branch $BRANCH, building main"
-            echo "branch=main" >> "$GITHUB_OUTPUT"
+            ref=main
           fi
+          if has_branch "$ref"; then
+            if [ "$ref" = main ]; then tag=latest; else tag="${ref//\//-}-snapshot"; fi
+          else
+            tag="$ref"
+          fi
+          echo "branch=$ref" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
       - name: Check out ${{ matrix.repository }}
         if: ${{ matrix.repository != '' }}
@@ -137,8 +142,7 @@ jobs:
           artifact: ${{ needs.java-libs.outputs.artifact }}
           path: ${{ env.SOURCES }}
 
-      # The Maven step of core-infra's generic-maven-build, without its checkout: the sources are
-      # the ones rewritten above, possibly of another repository
+      # Maven step of core-infra's generic-maven-build, minus its checkout
       - name: Build ${{ matrix.name }}
         uses: netcracker/qubership-workflow-hub/actions/maven-snapshot-deploy@6b356d28e46b2d4683cccb1d91f92643d7f0c513 # v2.0.11
         with:
@@ -149,8 +153,7 @@ jobs:
           additional-mvn-args: '-ntp -DskipTests'
           upload-artifact: 'false'
 
-      # The builder qubership-workflow-hub's docker-action uses, loading the image into the local
-      # docker instead of pushing it: the image travels to the test cluster as an artifact.
+      # same builder as workflow-hub's docker-action, but loaded locally instead of pushed
       - name: Build the image
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
@@ -165,20 +168,22 @@ jobs:
         if: ${{ matrix.retag }}
         env:
           RETAG: ${{ matrix.retag }}
+          SOURCE_TAG: ${{ steps.branch.outputs.tag }}
         run: |
-          docker pull "$RETAG:latest"
-          docker tag "$RETAG:latest" "$RETAG:$TAG"
+          docker pull "$RETAG:$SOURCE_TAG"
+          docker tag "$RETAG:$SOURCE_TAG" "$RETAG:$TAG"
 
       - name: Save the image
         env:
           IMAGE: ${{ matrix.image }}
           RETAG: ${{ matrix.retag }}
+          SOURCE_TAG: ${{ steps.branch.outputs.tag }}
         run: |
           # shellcheck disable=SC2086 # RETAG is empty or one image
           docker save -o "${{ matrix.name }}.tar" "$IMAGE:$TAG" ${RETAG:+"$RETAG:$TAG"}
           {
             echo "Built \`$IMAGE:$TAG\`"
-            if [ -n "$RETAG" ]; then echo "Carried \`$RETAG:latest\` along as \`$RETAG:$TAG\`"; fi
+            if [ -n "$RETAG" ]; then echo "Carried \`$RETAG:$SOURCE_TAG\` along as \`$RETAG:$TAG\`"; fi
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload the image
@@ -198,8 +203,10 @@ jobs:
       core-operator-tag: ${{ needs.java-libs.outputs.image-tag }}
       mesh-test-spring-tag: ${{ needs.java-libs.outputs.image-tag }}
       mesh-test-quarkus-tag: ${{ needs.java-libs.outputs.image-tag }}
-      # dbaas-aggregator and its hook image: the dbaas bootstrap takes the plain TAG
-      aux-bootstrap-args: TAG=${{ needs.java-libs.outputs.image-tag }}
+      # the local images are not in ghcr.io, so the bootstrap's lookup is off
+      aux-bootstrap-args: >-
+        DBAAS_TAG=${{ needs.java-libs.outputs.image-tag }}
+        CHECK_IMAGES=false
       test-branch: ${{ inputs.services-branch }}
       core-bootstrap-branch: ${{ inputs.core-bootstrap-branch }}
       install-istio: false
@@ -208,7 +215,6 @@ jobs:
       test-usecase: 'core-mesh'
       run-tests-for: ${{ inputs.run-tests-for }}
 
-  # builds its test services itself, from this repository, against the java-libs build
   consul-login:
     needs: java-libs
     if: ${{ inputs.consul-login }}
@@ -217,8 +223,7 @@ jobs:
       java-libs-artifact: ${{ needs.java-libs.outputs.artifact }}
       core-bootstrap-branch: ${{ inputs.core-bootstrap-branch }}
 
-  # The suites keep going when a test fails, so that every report is collected: the verdict on
-  # the java-libs ref is given here, from the reports of all of them.
+  # the suites do not fail on test failures; the run does, here
   verdict:
     needs: [java-libs, images, core-mesh, consul-login]
     if: ${{ !cancelled() }}
@@ -255,7 +260,6 @@ jobs:
             echo "| $(basename "$suite") | $tests | $failures | $errors | $skipped |" >> "$GITHUB_STEP_SUMMARY"
             if [ "$tests" -eq 0 ] || [ $((failures + errors)) -gt 0 ]; then bad=1; fi
           done
-          # a job that failed or was skipped for a failure has no reports to show
           failed_jobs=$(echo "$RESULTS" | jq -r 'to_entries[] | select(.value.result == "failure" or .value.result == "cancelled") | .key')
           if [ -n "$failed_jobs" ]; then
             echo "" >> "$GITHUB_STEP_SUMMARY"

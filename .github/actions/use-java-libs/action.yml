@@ -1,26 +1,20 @@
 name: Use a java-libs build
 description: >
-  Installs a qubership-core-java-libs build (the artifact of the Build java-libs workflow) into the
-  local Maven repository of the job and rewrites the poms of this repository to the versions its
-  modules carry, so that the test applications and the suites are built against that state of the
-  libraries instead of the released versions. The build carries versions of its own
-  (X.Y.Z-<ref>-SNAPSHOT, see build-java-libs.yml), so a Maven cache restored before or after this
-  action cannot replace them.
+  Installs a Build java-libs artifact into the local Maven repository and points the poms at its
+  versions.
 
 inputs:
   artifact:
-    description: Name of the artifact the Build java-libs workflow uploaded
+    description: Artifact name from Build java-libs
     required: true
   path:
-    description: >
-      Checkout whose poms to rewrite, every pom tracked there: this repository by default, or
-      the checkout of a service built against the libraries
+    description: Checkout whose tracked poms to rewrite
     required: false
     default: '.'
 
 outputs:
   versions-file:
-    description: JSON file with the version of every java-libs module, for rewriting other poms
+    description: JSON with the java-libs module versions
     value: ${{ steps.install.outputs.versions-file }}
 
 runs:
@@ -40,9 +34,7 @@ runs:
         tar -C "$HOME/.m2/repository" -xzf "$RUNNER_TEMP/java-libs/java-libs-m2.tar.gz"
         echo "versions-file=$RUNNER_TEMP/java-libs/java-libs-versions.json" >> "$GITHUB_OUTPUT"
 
-    # Maven would otherwise replace a snapshot it has locally with a newer published one of the
-    # same version, main's for instance; -nsu keeps the installed ones. MAVEN_ARGS is read by
-    # Maven 3.9 and newer, so it reaches every later Maven call of the job.
+    # MAVEN_ARGS (Maven 3.9+) applies -nsu to every later Maven call of the job
     - name: Keep Maven on the installed snapshots
       shell: bash
       run: echo "MAVEN_ARGS=${MAVEN_ARGS:+$MAVEN_ARGS }-nsu" >> "$GITHUB_ENV"

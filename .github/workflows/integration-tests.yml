@@ -128,17 +128,17 @@ on:
         default: 'all'
         type: string
       java-libs-artifact:
-        description: 'Artifact of a Build java-libs run of this workflow run. The integration test modules are built against those library versions; empty keeps the released ones'
+        description: 'Build java-libs artifact of this run to build the test modules against'
         required: false
         default: ''
         type: string
       images-artifact-pattern:
-        description: 'Pattern of artifacts of this workflow run with docker save archives of images built in it, loaded into the cluster before Cloud Core is deployed. Point the *-tag inputs at their tags to use them'
+        description: 'Artifacts of this run with images to load into kind; point the *-tag inputs at them'
         required: false
         default: ''
         type: string
       aux-bootstrap-args:
-        description: 'Extra KEY=VALUE variables for the cloud-core bootstrap, space separated, for components without an input of their own (TAG=... for dbaas, for instance)'
+        description: 'Extra KEY=VALUE bootstrap variables, space separated'
         required: false
         default: ''
         type: string
@@ -344,7 +344,6 @@ jobs:
           echo "aux-bootstrap-args=${{ inputs.aux-bootstrap-args || '' }}"
           echo "::endgroup::"
 
-      # The integration test modules resolve these versions; the services themselves come as images
       - name: Point the integration tests at the java-libs build
         id: java_libs
         if: ${{ inputs.java-libs-artifact != '' }}
