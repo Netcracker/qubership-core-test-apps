@@ -29,9 +29,7 @@ inputs:
     required: false
     default: 'PORT_FORWARD'
   java-libs-versions:
-    description: >
-      JSON file with qubership-core-java-libs versions, as use-java-libs-ref writes it. When set,
-      the poms of the tests are pointed at those versions before they run.
+    description: java-libs versions file from use-java-libs to point the test poms at
     required: false
     default: ''
   github-token:

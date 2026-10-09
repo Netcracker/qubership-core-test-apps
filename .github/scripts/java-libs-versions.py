@@ -1,20 +1,10 @@
 #!/usr/bin/env python3
-"""Points the test applications at the qubership-core-java-libs versions of a given ref.
+"""Points poms at the qubership-core-java-libs versions of a checkout.
 
-  collect <java-libs-dir>             prints {"modules": {...}, "boms": {...}}, both mapping
-                                      "groupId:artifactId" to a version:
-                                        modules - every module of the checked-out monorepo
-                                        boms    - third-party BOMs the monorepo imports (the Quarkus
-                                                  platform, for instance), when all of it agrees
-                                                  on the version
-                                      Properties are resolved along the in-repo parent chain.
-  apply <versions.json> <pom.xml>...  rewrites the given poms: every parent, dependency or plugin
-                                      that the monorepo publishes, and every import of one of those
-                                      third-party BOMs, gets the version from the map, either in
-                                      place or through the property it is declared with (following
-                                      a property that only refers to another one)
-
-The poms are edited as text, so their layout survives and a diff shows only the versions.
+  collect <java-libs-dir>             {"modules": {ga: version}, "boms": {ga: version}} where boms
+                                      are third-party BOMs java-libs imports at a single version
+  apply <versions.json> <pom.xml>...  sets those versions in the poms, in place or via the property
+                                      they use; edits text, so the layout is kept
 """
 import json
 import os
@@ -86,7 +76,6 @@ def collect(repo):
     cache = {}
 
     def context(pom):
-        """Properties visible to a pom: its parents' first, its own on top."""
         key = pom["path"]
         if key in cache:
             return cache[key]
@@ -173,7 +162,6 @@ def apply(versions, path):
         prop = re.fullmatch(r"\$\{([^}]+)\}", v.group(1))
         if prop:
             name = prop.group(1)
-            # a property that is only another property: the version lives in that one
             while re.fullmatch(r"\$\{([^}]+)\}", declared.get(name, "")):
                 name = declared[name][2:-1]
             if name not in ("project.version", "version"):
