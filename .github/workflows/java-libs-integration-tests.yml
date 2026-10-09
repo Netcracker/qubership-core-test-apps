@@ -246,9 +246,13 @@ jobs:
             echo "| Suite | Tests | Failed | Errors | Skipped |"
             echo "| --- | ---: | ---: | ---: | ---: |"
           } >> "$GITHUB_STEP_SUMMARY"
-          bad=0
+          bad=0 suites=0
           shopt -s nullglob
-          for suite in reports/*/*/; do
+          # one artifact is unpacked straight into reports/, several into a folder each
+          while IFS= read -r dir; do
+            suite="$(dirname "$dir")/"
+            name=$(basename "$suite")
+            suites=$((suites + 1))
             tests=0 failures=0 errors=0 skipped=0
             for f in "$suite"surefire-reports/TEST-*.xml; do
               line=$(grep -o '<testsuite [^>]*>' "$f" | head -n1)
@@ -257,9 +261,21 @@ jobs:
                 eval "$k=\$(( $k + ${v:-0} ))"
               done
             done
-            echo "| $(basename "$suite") | $tests | $failures | $errors | $skipped |" >> "$GITHUB_STEP_SUMMARY"
-            if [ "$tests" -eq 0 ] || [ $((failures + errors)) -gt 0 ]; then bad=1; fi
-          done
+            row="| $name | $tests | $failures | $errors | $skipped |"
+            echo "$row" | tee -a "$GITHUB_STEP_SUMMARY"
+            if [ "$tests" -eq 0 ]; then
+              echo "::error::$name: no tests ran"
+              bad=1
+            elif [ $((failures + errors)) -gt 0 ]; then
+              echo "::error::$name: $failures failed, $errors errors"
+              grep -l -E '<(failure|error)[ />]' "$suite"surefire-reports/TEST-*.xml | xargs -r -n1 basename | sed 's/^/  /'
+              bad=1
+            fi
+          done < <(find reports -type d -name surefire-reports | sort)
+          if [ "$suites" -eq 0 ]; then
+            echo "::error::No test reports found"
+            bad=1
+          fi
           failed_jobs=$(echo "$RESULTS" | jq -r 'to_entries[] | select(.value.result == "failure" or .value.result == "cancelled") | .key')
           if [ -n "$failed_jobs" ]; then
             echo "" >> "$GITHUB_STEP_SUMMARY"
