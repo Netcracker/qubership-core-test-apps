@@ -1,0 +1,172 @@
+name: M2M auth check
+run-name: "[bootstrap=${{ inputs.core-bootstrap-branch || 'main' }}] [test-branch=${{ inputs.test-branch || '-' }}]"
+
+# Checks which credentials the core services send to DBaaS and MaaS in each M2M mode.
+#
+# DBaaS and MaaS are not installed. A stand-in (m2m-auth-check/server.py) takes the place of both:
+# it answers every request with an empty object and records how the request authenticated, a Basic
+# credential or a Kubernetes token with its claims. Cloud Core is installed with `make -k`, which
+# goes on with the services that do not depend on a failed one, and the install is allowed to fail:
+# the stand-in does not behave as DBaaS does, and what the job looks at is the log of the stand-in.
+#
+#   legacy  the services go through the DBaaS and MaaS agents, and send no Kubernetes token
+#   hybrid  the services send a Kubernetes token, and the legacy token where it is refused
+#   k8s     the services send a Kubernetes token only, no agents are installed
+#
+# The stand-in accepts everything (all), only Basic credentials like a DBaaS in legacy mode (basic),
+# or only bearer tokens (bearer). The fallback of the hybrid mode to the legacy token needs the
+# identity provider, which is not installed here, so what a hybrid service does after a refusal is
+# not checked; that it sends the Kubernetes token first is.
+#
+# Two senders use a Basic credential in every mode and are not counted against the k8s mode: the
+# pre-hook of each service (core-app-chart-pre-hook), which creates its database with the
+# credentials of the cluster, and config-server, which is configured with explicit credentials
+# for DBaaS (dbaas.api.username and password).
+
+on:
+  workflow_dispatch:
+    inputs:
+      core-bootstrap-branch:
+        description: 'Branch of core-bootstrap repo'
+        required: false
+        default: 'main'
+        type: string
+      test-branch:
+        description: 'Branch of the core services. A repository that has no such branch stays on main. Empty leaves the core services to the bootstrap, which uses main'
+        required: false
+        default: ''
+        type: string
+      aux-bootstrap-args:
+        description: 'Extra KEY=VALUE variables for the cloud-core bootstrap, space separated, applied last'
+        required: false
+        default: ''
+        type: string
+
+  workflow_call:
+    inputs:
+      core-bootstrap-branch:
+        description: 'Branch of core-bootstrap repo'
+        required: false
+        default: 'main'
+        type: string
+      test-branch:
+        description: 'Branch of the core services. A repository that has no such branch stays on main. Empty leaves the core services to the bootstrap, which uses main'
+        required: false
+        default: ''
+        type: string
+      aux-bootstrap-args:
+        description: 'Extra KEY=VALUE variables for the cloud-core bootstrap, space separated, applied last'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  auth-check:
+    name: "core=${{ matrix.core }} stand-in accepts ${{ matrix.accept }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { core: legacy, accept: all,    k8s-token: forbid,  basic: any,    other-bearer: any,    callers: 'config-server' }
+          - { core: legacy, accept: bearer, k8s-token: forbid,  basic: any,    other-bearer: any,    callers: 'config-server' }
+          - { core: hybrid, accept: all,    k8s-token: require, basic: forbid, other-bearer: forbid, callers: 'core-operator,site-management' }
+          - { core: hybrid, accept: basic,  k8s-token: require, basic: forbid, other-bearer: any,    callers: 'core-operator,site-management' }
+          - { core: k8s,    accept: all,    k8s-token: require, basic: forbid, other-bearer: forbid, callers: 'core-operator,site-management' }
+          - { core: k8s,    accept: basic,  k8s-token: require, basic: forbid, other-bearer: forbid, callers: 'core-operator,site-management' }
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Kind cluster
+        uses: ./.github/actions/setup-kind
+        with:
+          core-bootstrap-branch: ${{ inputs.core-bootstrap-branch || 'main' }}
+
+      # before Cloud Core, so that the services find the stand-in at the address of the real ones
+      - name: Deploy the stand-in for DBaaS and MaaS
+        env:
+          ACCEPT: ${{ matrix.accept }}
+        run: |
+          envsubst '${ACCEPT}' < m2m-auth-check/mock.yaml | kubectl apply -f -
+          kubectl -n m2m-mock create configmap auth-mock-script \
+            --from-file=server.py=m2m-auth-check/server.py --dry-run=client -o yaml | kubectl apply -f -
+          kubectl -n m2m-mock rollout status deploy/auth-mock --timeout=180s
+
+      # A hook that runs before a service is deleted when it succeeds, and its address then names
+      # no pod. The addresses are written down while the services run, to name the senders later.
+      - name: Record the addresses of the pods
+        run: |
+          nohup setsid bash -c 'while true; do
+            kubectl get pods -A -o jsonpath="{range .items[*]}{.status.podIP}{\" \"}{.metadata.name}{\"\n\"}{end}" >> "$GITHUB_WORKSPACE/pod-ips.txt" 2>/dev/null
+            sleep 2
+          done' > /dev/null 2>&1 &
+
+      # The agents are installed in the legacy and hybrid modes, MaaS itself is not. make -k goes on
+      # with the services that do not depend on one that failed.
+      - name: Deploy Cloud Core
+        id: install
+        continue-on-error: true
+        uses: ./.github/actions/deploy-cloud-core
+        with:
+          test-branch: ${{ inputs.test-branch }}
+          install-maas: 'false'
+          install-istio: 'false'
+          mesh-type: 'Core'
+          aux-bootstrap-args: >-
+            -k
+            M2M_AUTH_MODE=${{ matrix.core }}
+            INSTALL_DBAAS=false
+            INSTALL_MAAS_AGENT=${{ matrix.core != 'k8s' }}
+            CORE_CONFIG_MAAS_ENABLED=true
+            ${{ inputs.aux-bootstrap-args }}
+
+      # the services retry what the stand-in refused, and the ones deployed last have just started
+      - name: Let the services call the stand-in
+        run: sleep 90
+
+      - name: Collect what the stand-in recorded
+        run: |
+          kubectl -n m2m-mock logs deploy/auth-mock > mock.log
+          kubectl get pods -A -o json > pods.json
+          echo "Requests recorded: $(grep -c '^REQ ' mock.log || true)"
+
+      - name: Check the credentials
+        env:
+          INSTALL_OUTCOME: ${{ steps.install.outcome }}
+          CASE: core=${{ matrix.core }} stand-in accepts ${{ matrix.accept }}
+        run: |
+          {
+            echo "## $CASE"
+            echo ""
+            echo "The install of Cloud Core finished with: \`$INSTALL_OUTCOME\` (it may fail here, which does not matter)."
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+          args=(--log mock.log --pods pods.json --pod-ips pod-ips.txt
+                --k8s-token ${{ matrix.k8s-token }} --basic ${{ matrix.basic }} --other-bearer ${{ matrix.other-bearer }}
+                --basic-by-design core-app-chart-pre-hook,config-server --callers ${{ matrix.callers }})
+          set +e
+          python m2m-auth-check/report.py "${args[@]}" | tee report.md
+          status=${PIPESTATUS[0]}
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+          exit $status
+
+      - name: Upload what the stand-in recorded
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: m2m-auth-check-${{ matrix.core }}-${{ matrix.accept }}
+          path: |
+            mock.log
+            pods.json
+            pod-ips.txt
+            report.md
+          if-no-files-found: warn
+
+      - name: Collect Kubernetes diagnostics
+        if: always()
+        uses: ./.github/actions/collect-k8s-diagnostics
+        with:
+          artifact-suffix: -m2m-auth-${{ matrix.core }}-${{ matrix.accept }}
