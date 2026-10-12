@@ -1,0 +1,75 @@
+# The recorder (recorder.py, mounted from the ConfigMap traffic-recorder-script), the Service the
+# waypoints mirror to, and the grant that lets the routes of other namespaces use that Service.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: capture
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: traffic-recorder
+  namespace: capture
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: traffic-recorder
+  template:
+    metadata:
+      labels:
+        app: traffic-recorder
+    spec:
+      containers:
+        - name: recorder
+          image: python:3.13-alpine
+          command: ["python", "-u", "/app/recorder.py"]
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            periodSeconds: 2
+          volumeMounts:
+            - name: script
+              mountPath: /app
+      volumes:
+        - name: script
+          configMap:
+            name: traffic-recorder-script
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: traffic-recorder
+  namespace: capture
+spec:
+  selector:
+    app: traffic-recorder
+  ports:
+    - name: http
+      appProtocol: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-mirror-routes
+  namespace: capture
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      namespace: core
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      namespace: dbaas
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      namespace: maas
+  to:
+    - group: ""
+      kind: Service
+      name: traffic-recorder
