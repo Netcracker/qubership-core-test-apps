@@ -198,10 +198,10 @@ cmd_arm() {
     sleep 6
   done
 
-  if kubectl -n "$DBAAS_NAMESPACE" wait --for=condition=Programmed "gateway/$WAYPOINT_NAME" --timeout="$WAIT_TIMEOUT" >/dev/null; then
+  if kubectl -n "$DBAAS_NAMESPACE" wait --for=condition=Programmed "gateways.gateway.networking.k8s.io/$WAYPOINT_NAME" --timeout="$WAIT_TIMEOUT" >/dev/null; then
     pass "waypoint $WAYPOINT_NAME is programmed"
   else
-    fail "waypoint $WAYPOINT_NAME is not programmed"
+    fail "waypoint $WAYPOINT_NAME is not programmed: $(kubectl -n "$DBAAS_NAMESPACE" get "gateways.gateway.networking.k8s.io/$WAYPOINT_NAME"       -o jsonpath='{range .status.conditions[*]}{.type}={.status} ({.reason}: {.message}) {end}' 2>&1)"
     exit 1
   fi
   kubectl -n "$DBAAS_NAMESPACE" label service "$DBAAS_SERVICE_NAME" "istio.io/use-waypoint=$WAYPOINT_NAME" --overwrite >/dev/null

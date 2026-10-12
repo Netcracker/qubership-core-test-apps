@@ -6,6 +6,22 @@
 # Cloud Core pod outside the mesh would reach the aggregator directly. `checks.sh` therefore puts the
 # Cloud Core namespace in the mesh before Cloud Core is installed, and asserts each service pod is
 # captured.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ${WAYPOINT_NAME}-pod-options
+  namespace: ${DBAAS_NAMESPACE}
+data:
+  deployment: |
+    spec:
+      template:
+        spec:
+          containers:
+            - name: istio-proxy
+              resources:
+                requests: { cpu: 50m, memory: 64Mi }
+                limits: { cpu: 500m, memory: 150Mi }
+---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
@@ -15,6 +31,12 @@ metadata:
     istio.io/waypoint-for: service
 spec:
   gatewayClassName: istio-waypoint
+  # Small, as core-mesh-config sizes its waypoint, so it fits on a node that already runs Cloud Core.
+  infrastructure:
+    parametersRef:
+      group: ""
+      kind: ConfigMap
+      name: ${WAYPOINT_NAME}-pod-options
   listeners:
     - name: mesh
       port: 15008
