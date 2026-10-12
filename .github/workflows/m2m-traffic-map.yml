@@ -16,8 +16,11 @@ run-name: "[bootstrap=${{ inputs.core-bootstrap-branch || 'main' }}] [dbaas=${{ 
 # The two share the x-request-id. The services are restarted once the capture is in place, so that
 # what they do on start is seen, and the traffic of two minutes after that is mapped.
 #
-# The hybrid core with DBaaS and MaaS in legacy mode shows the fallback: a Kubernetes token that
-# is refused, and the same request with the legacy token.
+# The hybrid core with DBaaS and MaaS in legacy mode shows the fallback: the Kubernetes token is
+# refused by dbaas-aggregator, and the same request is made to dbaas-agent with a Basic credential.
+#
+# Each case checks the map against what the mode should do (traffic_map.py --expect): who reaches
+# the agents, who sends a Kubernetes token, and who falls back.
 
 on:
   workflow_dispatch:
@@ -95,10 +98,37 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { core: legacy, servers: legacy }
-          - { core: hybrid, servers: legacy }
-          - { core: hybrid, servers: hybrid }
-          - { core: k8s,    servers: k8s }
+          # the services reach DBaaS and MaaS through their agents, and send no Kubernetes token
+          - core: legacy
+            servers: legacy
+            expect: >-
+              edge:site-management>dbaas-agent
+              edge:dbaas-agent>dbaas-aggregator
+              edge:maas-agent>maas-service
+              no-credential:*>dbaas-aggregator=k8s-token
+              no-credential:*>maas-service=k8s-token
+          # the Kubernetes token is refused, and the request goes through the agent
+          - core: hybrid
+            servers: legacy
+            expect: >-
+              credential:site-management>dbaas-aggregator=k8s-token
+              fallback:site-management
+              edge:site-management>dbaas-agent
+          # the Kubernetes token is accepted, and the agent is not used
+          - core: hybrid
+            servers: hybrid
+            expect: >-
+              credential:site-management>dbaas-aggregator=k8s-token
+              no-edge:site-management>dbaas-agent
+              no-credential:site-management>dbaas-aggregator=basic
+          # no agents at all
+          - core: k8s
+            servers: k8s
+            expect: >-
+              credential:site-management>dbaas-aggregator=k8s-token
+              no-credential:site-management>dbaas-aggregator=basic
+              no-edge:*>dbaas-agent
+              no-edge:*>maas-service
 
     steps:
       - name: Checkout repository
@@ -170,8 +200,9 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           python m2m-traffic-map/traffic_map.py --access-log waypoint-core.log waypoint-dbaas.log waypoint-maas.log \
             --mirror recorder.log --pods pods.json --pod-ips pod-ips.txt \
-            --out-md map.md --out-json map.json
+            --out-md map.md --out-json map.json --expect ${{ matrix.expect }} || status=$?
           cat map.md >> "$GITHUB_STEP_SUMMARY"
+          exit "${status:-0}"
 
       - name: Upload the traffic
         if: always()
