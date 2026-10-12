@@ -1,0 +1,195 @@
+name: M2M traffic map
+run-name: "[bootstrap=${{ inputs.core-bootstrap-branch || 'main' }}] [dbaas=${{ inputs.dbaas-repo-branch || 'main' }}] [maas=${{ inputs.maas-branch || 'main' }}]"
+
+# Maps the interactions of the core services with each other, with DBaaS and MaaS and with their
+# agents, in each M2M mode.
+#
+# Cloud Core is installed in the Istio ambient mesh with DBaaS and MaaS. Then the traffic is
+# captured at the waypoints, which every request in the core namespace passes (the namespaces of
+# DBaaS and MaaS get a waypoint of their own):
+#
+#   access log  a JSON line per request: the caller (the identity of the peer), the destination,
+#               the request and the answer
+#   mirror      a route per service copies each request to a recorder, which keeps the credential:
+#               a Basic user, a Kubernetes token or the legacy token, with the claims of the token
+#
+# The two share the x-request-id. The services are restarted once the capture is in place, so that
+# what they do on start is seen, and the traffic of two minutes after that is mapped.
+#
+# The hybrid core with DBaaS and MaaS in legacy mode shows the fallback: a Kubernetes token that
+# is refused, and the same request with the legacy token.
+
+on:
+  workflow_dispatch:
+    inputs:
+      core-bootstrap-branch:
+        description: 'Branch of core-bootstrap repo'
+        required: false
+        default: 'main'
+        type: string
+      test-branch:
+        description: 'Branch of the core services. A repository that has no such branch stays on main. Empty leaves the core services to the bootstrap, which uses main'
+        required: false
+        default: ''
+        type: string
+      dbaas-repo-branch:
+        description: 'Branch or tag of qubership-dbaas. The pinned release does not know the M2M modes yet'
+        required: false
+        default: 'main'
+        type: string
+      maas-branch:
+        description: 'Branch or tag of qubership-maas. The pinned release does not know the M2M modes yet'
+        required: false
+        default: 'main'
+        type: string
+      settle-seconds:
+        description: 'How long to let the restarted services run before the traffic is collected'
+        required: false
+        default: '120'
+        type: string
+      aux-bootstrap-args:
+        description: 'Extra KEY=VALUE variables for the cloud-core bootstrap, space separated, applied last'
+        required: false
+        default: ''
+        type: string
+
+  workflow_call:
+    inputs:
+      core-bootstrap-branch:
+        description: 'Branch of core-bootstrap repo'
+        required: false
+        default: 'main'
+        type: string
+      test-branch:
+        description: 'Branch of the core services'
+        required: false
+        default: ''
+        type: string
+      dbaas-repo-branch:
+        description: 'Branch or tag of qubership-dbaas'
+        required: false
+        default: 'main'
+        type: string
+      maas-branch:
+        description: 'Branch or tag of qubership-maas'
+        required: false
+        default: 'main'
+        type: string
+      settle-seconds:
+        description: 'How long to let the restarted services run before the traffic is collected'
+        required: false
+        default: '120'
+        type: string
+      aux-bootstrap-args:
+        description: 'Extra KEY=VALUE variables for the cloud-core bootstrap, space separated, applied last'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  traffic-map:
+    name: "core=${{ matrix.core }} dbaas and maas=${{ matrix.servers }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { core: legacy, servers: legacy }
+          - { core: hybrid, servers: legacy }
+          - { core: hybrid, servers: hybrid }
+          - { core: k8s,    servers: k8s }
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Kind cluster and deploy Cloud Core
+        id: install
+        continue-on-error: true
+        uses: ./.github/actions/setup-kind-with-cloud-core
+        with:
+          core-bootstrap-branch: ${{ inputs.core-bootstrap-branch || 'main' }}
+          test-branch: ${{ inputs.test-branch }}
+          install-maas: 'true'
+          install-istio: 'true'
+          mesh-type: 'Istio'
+          aux-bootstrap-args: >-
+            M2M_AUTH_MODE=${{ matrix.core }}
+            DBAAS_M2M_AUTH_MODE=${{ matrix.servers }}
+            MAAS_M2M_AUTH_MODE=${{ matrix.servers }}
+            DBAAS_REPO_BRANCH=${{ inputs.dbaas-repo-branch || 'main' }}
+            MAAS_BRANCH=${{ inputs.maas-branch || 'main' }}
+            ${{ inputs.aux-bootstrap-args }}
+
+      # the hooks of the services are deleted when they succeed, and the addresses of their pods are
+      # needed to name the senders of what the access log shows without an identity
+      - name: Record the addresses of the pods
+        run: |
+          nohup setsid bash -c 'while true; do
+            kubectl get pods -A -o jsonpath="{range .items[*]}{.status.podIP}{\" \"}{.metadata.name}{\"\n\"}{end}" >> "$GITHUB_WORKSPACE/pod-ips.txt" 2>/dev/null
+            sleep 2
+          done' > /dev/null 2>&1 &
+
+      - name: Put the capture in place
+        run: bash m2m-traffic-map/apply-capture.sh
+
+      # a service that has started before the capture is not seen starting
+      - name: Restart the core services
+        run: |
+          deployments="$(kubectl -n core get deploy -o json | jq -r '.items[] | select((.metadata.labels["gateway.networking.k8s.io/gateway-name"] // null) == null) | .metadata.name')"
+          for deployment in $deployments; do kubectl -n core rollout restart "deploy/$deployment"; done
+          for deployment in $deployments; do kubectl -n core rollout status "deploy/$deployment" --timeout=300s || true; done
+
+      - name: Let the services run
+        env:
+          SETTLE_SECONDS: ${{ inputs.settle-seconds || '120' }}
+        run: sleep "$SETTLE_SECONDS"
+
+      - name: Collect the traffic
+        run: |
+          for ns in core dbaas maas; do
+            kubectl -n "$ns" logs -l gateway.networking.k8s.io/gateway-name --all-containers --tail=-1 --prefix=false > "waypoint-$ns.log" 2>/dev/null || true
+          done
+          kubectl -n capture logs deploy/traffic-recorder --tail=-1 > recorder.log
+          kubectl get pods -A -o json > pods.json
+          kubectl get httproute,envoyfilter,gateway,svc -A -o yaml > mesh-config.yaml || true
+          echo "access log lines: $(cat waypoint-*.log | grep -c '"kind":"capture"' || true)"
+          echo "mirrored requests: $(grep -c '^MIRROR ' recorder.log || true)"
+
+      - name: Map the interactions
+        env:
+          CASE: core=${{ matrix.core }} dbaas and maas=${{ matrix.servers }}
+          INSTALL_OUTCOME: ${{ steps.install.outcome }}
+        run: |
+          {
+            echo "## $CASE"
+            echo ""
+            echo "The install of Cloud Core finished with: \`$INSTALL_OUTCOME\`."
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+          python m2m-traffic-map/traffic_map.py --access-log waypoint-core.log waypoint-dbaas.log waypoint-maas.log \
+            --mirror recorder.log --pods pods.json --pod-ips pod-ips.txt \
+            --out-md map.md --out-json map.json
+          cat map.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the traffic
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: m2m-traffic-map-${{ matrix.core }}-${{ matrix.servers }}
+          path: |
+            waypoint-*.log
+            recorder.log
+            pods.json
+            pod-ips.txt
+            mesh-config.yaml
+            map.md
+            map.json
+          if-no-files-found: warn
+
+      - name: Collect Kubernetes diagnostics
+        if: always()
+        uses: ./.github/actions/collect-k8s-diagnostics
+        with:
+          artifact-suffix: -m2m-traffic-${{ matrix.core }}-${{ matrix.servers }}
