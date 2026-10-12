@@ -23,6 +23,7 @@ CORE_NAMESPACE="${CORE_NAMESPACE:-core}"
 PG_NAMESPACE="${PG_NAMESPACE:-postgres}"
 DBAAS_NAMESPACE="${DBAAS_NAMESPACE:-dbaas}"
 DBAAS_SERVICE_NAME="${DBAAS_SERVICE_NAME:-dbaas-aggregator}"
+ISTIO_NAMESPACE="${ISTIO_NAMESPACE:-istio-system}"
 WAYPOINT_NAME="${WAYPOINT_NAME:-dbaas-aggregator-waypoint}"
 PROBE_NAME="${PROBE_NAME:-dbaas-rest-fallback-probe}"
 WAIT_TIMEOUT="${WAIT_TIMEOUT:-600s}"
@@ -161,15 +162,41 @@ denied_response() { # response
 }
 
 cmd_arm() {
+  # The Istio install returns before its components are ready, and istiod also validates the policy
+  # applied below, so wait for the control plane and the ambient data plane first.
+  local components component
+  components="$(kubectl -n "$ISTIO_NAMESPACE" get deployments,daemonsets -o name)"
+  if ! grep -q '^deployment.apps/istiod$' <<<"$components" || ! grep -q '^daemonset.apps/ztunnel$' <<<"$components"; then
+    fail "Istio ambient is not installed in $ISTIO_NAMESPACE: $(paste -sd " " <<<"$components")"
+    exit 1
+  fi
+  for component in $components; do
+    if ! kubectl -n "$ISTIO_NAMESPACE" rollout status "$component" --timeout="$WAIT_TIMEOUT" >/dev/null; then
+      fail "Istio $component in $ISTIO_NAMESPACE is not ready"
+      exit 1
+    fi
+  done
+  pass "Istio ambient is ready: $(paste -sd " " <<<"$components")"
+
   # Cloud Core joins the mesh before it is installed, so every pod it starts is captured.
   # core-mesh-config adds the waypoint of the Cloud Core namespace later; the trap needs only the capture.
   kubectl create namespace "$CORE_NAMESPACE" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
   kubectl label namespace "$CORE_NAMESPACE" "$DBAAS_NAMESPACE" istio.io/dataplane-mode=ambient --overwrite >/dev/null
+  local manifest attempt
   # shellcheck disable=SC2016 # the placeholders are for envsubst, not the shell
-  WAYPOINT_NAME="$WAYPOINT_NAME" PROBE_NAME="$PROBE_NAME" CORE_NAMESPACE="$CORE_NAMESPACE" \
+  manifest="$(WAYPOINT_NAME="$WAYPOINT_NAME" PROBE_NAME="$PROBE_NAME" CORE_NAMESPACE="$CORE_NAMESPACE" \
     DBAAS_NAMESPACE="$DBAAS_NAMESPACE" DBAAS_SERVICE_NAME="$DBAAS_SERVICE_NAME" \
     envsubst '${WAYPOINT_NAME} ${PROBE_NAME} ${CORE_NAMESPACE} ${DBAAS_NAMESPACE} ${DBAAS_SERVICE_NAME}' \
-    <"$ASSETS_DIR/rest-fallback-trap.yaml" | kubectl apply -f - >/dev/null
+    <"$ASSETS_DIR/rest-fallback-trap.yaml")"
+  # istiod's validating webhook can refuse connections for a few seconds after istiod is ready.
+  for attempt in $(seq 1 10); do
+    kubectl apply -f - <<<"$manifest" >/dev/null && break
+    if ((attempt == 10)); then
+      fail "cannot apply $ASSETS_DIR/rest-fallback-trap.yaml"
+      exit 1
+    fi
+    sleep 6
+  done
 
   if kubectl -n "$DBAAS_NAMESPACE" wait --for=condition=Programmed "gateway/$WAYPOINT_NAME" --timeout="$WAIT_TIMEOUT" >/dev/null; then
     pass "waypoint $WAYPOINT_NAME is programmed"
@@ -191,7 +218,7 @@ cmd_arm() {
 
   # A DENY rule that does not apply blocks nothing and reports nothing, so prove that it applies.
   # The policy reaches the waypoint a few seconds after it is applied.
-  local response="" attempt
+  local response=""
   for attempt in $(seq 1 30); do
     response="$(probe POST "/api/v3/dbaas/$CORE_NAMESPACE/databases/get-by-classifier/postgresql")"
     denied_response "$response" && break
