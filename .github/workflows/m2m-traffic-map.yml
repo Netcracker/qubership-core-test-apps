@@ -191,7 +191,11 @@ jobs:
           install-maas: 'true'
           install-istio: 'true'
           mesh-type: 'Istio'
+          # make -k goes on with what does not depend on a service that failed to install: a k8s core
+          # against a DBaaS in legacy mode fails at core-operator, and the services after it and the
+          # waypoint, which come last, would otherwise never exist
           aux-bootstrap-args: >-
+            -k
             M2M_AUTH_MODE=${{ matrix.core }}
             DBAAS_M2M_AUTH_MODE=${{ matrix.servers }}
             MAAS_M2M_AUTH_MODE=${{ matrix.servers }}
