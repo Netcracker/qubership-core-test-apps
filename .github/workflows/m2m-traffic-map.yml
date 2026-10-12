@@ -191,6 +191,7 @@ jobs:
         env:
           CASE: core=${{ matrix.core }} dbaas and maas=${{ matrix.servers }}
           INSTALL_OUTCOME: ${{ steps.install.outcome }}
+          EXPECT: ${{ matrix.expect }}
         run: |
           {
             echo "## $CASE"
@@ -198,11 +199,14 @@ jobs:
             echo "The install of Cloud Core finished with: \`$INSTALL_OUTCOME\`."
             echo ""
           } >> "$GITHUB_STEP_SUMMARY"
+          # the rules hold > and *, which the shell must not take for a redirection or a pattern
+          read -ra rules <<< "$EXPECT"
+          status=0
           python m2m-traffic-map/traffic_map.py --access-log waypoint-core.log waypoint-dbaas.log waypoint-maas.log \
             --mirror recorder.log --pods pods.json --pod-ips pod-ips.txt \
-            --out-md map.md --out-json map.json --expect ${{ matrix.expect }} || status=$?
+            --out-md map.md --out-json map.json --expect "${rules[@]}" || status=$?
           cat map.md >> "$GITHUB_STEP_SUMMARY"
-          exit "${status:-0}"
+          exit "$status"
 
       - name: Upload the traffic
         if: always()
