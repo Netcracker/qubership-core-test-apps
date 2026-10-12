@@ -19,13 +19,20 @@ refused with a Kubernetes token and then made another way (a fallback). The tunn
   no-edge:CALLER>TARGET                     it did not
   credential:CALLER>TARGET=KIND             the caller sent a request with that credential
   no-credential:CALLER>TARGET=KIND          it did not
+  refused:CALLER>TARGET=KIND                a request with that credential was answered 401 or 403
   fallback:CALLER                           a request of the caller was refused with a Kubernetes
                                             token and then made again, to the target it first used
                                             or to another
+  no-fallback:CALLER                        no request of the caller was
 
 CALLER and TARGET may be * or have wildcards (dbaas-*). KIND is basic, k8s-token, legacy-token or
 bearer (a bearer token the recorder did not see, so of no known kind). Exit status 1 when a rule
 fails.
+
+Whatever the rules, every Kubernetes token the recorder saw must be the token its sender is meant to
+send: issued for the service account of the sender, in the namespace of the sender, and for the
+audience of DBaaS (dbaas) or of MaaS (maas) where it goes to one of them. A token that is not is
+listed under "Tokens" and fails the run.
 """
 import argparse
 import collections
@@ -39,6 +46,8 @@ SPIFFE = re.compile(r"spiffe://[^/]+/ns/([^/]+)/sa/([^,;\s]+)")
 ID_PART = re.compile(r"^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9a-f]{16,}|\d+)$")
 ADDRESS = re.compile(r"^\d+\.\d+\.\d+\.\d+$")
 DATABASES = ("dbaas-aggregator", "dbaas-agent", "maas-service", "maas-agent")
+# the audience a Kubernetes token has to carry for these targets
+AUDIENCES = {"dbaas-aggregator": "dbaas", "maas-service": "maas"}
 
 
 def load_access_log(paths):
@@ -101,6 +110,27 @@ def target_of(authority, pods):
     return host.split(".")[0] or "?"
 
 
+def caller_namespace(record):
+    match = SPIFFE.search(record.get("src_san") or "")
+    return match.group(1) if match else None
+
+
+def token_problems(request):
+    """What is wrong with the Kubernetes token of a request: not its sender's, or not for its target."""
+    claims = request.get("claims") or {}
+    problems = []
+    if request["namespace"]:
+        subject = f"system:serviceaccount:{request['namespace']}:{request['caller']}"
+        if claims.get("sub") != subject:
+            problems.append(f"subject {claims.get('sub')} is not {subject}")
+    audience = AUDIENCES.get(request["target"])
+    if audience:
+        found = claims.get("aud")
+        if audience not in (found if isinstance(found, list) else [found]):
+            problems.append(f"audience {found} is not '{audience}'")
+    return problems
+
+
 def caller_of(record, pods):
     match = SPIFFE.search(record.get("src_san") or "")
     if match:
@@ -151,16 +181,23 @@ def check(rules, requests, edges, fallbacks):
             if not any(fnmatch.fnmatch(c, spec) for c in fallback_callers):
                 problems.append(f"{rule}: no request of {spec} was refused with a Kubernetes token and made again")
             continue
+        if kind == "no-fallback":
+            fell_back = sorted(c for c in fallback_callers if fnmatch.fnmatch(c, spec))
+            if fell_back:
+                problems.append(f"{rule}: {', '.join(fell_back)} made a refused request again")
+            continue
         edge, _, wanted = spec.partition("=")
         caller_pattern, _, target_pattern = edge.partition(">")
         matching = [r for r in requests if fnmatch.fnmatch(r["caller"], caller_pattern)
                     and fnmatch.fnmatch(r["target"], target_pattern) and not is_infrastructure(r)]
-        if kind in ("credential", "no-credential"):
+        if kind in ("credential", "no-credential", "refused"):
             matching = [r for r in matching if r["credential"] == wanted]
+            if kind == "refused":
+                matching = [r for r in matching if r["code"] in ("401", "403")]
         elif kind not in ("edge", "no-edge"):
             problems.append(f"{rule}: unknown rule")
             continue
-        if kind in ("edge", "credential") and not matching:
+        if kind in ("edge", "credential", "refused") and not matching:
             problems.append(f"{rule}: not seen")
         if kind in ("no-edge", "no-credential") and matching:
             problems.append(f"{rule}: seen {len(matching)} times, first {matching[0]['caller']} > {matching[0]['target']} "
@@ -195,6 +232,8 @@ def main():
             "code": str(record.get("code")),
             "credential": credential_of(record, mirror),
             "mirrored": bool(mirror),
+            "namespace": caller_namespace(record),
+            "claims": (mirror or {}).get("claims"),
         })
     infrastructure = [r for r in requests if is_infrastructure(r)]
     interactions = [r for r in requests if not is_infrastructure(r)]
@@ -264,6 +303,23 @@ def main():
             out.append("No request was refused with a Kubernetes token and then made again.")
 
     problems = check(args.expect, interactions, edges, list(fallbacks))
+    wrong_tokens = collections.Counter()
+    for request in interactions:
+        if request["credential"] == "k8s-token" and request["claims"]:
+            for problem in token_problems(request):
+                wrong_tokens[(request["caller"], request["target"], problem)] += 1
+    out.append("")
+    out.append("### Tokens")
+    out.append("")
+    checked = sum(1 for r in interactions if r["credential"] == "k8s-token" and r["claims"])
+    if wrong_tokens:
+        out.append("| Caller | Target | Problem | Requests |")
+        out.append("| --- | --- | --- | --- |")
+        for (caller, target, problem), count in sorted(wrong_tokens.items()):
+            out.append(f"| {caller} | {target} | {problem} | {count} |")
+            problems.append(f"token of {caller} to {target}: {problem}")
+    else:
+        out.append(f"All {checked} Kubernetes tokens seen are their sender's, in its namespace, for the audience of their target.")
     if args.expect:
         out.append("")
         out.append("### Expectations")
