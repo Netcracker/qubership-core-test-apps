@@ -4,8 +4,10 @@ usage: traffic_map.py --access-log FILE [FILE...] --mirror FILE --pods pods.json
                       [--out-md map.md] [--out-json map.json] [--expect RULE [RULE...]]
 
 access log  lines of JSON with "kind":"capture", one per request that passed a waypoint: who sent it
-            (the identity of the peer, or its address), to which service, which request, which answer
-mirror      lines "MIRROR {...}" of the recorder: the credential of the same request (same id)
+            (the identity of the peer, or its address), to which service, which request, which answer,
+            and the header and claims of a bearer token (without its signature)
+mirror      lines "MIRROR {...}" of the recorder: the credential of the same request (same id), with
+            the user of a Basic credential, which the access log does not have
 pods        `kubectl get pods -A -o json`
 pod-ips     lines of "<address> <pod name>" taken while the services ran
 
@@ -35,6 +37,7 @@ audience of DBaaS (dbaas) or of MaaS (maas) where it goes to one of them. A toke
 listed under "Tokens" and fails the run.
 """
 import argparse
+import base64
 import collections
 import fnmatch
 import json
@@ -147,23 +150,33 @@ def path_template(path):
     return "/".join("{id}" if ID_PART.match(part) else part for part in path.split("/")) or "/"
 
 
-def credential_of(record, mirror):
-    """The credential of the request, from the mirrored copy when there is one."""
-    if mirror:
-        if mirror["auth"] == "basic":
-            return "basic"
-        if mirror["auth"] == "bearer":
-            claims = mirror.get("claims") or {}
-            if "kubernetes.io" in claims or (claims.get("sub") or "").startswith("system:serviceaccount:"):
-                return "k8s-token"
-            return "legacy-token"
-        return mirror["auth"]
-    prefix = (record.get("auth") or "").strip().lower()
-    if prefix.startswith("basic"):
+def claims_of(record, mirror):
+    """The claims of the bearer token of the request: from the access log, or from the mirrored copy."""
+    jwt = record.get("jwt")
+    if jwt and jwt != "-":
+        try:
+            payload = jwt.split(".")[1]
+            payload += "=" * (-len(payload) % 4)
+            return json.loads(base64.urlsafe_b64decode(payload))
+        except (IndexError, ValueError):
+            pass
+    return (mirror or {}).get("claims")
+
+
+def credential_of(record, mirror, claims):
+    """The kind of the credential of the request."""
+    scheme = (record.get("auth") or "").strip().lower()
+    if mirror and mirror["auth"] != "none":
+        scheme = mirror["auth"]
+    if scheme.startswith("basic"):
         return "basic"
-    if prefix.startswith("bearer"):
-        return "bearer"
-    return "none"
+    if scheme.startswith("bearer"):
+        if claims is None:
+            return "bearer"
+        if "kubernetes.io" in claims or (claims.get("sub") or "").startswith("system:serviceaccount:"):
+            return "k8s-token"
+        return "legacy-token"
+    return "none" if scheme in ("", "-", "none") else scheme
 
 
 def is_infrastructure(request):
@@ -223,6 +236,7 @@ def main():
     requests = []
     for record in accesses:
         mirror = mirrors.get(record.get("id"))
+        claims = claims_of(record, mirror)
         requests.append({
             "start": record.get("start"),
             "caller": caller_of(record, pods),
@@ -230,10 +244,10 @@ def main():
             "method": record.get("method"),
             "path": path_template(record.get("path")),
             "code": str(record.get("code")),
-            "credential": credential_of(record, mirror),
+            "credential": credential_of(record, mirror, claims),
             "mirrored": bool(mirror),
             "namespace": caller_namespace(record),
-            "claims": (mirror or {}).get("claims"),
+            "claims": claims,
         })
     infrastructure = [r for r in requests if is_infrastructure(r)]
     interactions = [r for r in requests if not is_infrastructure(r)]

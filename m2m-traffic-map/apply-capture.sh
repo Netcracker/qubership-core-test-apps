@@ -52,8 +52,14 @@ for ns in "$DBAAS_NS" "$MAAS_NS"; do
 done
 echo "::endgroup::"
 
-# the access log of a waypoint, one JSON line per request. The caller is the identity in the
+# The access log of a waypoint, one JSON line per request. The caller is the identity in the
 # certificate of the peer; the address is there for what carries no identity.
+#
+# The credential is not logged, only its scheme. A small filter copies the header and the claims of
+# a bearer token, without its signature, into a header of the request (x-capture-jwt) for the log,
+# so that the claims of every request are known, also of those the mirror does not reach: a route
+# that other configuration brings for a service, such as the routes control-plane makes, comes
+# before the mirror route of that service. A token without its signature cannot be used.
 access_log_filter() { # $1 namespace, $2 gateway
   cat <<EOF
 apiVersion: networking.istio.io/v1alpha3
@@ -67,6 +73,34 @@ spec:
       group: gateway.networking.k8s.io
       name: $2
   configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        listener:
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+              subFilter:
+                name: envoy.filters.http.router
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.lua
+          typed_config:
+            '@type': type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
+            default_source_code:
+              inline_string: |
+                function envoy_on_request(request_handle)
+                  local headers = request_handle:headers()
+                  headers:remove("x-capture-jwt")
+                  local auth = headers:get("authorization")
+                  if auth == nil then
+                    return
+                  end
+                  local jose, claims = string.match(auth, "^[Bb]earer%s+([%w%-_]+)%.([%w%-_]+)%.")
+                  if jose ~= nil then
+                    headers:add("x-capture-jwt", jose .. "." .. claims)
+                  end
+                end
     - applyTo: NETWORK_FILTER
       match:
         listener:
@@ -96,7 +130,8 @@ spec:
                       path: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"
                       code: "%RESPONSE_CODE%"
                       flags: "%RESPONSE_FLAGS%"
-                      auth: "%REQ(AUTHORIZATION):12%"
+                      auth: "%REQ(AUTHORIZATION):6%"
+                      jwt: "%REQ(X-CAPTURE-JWT)%"
                       upstream: "%UPSTREAM_HOST%"
                       route: "%ROUTE_NAME%"
                       duration: "%DURATION%"
@@ -192,56 +227,4 @@ echo "::endgroup::"
 # the proxies take the new configuration within seconds
 sleep 20
 
-# The routes above mirror the traffic of the services they are made for. A route that other
-# configuration brings, such as the routes control-plane makes for its services, comes before them
-# and is not mirrored. The recorder is added to every route of the waypoints, under the name its
-# cluster has in the proxy, which the routes above have made it create.
-recorder_cluster() { # $1 namespace, $2 gateway: the name of the cluster of the recorder in the waypoint
-  local pod
-  pod="$(kubectl -n "$1" get pod -l "gateway.networking.k8s.io/gateway-name=$2" -o jsonpath='{.items[0].metadata.name}')"
-  kubectl -n "$1" exec "$pod" -c istio-proxy -- pilot-agent request GET clusters 2>/dev/null |
-    awk -F'::' '/traffic-recorder/ { print $1 }' | sort -u | head -1
-}
-
-mirror_all_filter() { # $1 namespace, $2 gateway, $3 cluster
-  cat <<EOF
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: capture-mirror-all
-  namespace: $1
-spec:
-  targetRefs:
-    - kind: Gateway
-      group: gateway.networking.k8s.io
-      name: $2
-  configPatches:
-    - applyTo: HTTP_ROUTE
-      match:
-        routeConfiguration:
-          vhost:
-            route:
-              action: ROUTE
-      patch:
-        operation: MERGE
-        value:
-          route:
-            request_mirror_policies:
-              - cluster: "$3"
-EOF
-}
-
-echo "::group::Mirror of every route"
-for target in "$CORE_NS:$CORE_WAYPOINT" "$DBAAS_NS:$CAPTURE_WAYPOINT" "$MAAS_NS:$CAPTURE_WAYPOINT"; do
-  ns="${target%%:*}"; gw="${target##*:}"
-  cluster="$(recorder_cluster "$ns" "$gw")"
-  if [ -z "$cluster" ]; then
-    echo "::warning::The waypoint $ns/$gw has no cluster for the recorder, so only the routes made above are mirrored"
-    continue
-  fi
-  echo "$ns/$gw mirrors every route to the cluster $cluster"
-  mirror_all_filter "$ns" "$gw" "$cluster" | kubectl apply -f -
-done
-echo "::endgroup::"
-sleep 15
 kubectl get httproute.gateway.networking.k8s.io,envoyfilter.networking.istio.io,gateway.gateway.networking.k8s.io -A -o wide || true
