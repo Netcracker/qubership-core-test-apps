@@ -108,6 +108,7 @@ jobs:
               edge:maas-agent>maas-service
               no-credential:*>dbaas-aggregator=k8s-token
               no-credential:*>maas-service=k8s-token
+              no-credential:*>*=bearer
           - core: legacy
             servers: hybrid
             expect: >-
@@ -116,6 +117,7 @@ jobs:
               edge:maas-agent>maas-service
               no-credential:*>dbaas-aggregator=k8s-token
               no-credential:*>maas-service=k8s-token
+              no-credential:*>*=bearer
           - core: legacy
             servers: k8s
             expect: >-
@@ -124,6 +126,7 @@ jobs:
               edge:maas-agent>maas-service
               no-credential:*>dbaas-aggregator=k8s-token
               no-credential:*>maas-service=k8s-token
+              no-credential:*>*=bearer
 
           # A hybrid core sends a Kubernetes token. Where it is refused (DBaaS in legacy mode) the
           # request is made again to the agent, with a Basic credential; where it is taken the
@@ -135,6 +138,7 @@ jobs:
               refused:site-management>dbaas-aggregator=k8s-token
               fallback:site-management
               edge:site-management>dbaas-agent
+              no-credential:*>*=bearer
           - core: hybrid
             servers: hybrid
             expect: >-
@@ -142,6 +146,7 @@ jobs:
               no-edge:site-management>dbaas-agent
               no-credential:site-management>dbaas-aggregator=basic
               no-fallback:*
+              no-credential:*>*=bearer
           - core: hybrid
             servers: k8s
             expect: >-
@@ -149,6 +154,7 @@ jobs:
               no-edge:site-management>dbaas-agent
               no-credential:site-management>dbaas-aggregator=basic
               no-fallback:*
+              no-credential:*>*=bearer
 
           # A k8s core sends a Kubernetes token and nothing else, and installs no agents. A DBaaS
           # in legacy mode refuses the token, and nothing takes the request again.
@@ -160,6 +166,7 @@ jobs:
               no-fallback:*
               no-edge:*>dbaas-agent
               no-edge:*>maas-service
+              no-credential:*>*=bearer
           - core: k8s
             servers: hybrid
             expect: >-
@@ -168,6 +175,7 @@ jobs:
               no-fallback:*
               no-edge:*>dbaas-agent
               no-edge:*>maas-service
+              no-credential:*>*=bearer
           - core: k8s
             servers: k8s
             expect: >-
@@ -176,6 +184,7 @@ jobs:
               no-fallback:*
               no-edge:*>dbaas-agent
               no-edge:*>maas-service
+              no-credential:*>*=bearer
 
     steps:
       - name: Checkout repository
