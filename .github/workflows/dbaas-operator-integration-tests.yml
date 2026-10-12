@@ -1,8 +1,8 @@
 name: DBaaS Operator integration tests
 
 # Proves that Cloud Core services resolve their databases through the DBaaS Operator, with no
-# REST fallback: Cloud Core is given an API_DBAAS_ADDRESS whose service name does not resolve, so
-# a service only becomes ready if it found its database in the Secret the operator mounted.
+# REST fallback: an Istio waypoint denies the DBaaS REST API to Cloud Core and counts every call it
+# denies, so a service only passes if it found its database in the Secret the operator mounted.
 # See dbaas-operator-tests/README.md.
 
 on:
@@ -31,12 +31,11 @@ permissions:
   contents: read
 
 env:
-  FAKE_DBAAS_SERVICE_NAME: dbaas-rest-fallback-forbidden
-  # The branch and images carrying this work, inlined because they only exist while it is open.
-  # Once it is merged, drop them and let the action's defaults (main, latest) apply.
-  CORE_BOOTSTRAP_BRANCH: feat/dbaas-mounted-secret-migration
-  CORE_BOOTSTRAP_IMAGE: ghcr.io/netcracker/core-bootstrap:feat-dbaas-mounted-secret-migration-snapshot
-  CONTROL_PLANE_TAG: feat-dbaas-mounted-secret-migration-snapshot
+  # The core-bootstrap branch carrying this work, inlined because it only exists while the work is
+  # open. The bootstrap derives the core-bootstrap image and the Core service tags from the branches.
+  # Not named CORE_BOOTSTRAP_BRANCH, which make would also apply to the upgrade baseline.
+  # Once the work is merged, drop it and let the defaults (main, latest) apply.
+  OPERATOR_BOOTSTRAP_BRANCH: feat/dbaas-mounted-secret-migration
   # The Core charts on the branch need coretpl 0.2.4, which is not published yet: make packages it
   # from the core-bootstrap checkout instead. Relative to cloud-core-local-dev, where make runs.
   CORETPL_CHART_DIR: ../coretpl
@@ -53,17 +52,29 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Setup Kind cluster and deploy Cloud Core with the DBaaS Operator
+      # The trap must be in place before Cloud Core starts, so the dependencies and Cloud Core are
+      # installed in two runs, with the trap in between.
+      - name: Setup Kind cluster and deploy Istio and DBaaS with the DBaaS Operator
         uses: ./.github/actions/setup-kind-with-cloud-core
         with:
-          core-bootstrap-branch: ${{ env.CORE_BOOTSTRAP_BRANCH }}
+          core-bootstrap-branch: ${{ env.OPERATOR_BOOTSTRAP_BRANCH }}
           test-branch: ${{ inputs.test-branch }}
-          control-plane-tag: ${{ env.CONTROL_PLANE_TAG }}
-          install-istio: 'false'
+          mesh-type: Istio
+          make-targets: resolved-refs validate clone-repos template-values-files deploy-dependencies
           aux-bootstrap-args: >-
             DBAAS_OPERATOR_ENABLED=true
-            CORE_DBAAS_SERVICE_NAME=${{ env.FAKE_DBAAS_SERVICE_NAME }}
-            CORE_BOOTSTRAP_IMAGE=${{ env.CORE_BOOTSTRAP_IMAGE }}
+            CORE_BOOTSTRAP_BRANCH=${{ env.OPERATOR_BOOTSTRAP_BRANCH }}
+
+      - name: Deny the DBaaS REST API to Cloud Core
+        run: ./dbaas-operator-tests/checks.sh arm
+
+      - name: Deploy Cloud Core
+        run: >-
+          make -C core-bootstrap-repo/cloud-core-local-dev/ deploy-core
+          INSTALL_ISTIO=true SERVICE_MESH_TYPE=Istio
+          TEST_BRANCH="${{ inputs.test-branch }}"
+          DBAAS_OPERATOR_ENABLED=true
+          CORE_BOOTSTRAP_BRANCH="${{ env.OPERATOR_BOOTSTRAP_BRANCH }}"
 
       - name: Check databases come from the DBaaS Operator
         run: ./dbaas-operator-tests/checks.sh assert --expect-no-legacy-secret
@@ -100,14 +111,15 @@ jobs:
       - name: Setup Kind cluster and deploy Cloud Core from main, without the DBaaS Operator
         uses: ./.github/actions/setup-kind-with-cloud-core
         with:
-          install-istio: 'false'
+          mesh-type: Istio
 
+      # Taken before the trap is armed: the lookup asks dbaas-aggregator from the Cloud Core namespace.
       - name: Record each service's database
         run: ./dbaas-operator-tests/checks.sh snapshot "$RUNNER_TEMP/databases-before.json"
 
       - name: Switch core-bootstrap to the DBaaS Operator branch
         run: |
-          git -C core-bootstrap-repo fetch --depth 1 origin "${{ env.CORE_BOOTSTRAP_BRANCH }}"
+          git -C core-bootstrap-repo fetch --depth 1 origin "${{ env.OPERATOR_BOOTSTRAP_BRANCH }}"
           git -C core-bootstrap-repo checkout --detach FETCH_HEAD
 
       - name: Install the DBaaS Operator into the running DBaaS
@@ -119,14 +131,16 @@ jobs:
           install-dbaas-operator wait-dbaas-operator DBAAS_OPERATOR_ENABLED=true
           REPOS_DIR="$GITHUB_WORKSPACE/core-bootstrap-repo/cloud-core-local-dev/.tmp"
 
+      - name: Deny the DBaaS REST API to Cloud Core
+        run: ./dbaas-operator-tests/checks.sh arm
+
       - name: Upgrade Cloud Core onto the DBaaS Operator
-        run: |
-          make -C core-bootstrap-repo/cloud-core-local-dev/ clone-repos template-values-files deploy-core \
-            TEST_BRANCH="${{ inputs.test-branch }}" \
-            CONTROL_PLANE_TAG="${{ env.CONTROL_PLANE_TAG }}" \
-            DBAAS_OPERATOR_ENABLED=true \
-            CORE_DBAAS_SERVICE_NAME="$FAKE_DBAAS_SERVICE_NAME" \
-            CORE_BOOTSTRAP_IMAGE="${{ env.CORE_BOOTSTRAP_IMAGE }}"
+        run: >-
+          make -C core-bootstrap-repo/cloud-core-local-dev/ clone-repos template-values-files deploy-core
+          INSTALL_ISTIO=true SERVICE_MESH_TYPE=Istio
+          TEST_BRANCH="${{ inputs.test-branch }}"
+          DBAAS_OPERATOR_ENABLED=true
+          CORE_BOOTSTRAP_BRANCH="${{ env.OPERATOR_BOOTSTRAP_BRANCH }}"
 
       - name: Check the existing databases were adopted
         run: ./dbaas-operator-tests/checks.sh assert --snapshot "$RUNNER_TEMP/databases-before.json"

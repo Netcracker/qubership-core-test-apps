@@ -3,14 +3,16 @@
 #
 # Usage:
 #   checks.sh snapshot <file>                      record each service's database while in legacy mode
+#   checks.sh arm                                  block the DBaaS REST API for Cloud Core, and prove it
 #   checks.sh assert [--snapshot <file>] [--expect-no-legacy-secret]
 #   checks.sh report <suite> [--job-status <s>]    write the recorded checks as a Surefire report
 #
-# The Cloud Core values must point API_DBAAS_ADDRESS at a service name that does not resolve
-# (CORE_DBAAS_SERVICE_NAME in cloud-core-local-dev). The namespace label stays real, so the CRs and
-# the RBAC still render, while any REST call from a Cloud Core service, directly or through
-# dbaas-agent, fails. A service that reaches Ready has therefore resolved its database from the
-# Secret the DBaaS Operator mounted.
+# `arm` needs Istio in ambient mode. It puts the Cloud Core namespace in the mesh, and a waypoint in
+# front of dbaas-aggregator that denies /api/v3/dbaas/* to Cloud Core (assets/rest-fallback-trap.yaml).
+# Run it before Cloud Core is installed or upgraded onto the operator. Any REST call for a database
+# from a Cloud Core service, directly or through dbaas-agent, is then denied with 403, and the
+# waypoint counts it. `assert` requires every service to be ready, captured by the mesh, and to have
+# had no request denied: each one resolved its database from the Secret the DBaaS Operator mounted.
 #
 # With REPORT_DIR set, every check is also recorded there, and `report` turns the records into
 # REPORT_DIR/surefire-reports/TEST-<suite>.xml and REPORT_DIR/reports/surefire.html, the layout the
@@ -21,12 +23,19 @@ CORE_NAMESPACE="${CORE_NAMESPACE:-core}"
 PG_NAMESPACE="${PG_NAMESPACE:-postgres}"
 DBAAS_NAMESPACE="${DBAAS_NAMESPACE:-dbaas}"
 DBAAS_SERVICE_NAME="${DBAAS_SERVICE_NAME:-dbaas-aggregator}"
-FAKE_DBAAS_SERVICE_NAME="${FAKE_DBAAS_SERVICE_NAME:-dbaas-rest-fallback-forbidden}"
+WAYPOINT_NAME="${WAYPOINT_NAME:-dbaas-aggregator-waypoint}"
+PROBE_NAME="${PROBE_NAME:-dbaas-rest-fallback-probe}"
 WAIT_TIMEOUT="${WAIT_TIMEOUT:-600s}"
 REPORT_DIR="${REPORT_DIR:-}"
 
+AGGREGATOR_URL="http://$DBAAS_SERVICE_NAME.$DBAAS_NAMESPACE.svc.cluster.local:8080"
+ASSETS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/assets"
+
 # Every Cloud Core service that owns a database. Keep in sync with the charts.
 SERVICES=(control-plane config-server site-management)
+# Every Cloud Core workload that could fall back to the REST API: the services, and dbaas-agent,
+# which forwards their calls.
+REST_CLIENTS=("${SERVICES[@]}" dbaas-agent)
 # Services whose chart converts a legacy DbPolicy into a DatabaseAccessPolicy.
 POLICY_SERVICES=(config-server site-management)
 
@@ -89,7 +98,7 @@ aggregator_database() {
 
   for attempt in 1 2 3; do
     # Both streams are captured, so a failure is reported instead of vanishing.
-    response="$(kube exec deploy/control-plane -- curl -sS -u "$user:$password"       -H 'Content-Type: application/json' -X POST -d "$body"       "http://$DBAAS_SERVICE_NAME.$DBAAS_NAMESPACE.svc.cluster.local:8080/api/v3/dbaas/$CORE_NAMESPACE/databases/get-by-classifier/postgresql" 2>&1)" || {
+    response="$(kube exec deploy/control-plane -- curl -sS -u "$user:$password"       -H 'Content-Type: application/json' -X POST -d "$body"       "$AGGREGATOR_URL/api/v3/dbaas/$CORE_NAMESPACE/databases/get-by-classifier/postgresql" 2>&1)" || {
       echo "attempt $attempt: the request failed: $(head -c 300 <<<"$response")" >&2
       sleep 5
       continue
@@ -124,6 +133,126 @@ cmd_snapshot() {
   echo "$snapshot" >"$file"
 }
 
+# Passes when every pod of the deployment is captured by the ambient mesh. A pod outside it would
+# reach dbaas-aggregator without passing the waypoint, so the trap would not see its calls.
+check_captured() {
+  local deployment="$1" selector pods
+  selector="$(kube get deployment "$deployment" -o json |
+    jq -r '.spec.selector.matchLabels | to_entries | map("\(.key)=\(.value)") | join(",")')"
+  pods="$(kube get pods -l "$selector" -o json |
+    jq -c '[.items[] | select(.metadata.deletionTimestamp == null)
+      | {name: .metadata.name, redirection: (.metadata.annotations["ambient.istio.io/redirection"] // "none")}]')"
+  if jq -e 'length > 0 and all(.redirection == "enabled")' <<<"$pods" >/dev/null; then
+    pass "every $deployment pod is in the ambient mesh"
+  else
+    fail "$deployment has pods outside the ambient mesh, which the trap cannot see: $pods"
+  fi
+}
+
+# Sends a request from the probe pod and prints the response body, then the status code on a line
+# of its own.
+probe() { # method, path
+  kube exec "$PROBE_NAME" -- curl -sS -X "$1" -H 'Content-Type: application/json' -d '{}' \
+    -w '\n%{http_code}' "$AGGREGATOR_URL$2" 2>&1 || true
+}
+
+denied_response() { # response
+  [[ "$(tail -n1 <<<"$1")" == 403 && "$1" == *"RBAC: access denied"* ]]
+}
+
+cmd_arm() {
+  # Cloud Core joins the mesh before it is installed, so every pod it starts is captured.
+  # core-mesh-config adds the waypoint of the Cloud Core namespace later; the trap needs only the capture.
+  kubectl create namespace "$CORE_NAMESPACE" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+  kubectl label namespace "$CORE_NAMESPACE" "$DBAAS_NAMESPACE" istio.io/dataplane-mode=ambient --overwrite >/dev/null
+  # shellcheck disable=SC2016 # the placeholders are for envsubst, not the shell
+  WAYPOINT_NAME="$WAYPOINT_NAME" PROBE_NAME="$PROBE_NAME" CORE_NAMESPACE="$CORE_NAMESPACE" \
+    DBAAS_NAMESPACE="$DBAAS_NAMESPACE" DBAAS_SERVICE_NAME="$DBAAS_SERVICE_NAME" \
+    envsubst '${WAYPOINT_NAME} ${PROBE_NAME} ${CORE_NAMESPACE} ${DBAAS_NAMESPACE} ${DBAAS_SERVICE_NAME}' \
+    <"$ASSETS_DIR/rest-fallback-trap.yaml" | kubectl apply -f - >/dev/null
+
+  if kubectl -n "$DBAAS_NAMESPACE" wait --for=condition=Programmed "gateway/$WAYPOINT_NAME" --timeout="$WAIT_TIMEOUT" >/dev/null; then
+    pass "waypoint $WAYPOINT_NAME is programmed"
+  else
+    fail "waypoint $WAYPOINT_NAME is not programmed"
+    exit 1
+  fi
+  kubectl -n "$DBAAS_NAMESPACE" label service "$DBAAS_SERVICE_NAME" "istio.io/use-waypoint=$WAYPOINT_NAME" --overwrite >/dev/null
+  if ! kube wait --for=condition=Ready "pod/$PROBE_NAME" --timeout="$WAIT_TIMEOUT" >/dev/null; then
+    fail "probe pod $PROBE_NAME did not become ready"
+    exit 1
+  fi
+  if [[ "$(kube get pod "$PROBE_NAME" -o jsonpath='{.metadata.annotations.ambient\.istio\.io/redirection}')" == enabled ]]; then
+    pass "the probe pod is in the ambient mesh"
+  else
+    fail "the probe pod is outside the ambient mesh, so it cannot test the trap"
+    exit 1
+  fi
+
+  # A DENY rule that does not apply blocks nothing and reports nothing, so prove that it applies.
+  # The policy reaches the waypoint a few seconds after it is applied.
+  local response="" attempt
+  for attempt in $(seq 1 30); do
+    response="$(probe POST "/api/v3/dbaas/$CORE_NAMESPACE/databases/get-by-classifier/postgresql")"
+    denied_response "$response" && break
+    sleep 2
+  done
+  if denied_response "$response"; then
+    pass "the DBaaS REST API denies Cloud Core"
+  else
+    fail "the DBaaS REST API does not deny Cloud Core; the last response was: $(head -c 300 <<<"$response")"
+  fi
+  # And that it denies nothing else: core-operator still needs /api/composite through dbaas-agent.
+  response="$(probe GET /health)"
+  if [[ "$(tail -n1 <<<"$response")" != 000 && "$response" != *"RBAC: access denied"* ]]; then
+    pass "dbaas-aggregator still answers Cloud Core outside /api/v3/dbaas (HTTP $(tail -n1 <<<"$response"))"
+  else
+    fail "dbaas-aggregator did not answer /health from Cloud Core: $(head -c 300 <<<"$response")"
+  fi
+
+  if ((failures)); then
+    echo "$failures check(s) failed" >&2
+    exit 1
+  fi
+}
+
+# Prints the requests the waypoint denied to the Cloud Core namespace, as "<source workload> <count>"
+# lines. The metrics are read through the API server, so no pod needs a shell.
+denials() {
+  local pod
+  pod="$(kubectl -n "$DBAAS_NAMESPACE" get pods -l "gateway.networking.k8s.io/gateway-name=$WAYPOINT_NAME" \
+    -o jsonpath='{.items[0].metadata.name}')"
+  kubectl get --raw "/api/v1/namespaces/$DBAAS_NAMESPACE/pods/$pod:15020/proxy/stats/prometheus" |
+    awk -v ns="$CORE_NAMESPACE" '
+      /^istio_requests_total\{/ && /response_code="403"/ && index($0, "source_workload_namespace=\"" ns "\"") {
+        match($0, /source_workload="[^"]*"/)
+        denied[substr($0, RSTART + 17, RLENGTH - 18)] += $NF
+      }
+      END { for (w in denied) print w, denied[w] }'
+}
+
+check_no_denials() {
+  local counts
+  if ! counts="$(denials)"; then
+    fail "cannot read the request metrics of waypoint $WAYPOINT_NAME"
+    return
+  fi
+  # The probe's own denied requests show that the metrics are there to read.
+  if ! grep -q "^$PROBE_NAME " <<<"$counts"; then
+    fail "waypoint $WAYPOINT_NAME reports no denied request from the probe, so its metrics cannot be trusted: '$counts'"
+    return
+  fi
+  local workload denied
+  for workload in "${REST_CLIENTS[@]}"; do
+    denied="$(awk -v w="$workload" '$1 == w { print $2 }' <<<"$counts")"
+    if [[ -z "$denied" || "$denied" == 0 ]]; then
+      pass "$workload made no REST call for a database"
+    else
+      fail "$workload made $denied REST call(s) for a database, which the trap denied"
+    fi
+  done
+}
+
 check_resources() {
   local kind="$1" expected="$2" items
   items="$(kube get "$kind.dbaas.netcracker.com" -o json)"
@@ -149,15 +278,9 @@ cmd_assert() {
     esac
   done
 
-  # 1. The REST fallback is unreachable. Without this every later PASS proves nothing.
-  for deployment in "${SERVICES[@]}" dbaas-agent; do
-    local address
-    address="$(container_env "$deployment" API_DBAAS_ADDRESS)"
-    if [[ "$address" == "http://$FAKE_DBAAS_SERVICE_NAME.$DBAAS_NAMESPACE."* ]]; then
-      pass "$deployment API_DBAAS_ADDRESS does not resolve ($address)"
-    else
-      fail "$deployment API_DBAAS_ADDRESS is '$address', so a REST fallback could still succeed"
-    fi
+  # 1. Every REST client is seen by the trap. Without this every later PASS proves nothing.
+  for deployment in "${REST_CLIENTS[@]}"; do
+    check_captured "$deployment"
   done
 
   # 2. The operator reconciled every resource the charts declare.
@@ -177,7 +300,7 @@ cmd_assert() {
       fail "$service Secret $secret is missing or incomplete"
     fi
     if kube rollout status "deployment/$service" --timeout="$WAIT_TIMEOUT" >/dev/null; then
-      pass "$service is ready with no reachable REST fallback"
+      pass "$service is ready"
     else
       fail "$service did not become ready"
     fi
@@ -211,6 +334,10 @@ cmd_assert() {
       pass "core-bootstrap did not write control-plane-db-credentials"
     fi
   fi
+
+  # 5. No service even tried the REST API. Readiness alone would miss a call that failed and was then
+  # retried from the Secret.
+  check_no_denials
 
   if ((failures)); then
     echo "$failures check(s) failed" >&2
@@ -293,7 +420,8 @@ cmd_report() {
 
 case "${1:-}" in
   snapshot) cmd_snapshot "$2" ;;
+  arm) cmd_arm ;;
   assert) shift; cmd_assert "$@" ;;
   report) shift; cmd_report "$@" ;;
-  *) sed -n '2,7p' "$0"; exit 2 ;;
+  *) sed -n '2,8p' "$0"; exit 2 ;;
 esac

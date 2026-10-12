@@ -1,0 +1,61 @@
+# Blocks the DBaaS REST API for Cloud Core, so a Cloud Core service only becomes ready if it found
+# its database in the Secret the DBaaS Operator mounted. Applied by `checks.sh arm`, which fills in
+# the ${...} placeholders and puts the DBaaS namespace and the aggregator Service on the waypoint.
+#
+# The rule is enforced by the waypoint, which sees only traffic from pods in the ambient mesh: a
+# Cloud Core pod outside the mesh would reach the aggregator directly. `checks.sh` therefore puts the
+# Cloud Core namespace in the mesh before Cloud Core is installed, and asserts each service pod is
+# captured.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: ${WAYPOINT_NAME}
+  namespace: ${DBAAS_NAMESPACE}
+  labels:
+    istio.io/waypoint-for: service
+spec:
+  gatewayClassName: istio-waypoint
+  listeners:
+    - name: mesh
+      port: 15008
+      protocol: HBONE
+---
+# Bound to the aggregator Service, so the waypoint enforces it. A selector would hand it to ztunnel,
+# which cannot match paths. Only Cloud Core is denied: the DBaaS Operator and the database adapters
+# use the same API from their own namespaces. /api/composite stays open for core-operator.
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: dbaas-rest-fallback-trap
+  namespace: ${DBAAS_NAMESPACE}
+spec:
+  targetRefs:
+    - kind: Service
+      group: ""
+      name: ${DBAAS_SERVICE_NAME}
+  action: DENY
+  rules:
+    - from:
+        - source:
+            namespaces: ["${CORE_NAMESPACE}"]
+      to:
+        - operation:
+            paths: ["/api/v3/dbaas/*"]
+---
+# Calls the aggregator from the Cloud Core namespace, to prove the rule is in force. Its own denied
+# requests are not counted: the zero-denials check looks only at the Cloud Core services.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ${PROBE_NAME}
+  namespace: ${CORE_NAMESPACE}
+  labels:
+    app.kubernetes.io/name: ${PROBE_NAME}
+spec:
+  containers:
+    - name: curl
+      image: docker.io/curlimages/curl:8.11.1
+      command: ["sleep", "infinity"]
+      resources:
+        requests: { cpu: 10m, memory: 16Mi }
+        limits: { memory: 32Mi }
