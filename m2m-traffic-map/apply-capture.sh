@@ -2,30 +2,19 @@
 # Puts the capture into a cluster where Cloud Core runs in the Istio ambient mesh, with DBaaS and
 # MaaS installed:
 #
-#   1. the recorder, which the waypoints mirror requests to;
-#   2. a waypoint in the DBaaS and MaaS namespaces, which are not part of the mesh, so that the calls
+#   1. a waypoint in the DBaaS and MaaS namespaces, which are not part of the mesh, so that the calls
 #      to dbaas-aggregator and maas-service pass a waypoint as the calls inside the core namespace do;
-#   3. an access log on every waypoint: caller, destination, request and answer of each request;
-#   4. a route per service port that mirrors the requests of the service to the recorder.
-#
-# The access log is complete, the mirror holds the credentials. They share the x-request-id.
+#   2. an access log on every waypoint, one JSON line per request: the caller, the destination, the
+#      request, the answer and the credential (see below).
 #
 # usage: apply-capture.sh   (kubectl and jq on the path, a context for the cluster)
 set -euo pipefail
 
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CORE_NS="${CORE_NS:-core}"
 DBAAS_NS="${DBAAS_NS:-dbaas}"
 MAAS_NS="${MAAS_NS:-maas}"
 CORE_WAYPOINT="${CORE_WAYPOINT:-waypoint}"
 CAPTURE_WAYPOINT=capture-waypoint
-
-echo "::group::Recorder"
-kubectl apply -f "$HERE/recorder.yaml"
-kubectl -n capture create configmap traffic-recorder-script \
-  --from-file=recorder.py="$HERE/recorder.py" --dry-run=client -o yaml | kubectl apply -f -
-kubectl -n capture rollout status deploy/traffic-recorder --timeout=180s
-echo "::endgroup::"
 
 echo "::group::Waypoints for $DBAAS_NS and $MAAS_NS"
 for ns in "$DBAAS_NS" "$MAAS_NS"; do
@@ -55,11 +44,12 @@ echo "::endgroup::"
 # The access log of a waypoint, one JSON line per request. The caller is the identity in the
 # certificate of the peer; the address is there for what carries no identity.
 #
-# The credential is not logged, only its scheme. A small filter copies the header and the claims of
-# a bearer token, without its signature, into a header of the request (x-capture-jwt) for the log,
-# so that the claims of every request are known, also of those the mirror does not reach: a route
-# that other configuration brings for a service, such as the routes control-plane makes, comes
-# before the mirror route of that service. A token without its signature cannot be used.
+# The credential is not logged as it is. A small filter puts what identifies it into headers of the
+# request, which the log writes:
+#   x-capture-jwt   the header and the claims of a bearer token, without its signature, which a token
+#                   cannot be used without
+#   x-capture-user  the user name of a Basic credential, not the password
+# Anything else of the Authorization header is the scheme, which is all the log keeps of it.
 access_log_filter() { # $1 namespace, $2 gateway
   cat <<EOF
 apiVersion: networking.istio.io/v1alpha3
@@ -89,16 +79,56 @@ spec:
             '@type': type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
             default_source_code:
               inline_string: |
+                local alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+
+                -- the first characters of a base64 text; Lua here has no decoder of its own
+                local function decode(text)
+                  local bits = ""
+                  for i = 1, #text do
+                    local at = string.find(alphabet, string.sub(text, i, i), 1, true)
+                    if at == nil then
+                      break
+                    end
+                    local value = at - 1
+                    for bit = 5, 0, -1 do
+                      bits = bits .. (math.floor(value / 2 ^ bit) % 2 == 1 and "1" or "0")
+                    end
+                  end
+                  local decoded = ""
+                  for i = 1, #bits - 7, 8 do
+                    local byte = 0
+                    for bit = 0, 7 do
+                      byte = byte * 2 + (string.sub(bits, i + bit, i + bit) == "1" and 1 or 0)
+                    end
+                    decoded = decoded .. string.char(byte)
+                  end
+                  return decoded
+                end
+
                 function envoy_on_request(request_handle)
                   local headers = request_handle:headers()
                   headers:remove("x-capture-jwt")
+                  headers:remove("x-capture-user")
                   local auth = headers:get("authorization")
                   if auth == nil then
                     return
                   end
-                  local jose, claims = string.match(auth, "^[Bb]earer%s+([%w%-_]+)%.([%w%-_]+)%.")
-                  if jose ~= nil then
-                    headers:add("x-capture-jwt", jose .. "." .. claims)
+                  local scheme, rest = string.match(auth, "^(%a+)%s+(.*)$")
+                  if scheme == nil then
+                    return
+                  end
+                  scheme = string.lower(scheme)
+                  if scheme == "bearer" then
+                    local jose, claims = string.match(rest, "^([%w%-_]+)%.([%w%-_]+)%.")
+                    if jose ~= nil then
+                      headers:add("x-capture-jwt", jose .. "." .. claims)
+                    end
+                  elseif scheme == "basic" then
+                    -- only the first characters are decoded, and only what comes before the colon is kept
+                    local user = string.match(decode(string.sub(rest, 1, 96)), "^([^:]+)")
+                    if user ~= nil then
+                      headers:add("x-capture-user", user)
+                    end
                   end
                 end
     - applyTo: NETWORK_FILTER
@@ -132,6 +162,9 @@ spec:
                       flags: "%RESPONSE_FLAGS%"
                       auth: "%REQ(AUTHORIZATION):6%"
                       jwt: "%REQ(X-CAPTURE-JWT)%"
+                      user: "%REQ(X-CAPTURE-USER)%"
+                      agent: "%REQ(USER-AGENT)%"
+                      bytes: "%BYTES_RECEIVED%"
                       upstream: "%UPSTREAM_HOST%"
                       route: "%ROUTE_NAME%"
                       duration: "%DURATION%"
@@ -148,83 +181,13 @@ echo "::group::Access logs"
 } | kubectl apply -f -
 echo "::endgroup::"
 
-# a waypoint treats a port as HTTP when the service says so, and the services of the core name
-# their port "web" and say nothing: every port that does not look like another protocol is marked
-echo "::group::Services"
-mark_http() { # $1 namespace
-  kubectl -n "$1" get svc -o json | jq -r '
-    .items[]
-    | select(.spec.clusterIP != "None" and (.spec.selector // null) != null)
-    | select((.metadata.labels["gateway.networking.k8s.io/gateway-name"] // null) == null)
-    | . as $svc
-    | [.spec.ports | to_entries[]
-       | select((.value.appProtocol // null) == null
-                and (((.value.name // "") | test("^(tcp|udp|grpc|tls|https|mongo|redis|mysql|postgres)")) | not))]
-    | select(length > 0)
-    | "\($svc.metadata.name) " + (map(.key | tostring) | join(","))' |
-  while read -r name indexes; do
-    patch="["
-    for i in ${indexes//,/ }; do
-      patch+="{\"op\":\"add\",\"path\":\"/spec/ports/$i/appProtocol\",\"value\":\"http\"},"
-    done
-    patch="${patch%,}]"
-    kubectl -n "$1" patch svc "$name" --type=json -p "$patch" >/dev/null && echo "$1/$name: appProtocol http"
-  done
-}
-for ns in "$CORE_NS" "$DBAAS_NS" "$MAAS_NS"; do mark_http "$ns"; done
-
 # the services of DBaaS and MaaS go through the waypoint made above
+echo "::group::Services"
 DBAAS_SERVICE="${DBAAS_SERVICE_NAME:-dbaas-aggregator}"
 kubectl -n "$DBAAS_NS" label svc "$DBAAS_SERVICE" istio.io/use-waypoint=$CAPTURE_WAYPOINT --overwrite
 kubectl -n "$MAAS_NS" label svc maas-service istio.io/use-waypoint=$CAPTURE_WAYPOINT --overwrite
 echo "::endgroup::"
 
-echo "::group::Mirror routes"
-mirror_routes() { # $1 namespace
-  kubectl -n "$1" get svc -o json | jq -r --arg ns "$1" '
-    .items[]
-    | select(.spec.clusterIP != "None" and (.spec.selector // null) != null)
-    | select((.metadata.labels["gateway.networking.k8s.io/gateway-name"] // null) == null)
-    | select((.metadata.labels["istio.io/use-waypoint"] // "") != "none")
-    | . as $svc
-    | .spec.ports[]
-    | select((.appProtocol // "") | test("^http"))
-    | "\($svc.metadata.name) \(.port)"' |
-  while read -r name port; do
-    cat <<EOF
----
-apiVersion: gateway.networking.k8s.io/v1
-kind: HTTPRoute
-metadata:
-  name: capture-$name-$port
-  namespace: $1
-  labels:
-    app.kubernetes.io/part-of: m2m-traffic-map
-spec:
-  parentRefs:
-    - group: ""
-      kind: Service
-      name: $name
-      port: $port
-  rules:
-    - backendRefs:
-        - name: $name
-          port: $port
-      filters:
-        - type: RequestMirror
-          requestMirror:
-            backendRef:
-              name: traffic-recorder
-              namespace: capture
-              port: 8080
-EOF
-    echo "$1/$name:$port" >&2
-  done
-}
-{ mirror_routes "$CORE_NS"; mirror_routes "$DBAAS_NS"; mirror_routes "$MAAS_NS"; } | kubectl apply -f -
-echo "::endgroup::"
-
 # the proxies take the new configuration within seconds
 sleep 20
-
-kubectl get httproute.gateway.networking.k8s.io,envoyfilter.networking.istio.io,gateway.gateway.networking.k8s.io -A -o wide || true
+kubectl get envoyfilter.networking.istio.io,gateway.gateway.networking.k8s.io -A -o wide || true
