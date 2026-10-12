@@ -58,12 +58,18 @@ A DENY rule that does not apply blocks nothing and reports nothing, so the tests
   and calls `/health` and requires an answer.
 - The waypoint sees only pods in the mesh. `arm` puts the Cloud Core namespace in the mesh before Cloud Core is
   installed, and `assert` requires every pod of the services and of dbaas-agent to be captured.
-- `assert` reads the waypoint's request metrics and requires no denied request from any service or dbaas-agent.
-  Readiness alone would miss a call that failed and was then retried from the Secret. The probe's own denied
-  requests show that the metrics are there to read.
+- `assert` reads the waypoint's request metrics and requires no denied request from any Cloud Core workload but the
+  probe: the services, dbaas-agent, and anything else, such as a Job. Readiness alone would miss a call that failed
+  and was then retried from the Secret. The probe's own denied requests show that the metrics are there to read.
+- core-bootstrap must make no request to dbaas-aggregator at all, allowed or denied: in operator mode it no longer
+  creates control-plane's database. It runs as the pre-install hook Job of the Cloud Core application chart, deleted
+  once it succeeds, so `assert` finds it by the service account in the release's hook manifest. It shows the Job ran
+  in the mesh by the namespace label and the Job's own labels, and that the account label is read by the probe's.
 
 The tests need nothing from core-bootstrap beyond what an install already does: Cloud Core keeps its real
-`API_DBAAS_ADDRESS`.
+`API_DBAAS_ADDRESS`. They do need its DBaaS balancing rules left empty, as they are by default:
+`DBAAS_LODB_PER_NAMESPACE_AUTOBALANCE_RULES` and `DBAAS_ON_MICROSERVICES_PHYSDB_RULE` make core-bootstrap call
+`/api/v3/dbaas/<namespace>/physical_databases/...`, which has no operator equivalent and which the trap denies.
 
 ## Scenarios
 
@@ -97,10 +103,10 @@ flowchart TD
     E --> G["services start on the mounted Secret"]
     G --> H["checks.sh assert --expect-no-legacy-secret"]
 
-    subgraph assert["assert: 28 checks"]
+    subgraph assert["assert"]
         H1["every service and dbaas-agent pod<br/>is in the mesh"] --> H2["every CR Ready,<br/>every Secret materialized"]
         H2 --> H3["every service ready;<br/>control-plane in operator mode,<br/>no control-plane-db-credentials"]
-        H3 --> H4["waypoint metrics: no denied request<br/>from any service or dbaas-agent"]
+        H3 --> H4["waypoint metrics: no denied request<br/>from any Cloud Core workload;<br/>no request at all from core-bootstrap"]
     end
 
     H --> H1
@@ -129,12 +135,12 @@ flowchart TD
     H --> I["DBaaS Operator adopts the existing databases:<br/>same classifier, so no new database"]
     I --> J["checks.sh assert --snapshot"]
 
-    subgraph assert["assert: 33 checks"]
+    subgraph assert["assert"]
         J1["every service and dbaas-agent pod<br/>is in the mesh"] --> J2["every CR Ready,<br/>every Secret materialized,<br/>every service ready"]
         J2 --> J3{"Secret's database name<br/>= recorded name?"}
         J3 -- "yes" --> J4["adopted"]
         J3 -- "no" --> J5["fail: replaced by a new database"]
-        J4 --> J6["waypoint metrics: no denied request<br/>from any service or dbaas-agent"]
+        J4 --> J6["waypoint metrics: no denied request<br/>from any Cloud Core workload;<br/>no request at all from core-bootstrap"]
     end
 
     J --> J1
@@ -177,4 +183,4 @@ To run the checks against your own cluster, for example one installed with `clou
 
 The namespaces default to those of `cloud-core-local-dev`; set `CORE_NAMESPACE`, `PG_NAMESPACE`, or
 `DBAAS_NAMESPACE` only if yours differ. `checks.sh` without arguments prints the other subcommands. It needs
-`kubectl`, `jq`, and `envsubst`.
+`kubectl`, `helm`, `jq`, `yq`, and `envsubst`.

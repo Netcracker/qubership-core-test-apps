@@ -26,6 +26,8 @@ DBAAS_SERVICE_NAME="${DBAAS_SERVICE_NAME:-dbaas-aggregator}"
 ISTIO_NAMESPACE="${ISTIO_NAMESPACE:-istio-system}"
 WAYPOINT_NAME="${WAYPOINT_NAME:-dbaas-aggregator-waypoint}"
 PROBE_NAME="${PROBE_NAME:-dbaas-rest-fallback-probe}"
+# The Cloud Core application chart, whose pre-install hook runs core-bootstrap.
+BOOTSTRAP_RELEASE="${BOOTSTRAP_RELEASE:-cloud-core-app-chart}"
 WAIT_TIMEOUT="${WAIT_TIMEOUT:-600s}"
 REPORT_DIR="${REPORT_DIR:-}"
 
@@ -243,41 +245,101 @@ cmd_arm() {
   fi
 }
 
-# Prints the requests the waypoint denied to the Cloud Core namespace, as "<source workload> <count>"
-# lines. The metrics are read through the API server, so no pod needs a shell.
-denials() {
+# Prints the requests the waypoint passed on from the Cloud Core namespace, as tab-separated
+# "<source workload> <source service account> <response code> <count>" lines. The metrics are read
+# through the API server, so no pod needs a shell.
+waypoint_requests() {
   local pod
   pod="$(kubectl -n "$DBAAS_NAMESPACE" get pods -l "gateway.networking.k8s.io/gateway-name=$WAYPOINT_NAME" \
     -o jsonpath='{.items[0].metadata.name}')"
+  [[ -n "$pod" ]] || return 1
   kubectl get --raw "/api/v1/namespaces/$DBAAS_NAMESPACE/pods/$pod:15020/proxy/stats/prometheus" |
     awk -v ns="$CORE_NAMESPACE" '
-      /^istio_requests_total\{/ && /response_code="403"/ && index($0, "source_workload_namespace=\"" ns "\"") {
-        match($0, /source_workload="[^"]*"/)
-        denied[substr($0, RSTART + 17, RLENGTH - 18)] += $NF
+      function label(name) {
+        if (match($0, "[{,]" name "=\"[^\"]*\"")) return substr($0, RSTART + length(name) + 3, RLENGTH - length(name) - 4)
+        return ""
       }
-      END { for (w in denied) print w, denied[w] }'
+      /^istio_requests_total\{/ && label("source_workload_namespace") == ns {
+        principal = label("source_principal")
+        sub(/.*\/sa\//, "", principal)
+        requests[label("source_workload") "\t" principal "\t" label("response_code")] += $NF
+      }
+      END { for (r in requests) print r "\t" requests[r] }'
 }
 
 check_no_denials() {
-  local counts
-  if ! counts="$(denials)"; then
+  local rows
+  if ! rows="$(waypoint_requests)"; then
     fail "cannot read the request metrics of waypoint $WAYPOINT_NAME"
     return
   fi
   # The probe's own denied requests show that the metrics are there to read.
-  if ! grep -q "^$PROBE_NAME " <<<"$counts"; then
-    fail "waypoint $WAYPOINT_NAME reports no denied request from the probe, so its metrics cannot be trusted: '$counts'"
+  if ! awk -F'\t' -v p="$PROBE_NAME" '$1 == p && $3 == 403 { found = 1 } END { exit !found }' <<<"$rows"; then
+    fail "waypoint $WAYPOINT_NAME reports no denied request from the probe, so its metrics cannot be trusted: '$rows'"
     return
   fi
+
   local workload denied
   for workload in "${REST_CLIENTS[@]}"; do
-    denied="$(awk -v w="$workload" '$1 == w { print $2 }' <<<"$counts")"
-    if [[ -z "$denied" || "$denied" == 0 ]]; then
+    denied="$(awk -F'\t' -v w="$workload" '$1 == w && $3 == 403 { n += $4 } END { print n + 0 }' <<<"$rows")"
+    if [[ "$denied" == 0 ]]; then
       pass "$workload made no REST call for a database"
     else
       fail "$workload made $denied REST call(s) for a database, which the trap denied"
     fi
   done
+  # Any other Cloud Core workload, too, so a new client or a Job cannot fall back unnoticed.
+  local others
+  others="$(awk -F'\t' -v p="$PROBE_NAME" -v known=" ${REST_CLIENTS[*]} " \
+    '$3 == 403 && $1 != p && index(known, " " $1 " ") == 0 { n[$1] += $4 }
+     END { for (w in n) printf "%s%s (%d)", (sep++ ? ", " : ""), w, n[w] }' <<<"$rows")"
+  if [[ -z "$others" ]]; then
+    pass "no other Cloud Core workload made a REST call for a database"
+  else
+    fail "other Cloud Core workloads made REST calls for a database, which the trap denied: $others"
+  fi
+
+  check_bootstrap_silent "$rows"
+}
+
+# core-bootstrap runs as a helm hook Job of the Cloud Core application chart, deleted once it
+# succeeds, so it is identified by the service account the Job runs as, which the release keeps.
+check_bootstrap_silent() {
+  local rows="$1" hooks job account requests
+  if ! hooks="$(helm get hooks "$BOOTSTRAP_RELEASE" -n "$CORE_NAMESPACE" 2>&1)"; then
+    fail "cannot read the hooks of release $BOOTSTRAP_RELEASE: $hooks"
+    return
+  fi
+  # The hook manifests as JSON, one document per line, so the Job can be picked by its kind.
+  if ! job="$(yq -o=json -I=0 'select(.kind == "Job" and (.metadata.name | test("-pre-hook$")))' <<<"$hooks")"; then
+    fail "cannot parse the hooks of release $BOOTSTRAP_RELEASE with yq"
+    return
+  fi
+  account="$(jq -r '.spec.template.spec.serviceAccountName // empty' <<<"$job")"
+  if [[ -z "$account" ]] || ! kube get serviceaccount "$account" >/dev/null 2>&1; then
+    fail "cannot find the service account of the core-bootstrap Job in release $BOOTSTRAP_RELEASE"
+    return
+  fi
+  # The Job pod is gone, so its capture is shown by the namespace it ran in and its own labels.
+  if [[ "$(kubectl get namespace "$CORE_NAMESPACE" -o jsonpath='{.metadata.labels.istio\.io/dataplane-mode}')" == ambient ]] &&
+    ! jq -e '.spec.template.metadata.labels["istio.io/dataplane-mode"] == "none"' <<<"$job" >/dev/null; then
+    pass "the core-bootstrap Job ran in the ambient mesh"
+  else
+    fail "the core-bootstrap Job may have run outside the ambient mesh, where the trap cannot see it"
+  fi
+  # The probe runs as the default service account; its requests show the account label is read.
+  if ! awk -F'\t' -v p="$PROBE_NAME" '$1 == p && $2 == "default" { found = 1 } END { exit !found }' <<<"$rows"; then
+    fail "waypoint $WAYPOINT_NAME reports no service account for the probe, so the core-bootstrap check cannot be trusted"
+    return
+  fi
+  # With DBAAS_OPERATOR_ENABLED and no balancing rules, core-bootstrap has no reason to call the
+  # aggregator at all, so any request counts, not only the denied ones.
+  requests="$(awk -F'\t' -v a="$account" '$2 == a { n += $4 } END { print n + 0 }' <<<"$rows")"
+  if [[ "$requests" == 0 ]]; then
+    pass "core-bootstrap made no request to dbaas-aggregator"
+  else
+    fail "core-bootstrap made $requests request(s) to dbaas-aggregator: $(awk -F'\t' -v a="$account" '$2 == a' <<<"$rows" | tr '\t\n' ' ;')"
+  fi
 }
 
 check_resources() {
@@ -362,8 +424,8 @@ cmd_assert() {
     fi
   fi
 
-  # 5. No service even tried the REST API. Readiness alone would miss a call that failed and was then
-  # retried from the Secret.
+  # 5. No Cloud Core workload even tried the REST API, and core-bootstrap made no request at all.
+  # Readiness alone would miss a call that failed and was then retried from the Secret.
   check_no_denials
 
   if ((failures)); then
