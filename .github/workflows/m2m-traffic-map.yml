@@ -98,7 +98,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # the services reach DBaaS and MaaS through their agents, and send no Kubernetes token
+          # A legacy core reaches DBaaS and MaaS through their agents, whatever their mode: it
+          # sends no Kubernetes token, and DBaaS and MaaS in any mode still take its credentials.
           - core: legacy
             servers: legacy
             expect: >-
@@ -107,26 +108,72 @@ jobs:
               edge:maas-agent>maas-service
               no-credential:*>dbaas-aggregator=k8s-token
               no-credential:*>maas-service=k8s-token
-          # the Kubernetes token is refused, and the request goes through the agent
+          - core: legacy
+            servers: hybrid
+            expect: >-
+              edge:site-management>dbaas-agent
+              edge:dbaas-agent>dbaas-aggregator
+              edge:maas-agent>maas-service
+              no-credential:*>dbaas-aggregator=k8s-token
+              no-credential:*>maas-service=k8s-token
+          - core: legacy
+            servers: k8s
+            expect: >-
+              edge:site-management>dbaas-agent
+              edge:dbaas-agent>dbaas-aggregator
+              edge:maas-agent>maas-service
+              no-credential:*>dbaas-aggregator=k8s-token
+              no-credential:*>maas-service=k8s-token
+
+          # A hybrid core sends a Kubernetes token. Where it is refused (DBaaS in legacy mode) the
+          # request is made again to the agent, with a Basic credential; where it is taken the
+          # agent is not used.
           - core: hybrid
             servers: legacy
             expect: >-
               credential:site-management>dbaas-aggregator=k8s-token
+              refused:site-management>dbaas-aggregator=k8s-token
               fallback:site-management
               edge:site-management>dbaas-agent
-          # the Kubernetes token is accepted, and the agent is not used
           - core: hybrid
             servers: hybrid
             expect: >-
               credential:site-management>dbaas-aggregator=k8s-token
               no-edge:site-management>dbaas-agent
               no-credential:site-management>dbaas-aggregator=basic
-          # no agents at all
+              no-fallback:*
+          - core: hybrid
+            servers: k8s
+            expect: >-
+              credential:site-management>dbaas-aggregator=k8s-token
+              no-edge:site-management>dbaas-agent
+              no-credential:site-management>dbaas-aggregator=basic
+              no-fallback:*
+
+          # A k8s core sends a Kubernetes token and nothing else, and installs no agents. A DBaaS
+          # in legacy mode refuses the token, and nothing takes the request again.
+          - core: k8s
+            servers: legacy
+            expect: >-
+              credential:site-management>dbaas-aggregator=k8s-token
+              refused:site-management>dbaas-aggregator=k8s-token
+              no-fallback:*
+              no-edge:*>dbaas-agent
+              no-edge:*>maas-service
+          - core: k8s
+            servers: hybrid
+            expect: >-
+              credential:site-management>dbaas-aggregator=k8s-token
+              no-credential:site-management>dbaas-aggregator=basic
+              no-fallback:*
+              no-edge:*>dbaas-agent
+              no-edge:*>maas-service
           - core: k8s
             servers: k8s
             expect: >-
               credential:site-management>dbaas-aggregator=k8s-token
               no-credential:site-management>dbaas-aggregator=basic
+              no-fallback:*
               no-edge:*>dbaas-agent
               no-edge:*>maas-service
 
