@@ -302,8 +302,9 @@ check_no_denials() {
   check_bootstrap_silent "$rows"
 }
 
-# core-bootstrap runs as a helm hook Job of the Cloud Core application chart, deleted once it
-# succeeds, so it is identified by the service account the Job runs as, which the release keeps.
+# core-bootstrap runs as a helm hook Job of the Cloud Core application chart. The Job and its service
+# account are hooks too, deleted once the Job succeeds, so the account is read from the hook manifests
+# the release keeps, and the requests are matched by it.
 check_bootstrap_silent() {
   local rows="$1" hooks job account requests
   if ! hooks="$(helm get hooks "$BOOTSTRAP_RELEASE" -n "$CORE_NAMESPACE" 2>&1)"; then
@@ -316,8 +317,8 @@ check_bootstrap_silent() {
     return
   fi
   account="$(jq -r '.spec.template.spec.serviceAccountName // empty' <<<"$job")"
-  if [[ -z "$account" ]] || ! kube get serviceaccount "$account" >/dev/null 2>&1; then
-    fail "cannot find the service account of the core-bootstrap Job in release $BOOTSTRAP_RELEASE"
+  if [[ -z "$account" ]]; then
+    fail "cannot find the core-bootstrap Job or its service account in the hooks of release $BOOTSTRAP_RELEASE"
     return
   fi
   # The Job pod is gone, so its capture is shown by the namespace it ran in and its own labels.
