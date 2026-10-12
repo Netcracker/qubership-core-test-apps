@@ -113,9 +113,11 @@ jobs:
       - name: Install the DBaaS Operator into the running DBaaS
         # deploy-dbaas would rerun the whole DBaaS install, and its Patroni re-apply fails on a field
         # conflict with postgres-operator. Install only the operator, from the clone the first install left.
+        # REPOS_DIR is where core-bootstrap cloned the repositories; it passes the same absolute path.
         run: >-
           make -C core-bootstrap-repo/cloud-core-local-dev/.tmp/qubership-dbaas/bootstrap
           install-dbaas-operator wait-dbaas-operator DBAAS_OPERATOR_ENABLED=true
+          REPOS_DIR="$GITHUB_WORKSPACE/core-bootstrap-repo/cloud-core-local-dev/.tmp"
 
       - name: Upgrade Cloud Core onto the DBaaS Operator
         run: |
