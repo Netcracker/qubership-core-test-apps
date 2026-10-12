@@ -1,7 +1,7 @@
 """Builds the map of interactions from the access logs of the waypoints and the recorder.
 
 usage: traffic_map.py --access-log FILE [FILE...] --mirror FILE --pods pods.json --pod-ips pod-ips.txt
-                      [--out-md map.md] [--out-json map.json]
+                      [--out-md map.md] [--out-json map.json] [--expect RULE [RULE...]]
 
 access log  lines of JSON with "kind":"capture", one per request that passed a waypoint: who sent it
             (the identity of the peer, or its address), to which service, which request, which answer
@@ -9,12 +9,27 @@ mirror      lines "MIRROR {...}" of the recorder: the credential of the same req
 pods        `kubectl get pods -A -o json`
 pod-ips     lines of "<address> <pod name>" taken while the services ran
 
-Prints the map in Markdown: a diagram, a table of interactions between services, the interactions
-with DBaaS and MaaS and their agents, and the requests where a Kubernetes token was refused and the
-sender tried another credential.
+Prints the map in Markdown: a diagram, a table of the interactions, and the requests that were
+refused with a Kubernetes token and then made another way (a fallback). The tunnels of the mesh
+(CONNECT) and the configuration streams of the gateways (xDS) are counted but left off the map.
+
+--expect checks the map. A rule is one of
+
+  edge:CALLER>TARGET                        the caller sent a request to the target
+  no-edge:CALLER>TARGET                     it did not
+  credential:CALLER>TARGET=KIND             the caller sent a request with that credential
+  no-credential:CALLER>TARGET=KIND          it did not
+  fallback:CALLER                           a request of the caller was refused with a Kubernetes
+                                            token and then made again, to the target it first used
+                                            or to another
+
+CALLER and TARGET may be * or have wildcards (dbaas-*). KIND is basic, k8s-token, legacy-token or
+bearer (a bearer token the recorder did not see, so of no known kind). Exit status 1 when a rule
+fails.
 """
 import argparse
 import collections
+import fnmatch
 import json
 import re
 import sys
@@ -22,6 +37,7 @@ import sys
 POD_HASH = re.compile(r"-[a-z0-9]{8,10}-[a-z0-9]{5}$|-[a-z0-9]{5}$")
 SPIFFE = re.compile(r"spiffe://[^/]+/ns/([^/]+)/sa/([^,;\s]+)")
 ID_PART = re.compile(r"^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9a-f]{16,}|\d+)$")
+ADDRESS = re.compile(r"^\d+\.\d+\.\d+\.\d+$")
 DATABASES = ("dbaas-aggregator", "dbaas-agent", "maas-service", "maas-agent")
 
 
@@ -78,8 +94,10 @@ def load_pod_names(pods_path, pod_ips_path):
     return {ip: "/".join(sorted(found)) for ip, found in names.items()}
 
 
-def service_of(authority):
+def target_of(authority, pods):
     host = (authority or "").split(":")[0]
+    if ADDRESS.match(host):
+        return pods.get(host, host)
     return host.split(".")[0] or "?"
 
 
@@ -103,19 +121,51 @@ def credential_of(record, mirror):
     """The credential of the request, from the mirrored copy when there is one."""
     if mirror:
         if mirror["auth"] == "basic":
-            return f"basic ({mirror.get('user')})"
+            return "basic"
         if mirror["auth"] == "bearer":
             claims = mirror.get("claims") or {}
             if "kubernetes.io" in claims or (claims.get("sub") or "").startswith("system:serviceaccount:"):
-                return "k8s token"
-            return "legacy token"
+                return "k8s-token"
+            return "legacy-token"
         return mirror["auth"]
     prefix = (record.get("auth") or "").strip().lower()
     if prefix.startswith("basic"):
         return "basic"
     if prefix.startswith("bearer"):
         return "bearer"
-    return "none" if not prefix or prefix == "-" else "other"
+    return "none"
+
+
+def is_infrastructure(request):
+    """The tunnels of the mesh and the configuration streams of the gateways, not an interaction of services."""
+    return (request["method"] == "CONNECT" or request["target"] == "xds_cluster"
+            or request["path"].startswith("/envoy.service."))
+
+
+def check(rules, requests, edges, fallbacks):
+    problems = []
+    for rule in rules:
+        kind, _, spec = rule.partition(":")
+        fallback_callers = {c for (c, _t, _m, _p) in fallbacks}
+        if kind == "fallback":
+            if not any(fnmatch.fnmatch(c, spec) for c in fallback_callers):
+                problems.append(f"{rule}: no request of {spec} was refused with a Kubernetes token and made again")
+            continue
+        edge, _, wanted = spec.partition("=")
+        caller_pattern, _, target_pattern = edge.partition(">")
+        matching = [r for r in requests if fnmatch.fnmatch(r["caller"], caller_pattern)
+                    and fnmatch.fnmatch(r["target"], target_pattern) and not is_infrastructure(r)]
+        if kind in ("credential", "no-credential"):
+            matching = [r for r in matching if r["credential"] == wanted]
+        elif kind not in ("edge", "no-edge"):
+            problems.append(f"{rule}: unknown rule")
+            continue
+        if kind in ("edge", "credential") and not matching:
+            problems.append(f"{rule}: not seen")
+        if kind in ("no-edge", "no-credential") and matching:
+            problems.append(f"{rule}: seen {len(matching)} times, first {matching[0]['caller']} > {matching[0]['target']} "
+                            f"{matching[0]['method']} {matching[0]['path']} ({matching[0]['credential']})")
+    return problems
 
 
 def main():
@@ -126,6 +176,7 @@ def main():
     parser.add_argument("--pod-ips", required=True)
     parser.add_argument("--out-md")
     parser.add_argument("--out-json")
+    parser.add_argument("--expect", nargs="*", default=[])
     args = parser.parse_args()
 
     accesses = load_access_log(args.access_log)
@@ -138,44 +189,46 @@ def main():
         requests.append({
             "start": record.get("start"),
             "caller": caller_of(record, pods),
-            "target": service_of(record.get("authority")),
+            "target": target_of(record.get("authority"), pods),
             "method": record.get("method"),
             "path": path_template(record.get("path")),
             "code": str(record.get("code")),
             "credential": credential_of(record, mirror),
             "mirrored": bool(mirror),
-            "claims": (mirror or {}).get("claims"),
         })
+    infrastructure = [r for r in requests if is_infrastructure(r)]
+    interactions = [r for r in requests if not is_infrastructure(r)]
 
     edges = collections.OrderedDict()
-    for request in requests:
+    for request in interactions:
         edge = edges.setdefault((request["caller"], request["target"]), {
             "requests": 0, "codes": collections.Counter(), "credentials": collections.Counter(),
-            "paths": collections.Counter(), "mirrored": 0})
+            "paths": collections.Counter()})
         edge["requests"] += 1
         edge["codes"][request["code"]] += 1
         edge["credentials"][request["credential"]] += 1
         edge["paths"][f"{request['method']} {request['path']}"] += 1
-        edge["mirrored"] += request["mirrored"]
 
-    # a Kubernetes token that was refused, followed by another credential for the same request
-    fallbacks = collections.Counter()
-    last_refused = {}
-    for request in sorted(requests, key=lambda r: r["start"] or ""):
-        key = (request["caller"], request["target"], request["method"], request["path"])
-        if request["credential"] == "k8s token" and request["code"] == "401":
-            last_refused[key] = True
-        elif key in last_refused and request["credential"] not in ("k8s token", "none"):
-            fallbacks[(key, request["credential"], request["code"])] += 1
+    # A request that a Kubernetes token did not get through, and that the same caller then makes
+    # again, to the same target with another credential or to another target (the agent).
+    fallbacks = collections.OrderedDict()
+    refused = {}
+    for request in sorted(interactions, key=lambda r: r["start"] or ""):
+        key = (request["caller"], request["method"], request["path"])
+        if request["credential"] == "k8s-token" and request["code"] in ("401", "403"):
+            refused[key] = request
+        elif key in refused and (request["target"] != refused[key]["target"] or request["credential"] != "k8s-token"):
+            first = refused[key]
+            fallbacks.setdefault((request["caller"], first["target"], request["method"], request["path"]),
+                                 collections.Counter())[(request["target"], request["credential"], request["code"])] += 1
 
-    out = []
-    out.append("### Interactions")
-    out.append("")
+    out = ["### Interactions", ""]
     if not requests:
         out.append("No request passed a waypoint.")
     else:
-        mirrored = sum(r["mirrored"] for r in requests)
-        out.append(f"{len(requests)} requests passed a waypoint, {mirrored} of them were also mirrored with their credential.")
+        mirrored = sum(r["mirrored"] for r in interactions)
+        out.append(f"{len(interactions)} requests between services passed a waypoint, {mirrored} of them were also mirrored with "
+                   f"their credential. {len(infrastructure)} more are tunnels of the mesh and configuration streams of the gateways.")
         out.append("")
         out.append("```mermaid")
         out.append("flowchart LR")
@@ -188,7 +241,7 @@ def main():
         for (caller, target), edge in edges.items():
             credentials = ", ".join(sorted(edge["credentials"]))
             codes = ", ".join(f"{c}x{n}" for c, n in sorted(edge["codes"].items()))
-            out.append(f'  {node(caller)}["{caller}"] -->|"{edge["requests"]} · {credentials} · {codes}"| {node(target)}["{target}"]')
+            out.append(f'  {node(caller)}["{caller}"] -->|"{edge["requests"]} req, {credentials}, {codes}"| {node(target)}["{target}"]')
         out.append("```")
         out.append("")
         out.append("| Caller | Target | Requests | Credentials | Answers | Requests (most frequent) |")
@@ -202,12 +255,23 @@ def main():
         out.append("### Fallbacks")
         out.append("")
         if fallbacks:
-            out.append("| Caller | Target | Request | Then sent | Answer |")
-            out.append("| --- | --- | --- | --- | --- |")
-            for ((caller, target, method, path), credential, code), count in sorted(fallbacks.items()):
-                out.append(f"| {caller} | {target} | `{method} {path}` | {credential} | {code} (x{count}) |")
+            out.append("| Caller | Request | Refused by | Then made to | With | Answer |")
+            out.append("| --- | --- | --- | --- | --- | --- |")
+            for (caller, first_target, method, path), then in fallbacks.items():
+                for (target, credential, code), count in then.items():
+                    out.append(f"| {caller} | `{method} {path}` | {first_target} | {target} | {credential} | {code} (x{count}) |")
         else:
-            out.append("No request was refused with a Kubernetes token and then repeated with another credential.")
+            out.append("No request was refused with a Kubernetes token and then made again.")
+
+    problems = check(args.expect, interactions, edges, list(fallbacks))
+    if args.expect:
+        out.append("")
+        out.append("### Expectations")
+        out.append("")
+        if problems:
+            out.extend(f"- failed: {problem}" for problem in problems)
+        else:
+            out.append(f"All {len(args.expect)} expectations hold.")
     out.append("")
     text = "\n".join(out)
     print(text)
@@ -219,9 +283,12 @@ def main():
             "edges": [{"caller": c, "target": t, "requests": e["requests"], "codes": dict(e["codes"]),
                        "credentials": dict(e["credentials"]), "paths": dict(e["paths"])}
                       for (c, t), e in edges.items()],
-            "fallbacks": [{"caller": k[0][0], "target": k[0][1], "method": k[0][2], "path": k[0][3],
-                           "then": k[1], "code": k[2], "count": n} for k, n in fallbacks.items()],
+            "fallbacks": [{"caller": k[0], "refused_by": k[1], "method": k[2], "path": k[3],
+                           "then": [{"target": t, "credential": c, "code": code, "count": n} for (t, c, code), n in v.items()]}
+                          for k, v in fallbacks.items()],
         }, open(args.out_json, "w", encoding="utf-8"), indent=1)
+    if problems:
+        sys.exit(1)
 
 
 if __name__ == "__main__":
