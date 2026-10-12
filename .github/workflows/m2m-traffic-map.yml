@@ -8,16 +8,15 @@ run-name: "[bootstrap=${{ inputs.core-bootstrap-branch || 'main' }}] [dbaas=${{ 
 # captured at the waypoints, which every request in the core namespace passes (the namespaces of
 # DBaaS and MaaS get a waypoint of their own):
 #
-#   access log  a JSON line per request: the caller (the identity of the peer), the destination,
-#               the request and the answer
-#   mirror      a route per service copies each request to a recorder, which keeps the credential:
-#               a Basic user, a Kubernetes token or the legacy token, with the claims of the token
+#   access log  a JSON line per request: the caller, the destination, the request, the answer, and
+#               the credential: the user of a Basic credential, or the header and the claims of a
+#               bearer token (a Kubernetes token, or the legacy token)
 #
-# The two share the x-request-id. The services are restarted once the capture is in place, so that
-# what they do on start is seen, and the traffic of two minutes after that is mapped.
+# The services are restarted once the capture is in place, so that what they do on start is seen,
+# and the traffic of two minutes after that is mapped.
 #
 # The hybrid core with DBaaS and MaaS in legacy mode shows the fallback: the Kubernetes token is
-# refused by dbaas-aggregator, and the same request is made to dbaas-agent with a Basic credential.
+# refused by dbaas-aggregator, and the same request is made to dbaas-agent with the legacy token.
 #
 # Each case checks the map against what the mode should do (traffic_map.py --expect): who reaches
 # the agents, who sends a Kubernetes token, and who falls back.
@@ -232,11 +231,9 @@ jobs:
           for ns in core dbaas maas; do
             kubectl -n "$ns" logs -l gateway.networking.k8s.io/gateway-name --all-containers --tail=-1 --prefix=false > "waypoint-$ns.log" 2>/dev/null || true
           done
-          kubectl -n capture logs deploy/traffic-recorder --tail=-1 > recorder.log
           kubectl get pods -A -o json > pods.json
           kubectl get httproute.gateway.networking.k8s.io,envoyfilter.networking.istio.io,gateway.gateway.networking.k8s.io,svc -A -o yaml > mesh-config.yaml || true
           echo "access log lines: $(cat waypoint-*.log | grep -c '"kind":"capture"' || true)"
-          echo "mirrored requests: $(grep -c '^MIRROR ' recorder.log || true)"
 
       - name: Map the interactions
         env:
@@ -254,7 +251,7 @@ jobs:
           read -ra rules <<< "$EXPECT"
           status=0
           python m2m-traffic-map/traffic_map.py --access-log waypoint-core.log waypoint-dbaas.log waypoint-maas.log \
-            --mirror recorder.log --pods pods.json --pod-ips pod-ips.txt \
+            --pods pods.json --pod-ips pod-ips.txt \
             --out-md map.md --out-json map.json --expect "${rules[@]}" || status=$?
           cat map.md >> "$GITHUB_STEP_SUMMARY"
           exit "$status"
@@ -266,7 +263,6 @@ jobs:
           name: m2m-traffic-map-${{ matrix.core }}-${{ matrix.servers }}
           path: |
             waypoint-*.log
-            recorder.log
             pods.json
             pod-ips.txt
             mesh-config.yaml

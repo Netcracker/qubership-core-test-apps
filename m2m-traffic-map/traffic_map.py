@@ -1,13 +1,12 @@
-"""Builds the map of interactions from the access logs of the waypoints and the recorder.
+"""Builds the map of interactions from the access logs of the waypoints.
 
-usage: traffic_map.py --access-log FILE [FILE...] --mirror FILE --pods pods.json --pod-ips pod-ips.txt
+usage: traffic_map.py --access-log FILE [FILE...] --pods pods.json --pod-ips pod-ips.txt
                       [--out-md map.md] [--out-json map.json] [--expect RULE [RULE...]]
 
 access log  lines of JSON with "kind":"capture", one per request that passed a waypoint: who sent it
             (the identity of the peer, or its address), to which service, which request, which answer,
-            and the header and claims of a bearer token (without its signature)
-mirror      lines "MIRROR {...}" of the recorder: the credential of the same request (same id), with
-            the user of a Basic credential, which the access log does not have
+            the header and claims of a bearer token (without its signature) or the user of a Basic
+            credential
 pods        `kubectl get pods -A -o json`
 pod-ips     lines of "<address> <pod name>" taken while the services ran
 
@@ -31,7 +30,7 @@ CALLER and TARGET may be * or have wildcards (dbaas-*). KIND is basic, k8s-token
 bearer token that is not a Kubernetes token, whether it is a JWT or not). Exit status 1 when a rule
 fails.
 
-Whatever the rules, every Kubernetes token the recorder saw must be the token its sender is meant to
+Whatever the rules, every Kubernetes token seen must be the token its sender is meant to
 send: issued for the service account of the sender, in the namespace of the sender, and for the
 audience of DBaaS (dbaas) or of MaaS (maas) where it goes to one of them. A token that is not is
 listed under "Tokens" and fails the run.
@@ -67,23 +66,6 @@ def load_access_log(paths):
                 continue
             if record.get("kind") == "capture":
                 records.append(record)
-    return records
-
-
-def load_mirror(path):
-    """The records of the recorder, by request id."""
-    decoder = json.JSONDecoder()
-    records = {}
-    for line in open(path, encoding="utf-8", errors="replace"):
-        at = line.find("MIRROR {")
-        if at < 0:
-            continue
-        try:
-            record, _ = decoder.raw_decode(line, at + len("MIRROR "))
-        except ValueError:
-            continue
-        if record.get("id"):
-            records[record["id"]] = record
     return records
 
 
@@ -150,8 +132,8 @@ def path_template(path):
     return "/".join("{id}" if ID_PART.match(part) else part for part in path.split("/")) or "/"
 
 
-def claims_of(record, mirror):
-    """The claims of the bearer token of the request: from the access log, or from the mirrored copy."""
+def claims_of(record):
+    """The claims of the bearer token of the request, from the header and claims the access log keeps."""
     jwt = record.get("jwt")
     if jwt and jwt != "-":
         try:
@@ -160,14 +142,12 @@ def claims_of(record, mirror):
             return json.loads(base64.urlsafe_b64decode(payload))
         except (IndexError, ValueError):
             pass
-    return (mirror or {}).get("claims")
+    return None
 
 
-def credential_of(record, mirror, claims):
+def credential_of(record, claims):
     """The kind of the credential of the request."""
     scheme = (record.get("auth") or "").strip().lower()
-    if mirror and mirror["auth"] != "none":
-        scheme = mirror["auth"]
     if scheme.startswith("basic"):
         return "basic"
     if scheme.startswith("bearer"):
@@ -221,7 +201,6 @@ def check(rules, requests, edges, fallbacks):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--access-log", nargs="+", required=True)
-    parser.add_argument("--mirror", required=True)
     parser.add_argument("--pods", required=True)
     parser.add_argument("--pod-ips", required=True)
     parser.add_argument("--out-md")
@@ -230,13 +209,13 @@ def main():
     args = parser.parse_args()
 
     accesses = load_access_log(args.access_log)
-    mirrors = load_mirror(args.mirror)
+
     pods = load_pod_names(args.pods, args.pod_ips)
 
     requests = []
     for record in accesses:
-        mirror = mirrors.get(record.get("id"))
-        claims = claims_of(record, mirror)
+        claims = claims_of(record)
+        user = record.get("user")
         requests.append({
             "start": record.get("start"),
             "caller": caller_of(record, pods),
@@ -244,8 +223,10 @@ def main():
             "method": record.get("method"),
             "path": path_template(record.get("path")),
             "code": str(record.get("code")),
-            "credential": credential_of(record, mirror, claims),
-            "mirrored": bool(mirror),
+            "credential": credential_of(record, claims),
+            "user": user if user and user != "-" else None,
+            "agent": record.get("agent"),
+            "bytes": record.get("bytes"),
             "namespace": caller_namespace(record),
             "claims": claims,
         })
@@ -259,7 +240,7 @@ def main():
             "paths": collections.Counter()})
         edge["requests"] += 1
         edge["codes"][request["code"]] += 1
-        edge["credentials"][request["credential"]] += 1
+        edge["credentials"][request["credential"] + (f" ({request['user']})" if request["user"] else "")] += 1
         edge["paths"][f"{request['method']} {request['path']}"] += 1
 
     # A request that a Kubernetes token did not get through, and that the same caller then makes
@@ -279,9 +260,8 @@ def main():
     if not requests:
         out.append("No request passed a waypoint.")
     else:
-        mirrored = sum(r["mirrored"] for r in interactions)
-        out.append(f"{len(interactions)} requests between services passed a waypoint, {mirrored} of them were also mirrored with "
-                   f"their credential. {len(infrastructure)} more are tunnels of the mesh and configuration streams of the gateways.")
+        out.append(f"{len(interactions)} requests between services passed a waypoint. {len(infrastructure)} more are tunnels of the "
+                   "mesh and configuration streams of the gateways.")
         out.append("")
         out.append("```mermaid")
         out.append("flowchart LR")
