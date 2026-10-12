@@ -27,8 +27,8 @@ refused with a Kubernetes token and then made another way (a fallback). The tunn
                                             or to another
   no-fallback:CALLER                        no request of the caller was
 
-CALLER and TARGET may be * or have wildcards (dbaas-*). KIND is basic, k8s-token, legacy-token or
-bearer (a bearer token the recorder did not see, so of no known kind). Exit status 1 when a rule
+CALLER and TARGET may be * or have wildcards (dbaas-*). KIND is basic, k8s-token or legacy-token (a
+bearer token that is not a Kubernetes token, whether it is a JWT or not). Exit status 1 when a rule
 fails.
 
 Whatever the rules, every Kubernetes token the recorder saw must be the token its sender is meant to
@@ -171,9 +171,9 @@ def credential_of(record, mirror, claims):
     if scheme.startswith("basic"):
         return "basic"
     if scheme.startswith("bearer"):
-        if claims is None:
-            return "bearer"
-        if "kubernetes.io" in claims or (claims.get("sub") or "").startswith("system:serviceaccount:"):
+        # A Kubernetes token is a JWT, and its claims are known. Any other bearer token, one the
+        # claims of which are unknown because it is not a JWT, is the legacy token.
+        if claims and ("kubernetes.io" in claims or (claims.get("sub") or "").startswith("system:serviceaccount:")):
             return "k8s-token"
         return "legacy-token"
     return "none" if scheme in ("", "-", "none") else scheme
