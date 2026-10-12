@@ -62,6 +62,9 @@ spec:
             namespaces: ["${CORE_NAMESPACE}"]
       to:
         - operation:
+            # The HTTP API port. Without it, Istio also denies all TCP traffic to the Service's other
+            # ports, since a TCP connection carries no path to match.
+            ports: ["8080"]
             paths: ["/api/v3/dbaas/*"]
 ---
 # Calls the aggregator from the Cloud Core namespace, to prove the rule is in force. Its own denied
