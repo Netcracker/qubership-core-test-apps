@@ -47,7 +47,8 @@ spec:
 EOF
 done
 for ns in "$DBAAS_NS" "$MAAS_NS"; do
-  kubectl -n "$ns" wait --for=condition=Programmed "gateway/$CAPTURE_WAYPOINT" --timeout=180s
+  # gateways.core.netcracker.com is a resource of the core with the same short name
+  kubectl -n "$ns" wait --for=condition=Programmed "gateway.gateway.networking.k8s.io/$CAPTURE_WAYPOINT" --timeout=180s
 done
 echo "::endgroup::"
 
@@ -190,4 +191,4 @@ echo "::endgroup::"
 
 # the proxies take the new configuration within seconds
 sleep 20
-kubectl get httproute,envoyfilter,gateway -A -o wide || true
+kubectl get httproute.gateway.networking.k8s.io,envoyfilter.networking.istio.io,gateway.gateway.networking.k8s.io -A -o wide || true

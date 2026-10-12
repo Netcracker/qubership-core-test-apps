@@ -153,7 +153,7 @@ jobs:
           done
           kubectl -n capture logs deploy/traffic-recorder --tail=-1 > recorder.log
           kubectl get pods -A -o json > pods.json
-          kubectl get httproute,envoyfilter,gateway,svc -A -o yaml > mesh-config.yaml || true
+          kubectl get httproute.gateway.networking.k8s.io,envoyfilter.networking.istio.io,gateway.gateway.networking.k8s.io,svc -A -o yaml > mesh-config.yaml || true
           echo "access log lines: $(cat waypoint-*.log | grep -c '"kind":"capture"' || true)"
           echo "mirrored requests: $(grep -c '^MIRROR ' recorder.log || true)"
 
