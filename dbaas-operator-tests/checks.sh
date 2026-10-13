@@ -7,9 +7,10 @@
 #   checks.sh assert [--snapshot <file>] [--expect-no-legacy-secret]
 #   checks.sh report <suite> [--job-status <s>]    write the recorded checks as a Surefire report
 #
-# `arm` needs Istio in ambient mode. It puts the Cloud Core namespace in the mesh, and a waypoint in
-# front of dbaas-aggregator that denies /api/v3/dbaas/* to Cloud Core (assets/rest-fallback-trap.yaml).
-# Run it before Cloud Core is installed or upgraded onto the operator. Any REST call for a database
+# `arm` needs the Cloud Core and DBaaS namespaces in the Istio ambient mesh, with a waypoint for
+# DBaaS, as the bootstrap sets them up with CORE_MESH_EARLY=true and MESH_DEPENDENCY_NAMESPACES=dbaas.
+# It checks that, then denies /api/v3/dbaas/* to Cloud Core at that waypoint
+# (assets/rest-fallback-trap.yaml). Run it before Cloud Core is installed or upgraded onto the operator. Any REST call for a database
 # from a Cloud Core service, directly or through dbaas-agent, is then denied with 403, and the
 # waypoint counts it. `assert` requires every service to be ready, captured by the mesh, and to have
 # had no request denied: each one resolved its database from the Secret the DBaaS Operator mounted.
@@ -23,8 +24,8 @@ CORE_NAMESPACE="${CORE_NAMESPACE:-core}"
 PG_NAMESPACE="${PG_NAMESPACE:-postgres}"
 DBAAS_NAMESPACE="${DBAAS_NAMESPACE:-dbaas}"
 DBAAS_SERVICE_NAME="${DBAAS_SERVICE_NAME:-dbaas-aggregator}"
-ISTIO_NAMESPACE="${ISTIO_NAMESPACE:-istio-system}"
-WAYPOINT_NAME="${WAYPOINT_NAME:-dbaas-aggregator-waypoint}"
+# The waypoint the bootstrap gives the DBaaS namespace (MESH_DEPENDENCY_NAMESPACES).
+WAYPOINT_NAME="${WAYPOINT_NAME:-waypoint}"
 PROBE_NAME="${PROBE_NAME:-dbaas-rest-fallback-probe}"
 # The Cloud Core application chart, whose pre-install hook runs core-bootstrap.
 BOOTSTRAP_RELEASE="${BOOTSTRAP_RELEASE:-cloud-core-app-chart}"
@@ -164,49 +165,48 @@ denied_response() { # response
 }
 
 cmd_arm() {
-  # The Istio install returns before its components are ready, and istiod also validates the policy
-  # applied below, so wait for the control plane and the ambient data plane first.
-  local components component
-  components="$(kubectl -n "$ISTIO_NAMESPACE" get deployments,daemonsets -o name)"
-  if ! grep -q '^deployment.apps/istiod$' <<<"$components" || ! grep -q '^daemonset.apps/ztunnel$' <<<"$components"; then
-    fail "Istio ambient is not installed in $ISTIO_NAMESPACE: $(paste -sd " " <<<"$components")"
-    exit 1
-  fi
-  for component in $components; do
-    if ! kubectl -n "$ISTIO_NAMESPACE" rollout status "$component" --timeout="$WAIT_TIMEOUT" >/dev/null; then
-      fail "Istio $component in $ISTIO_NAMESPACE is not ready"
+  # The bootstrap puts the Cloud Core and DBaaS namespaces in the mesh, with a waypoint for DBaaS,
+  # once Istio is ready: CORE_MESH_EARLY=true and MESH_DEPENDENCY_NAMESPACES=<DBaaS namespace>. The
+  # trap works only on top of that, so check it rather than trust it.
+  local ns
+  for ns in "$CORE_NAMESPACE" "$DBAAS_NAMESPACE"; do
+    if [[ "$(kubectl get namespace "$ns" -o jsonpath='{.metadata.labels.istio\.io/dataplane-mode}' 2>/dev/null)" == ambient ]]; then
+      pass "namespace $ns is in the ambient mesh"
+    else
+      fail "namespace $ns is not in the ambient mesh; install with CORE_MESH_EARLY=true MESH_DEPENDENCY_NAMESPACES=$DBAAS_NAMESPACE"
       exit 1
     fi
   done
-  pass "Istio ambient is ready: $(paste -sd " " <<<"$components")"
-
-  # Cloud Core joins the mesh before it is installed, so every pod it starts is captured.
-  # core-mesh-config adds the waypoint of the Cloud Core namespace later; the trap needs only the capture.
-  kubectl create namespace "$CORE_NAMESPACE" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
-  kubectl label namespace "$CORE_NAMESPACE" "$DBAAS_NAMESPACE" istio.io/dataplane-mode=ambient --overwrite >/dev/null
-  local manifest attempt
-  # shellcheck disable=SC2016 # the placeholders are for envsubst, not the shell
-  manifest="$(WAYPOINT_NAME="$WAYPOINT_NAME" PROBE_NAME="$PROBE_NAME" CORE_NAMESPACE="$CORE_NAMESPACE" \
-    DBAAS_NAMESPACE="$DBAAS_NAMESPACE" DBAAS_SERVICE_NAME="$DBAAS_SERVICE_NAME" \
-    envsubst '${WAYPOINT_NAME} ${PROBE_NAME} ${CORE_NAMESPACE} ${DBAAS_NAMESPACE} ${DBAAS_SERVICE_NAME}' \
-    <"$ASSETS_DIR/rest-fallback-trap.yaml")"
-  # istiod's validating webhook can refuse connections for a few seconds after istiod is ready.
-  for attempt in $(seq 1 10); do
-    kubectl apply -f - <<<"$manifest" >/dev/null && break
-    if ((attempt == 10)); then
-      fail "cannot apply $ASSETS_DIR/rest-fallback-trap.yaml"
-      exit 1
-    fi
-    sleep 6
-  done
-
   if kubectl -n "$DBAAS_NAMESPACE" wait --for=condition=Programmed "gateways.gateway.networking.k8s.io/$WAYPOINT_NAME" --timeout="$WAIT_TIMEOUT" >/dev/null; then
     pass "waypoint $WAYPOINT_NAME is programmed"
   else
-    fail "waypoint $WAYPOINT_NAME is not programmed: $(kubectl -n "$DBAAS_NAMESPACE" get "gateways.gateway.networking.k8s.io/$WAYPOINT_NAME"       -o jsonpath='{range .status.conditions[*]}{.type}={.status} ({.reason}: {.message}) {end}' 2>&1)"
+    fail "waypoint $WAYPOINT_NAME is not programmed in $DBAAS_NAMESPACE: $(kubectl -n "$DBAAS_NAMESPACE" get "gateways.gateway.networking.k8s.io/$WAYPOINT_NAME" -o jsonpath='{range .status.conditions[*]}{.type}={.status} ({.reason}: {.message}) {end}' 2>&1)"
     exit 1
   fi
-  kubectl -n "$DBAAS_NAMESPACE" label service "$DBAAS_SERVICE_NAME" "istio.io/use-waypoint=$WAYPOINT_NAME" --overwrite >/dev/null
+  # istiod writes the binding into the status of the Service a few seconds after the label.
+  local bound="" attempt
+  for attempt in $(seq 1 30); do
+    bound="$(kubectl -n "$DBAAS_NAMESPACE" get service "$DBAAS_SERVICE_NAME" -o jsonpath='{.status.conditions[?(@.type=="istio.io/WaypointBound")].status}')"
+    [[ "$bound" == True ]] && break
+    sleep 2
+  done
+  if [[ "$bound" == True ]]; then
+    pass "$DBAAS_SERVICE_NAME is bound to waypoint $WAYPOINT_NAME"
+  else
+    fail "$DBAAS_SERVICE_NAME is not bound to waypoint $WAYPOINT_NAME: $(kubectl -n "$DBAAS_NAMESPACE" get service "$DBAAS_SERVICE_NAME" -o jsonpath='{.status.conditions}')"
+    exit 1
+  fi
+
+  local manifest
+  # shellcheck disable=SC2016 # the placeholders are for envsubst, not the shell
+  manifest="$(PROBE_NAME="$PROBE_NAME" CORE_NAMESPACE="$CORE_NAMESPACE" \
+    DBAAS_NAMESPACE="$DBAAS_NAMESPACE" DBAAS_SERVICE_NAME="$DBAAS_SERVICE_NAME" \
+    envsubst '${PROBE_NAME} ${CORE_NAMESPACE} ${DBAAS_NAMESPACE} ${DBAAS_SERVICE_NAME}' \
+    <"$ASSETS_DIR/rest-fallback-trap.yaml")"
+  if ! kubectl apply -f - <<<"$manifest" >/dev/null; then
+    fail "cannot apply $ASSETS_DIR/rest-fallback-trap.yaml"
+    exit 1
+  fi
   if ! kube wait --for=condition=Ready "pod/$PROBE_NAME" --timeout="$WAIT_TIMEOUT" >/dev/null; then
     fail "probe pod $PROBE_NAME did not become ready"
     exit 1

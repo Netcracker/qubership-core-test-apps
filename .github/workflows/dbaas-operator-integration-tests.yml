@@ -53,17 +53,22 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       # The trap must be in place before Cloud Core starts, so the dependencies and Cloud Core are
-      # installed in two runs, with the trap in between.
+      # installed in two runs, with the trap in between. The bootstrap puts the namespaces in the mesh
+      # first: MESH_DEPENDENCY_NAMESPACES gives DBaaS a waypoint, which enforces the trap, and
+      # enable-early-core-mesh (CORE_MESH_EARLY) puts the Cloud Core namespace in the mesh now, so
+      # the probe and every Cloud Core pod are captured. deploy-core repeats it, which changes nothing.
       - name: Setup Kind cluster and deploy Istio and DBaaS with the DBaaS Operator
         uses: ./.github/actions/setup-kind-with-cloud-core
         with:
           core-bootstrap-branch: ${{ env.OPERATOR_BOOTSTRAP_BRANCH }}
           test-branch: ${{ inputs.test-branch }}
           mesh-type: Istio
-          make-targets: resolved-refs validate clone-repos template-values-files deploy-dependencies
+          make-targets: install-dependencies ensure-core-namespace enable-early-core-mesh
           aux-bootstrap-args: >-
             DBAAS_OPERATOR_ENABLED=true
             CORE_BOOTSTRAP_BRANCH=${{ env.OPERATOR_BOOTSTRAP_BRANCH }}
+            CORE_MESH_EARLY=true
+            MESH_DEPENDENCY_NAMESPACES=dbaas
 
       - name: Deny the DBaaS REST API to Cloud Core
         run: ./dbaas-operator-tests/checks.sh arm
@@ -75,6 +80,7 @@ jobs:
           TEST_BRANCH="${{ inputs.test-branch }}"
           DBAAS_OPERATOR_ENABLED=true
           CORE_BOOTSTRAP_BRANCH="${{ env.OPERATOR_BOOTSTRAP_BRANCH }}"
+          CORE_MESH_EARLY=true
 
       - name: Check databases come from the DBaaS Operator
         run: ./dbaas-operator-tests/checks.sh assert --expect-no-legacy-secret
@@ -130,6 +136,13 @@ jobs:
           make -C core-bootstrap-repo/cloud-core-local-dev/.tmp/qubership-dbaas/bootstrap
           install-dbaas-operator wait-dbaas-operator DBAAS_OPERATOR_ENABLED=true
           REPOS_DIR="$GITHUB_WORKSPACE/core-bootstrap-repo/cloud-core-local-dev/.tmp"
+
+      # The baseline install already put the Cloud Core namespace in the mesh (core-mesh-config).
+      # DBaaS joins it now, behind the waypoint that enforces the trap; its pods join without a restart.
+      - name: Put DBaaS in the mesh, behind a waypoint
+        run: >-
+          make -C core-bootstrap-repo/cloud-core-local-dev/ deploy-dependency-waypoints
+          INSTALL_ISTIO=true MESH_DEPENDENCY_NAMESPACES=dbaas
 
       - name: Deny the DBaaS REST API to Cloud Core
         run: ./dbaas-operator-tests/checks.sh arm

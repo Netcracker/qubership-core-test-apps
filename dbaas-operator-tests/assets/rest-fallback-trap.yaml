@@ -1,47 +1,12 @@
 # Blocks the DBaaS REST API for Cloud Core, so a Cloud Core service only becomes ready if it found
 # its database in the Secret the DBaaS Operator mounted. Applied by `checks.sh arm`, which fills in
-# the ${...} placeholders and puts the DBaaS namespace and the aggregator Service on the waypoint.
+# the ${...} placeholders.
 #
-# The rule is enforced by the waypoint, which sees only traffic from pods in the ambient mesh: a
-# Cloud Core pod outside the mesh would reach the aggregator directly. `checks.sh` therefore puts the
-# Cloud Core namespace in the mesh before Cloud Core is installed, and asserts each service pod is
-# captured.
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: ${WAYPOINT_NAME}-pod-options
-  namespace: ${DBAAS_NAMESPACE}
-data:
-  deployment: |
-    spec:
-      template:
-        spec:
-          containers:
-            - name: istio-proxy
-              resources:
-                requests: { cpu: 50m, memory: 64Mi }
-                limits: { cpu: 500m, memory: 150Mi }
----
-apiVersion: gateway.networking.k8s.io/v1
-kind: Gateway
-metadata:
-  name: ${WAYPOINT_NAME}
-  namespace: ${DBAAS_NAMESPACE}
-  labels:
-    istio.io/waypoint-for: service
-spec:
-  gatewayClassName: istio-waypoint
-  # Small, as core-mesh-config sizes its waypoint, so it fits on a node that already runs Cloud Core.
-  infrastructure:
-    parametersRef:
-      group: ""
-      kind: ConfigMap
-      name: ${WAYPOINT_NAME}-pod-options
-  listeners:
-    - name: mesh
-      port: 15008
-      protocol: HBONE
----
+# The rule is enforced by the waypoint of the DBaaS namespace, which the bootstrap creates
+# (MESH_DEPENDENCY_NAMESPACES), and the waypoint sees only traffic from pods in the ambient mesh: a
+# Cloud Core pod outside the mesh would reach the aggregator directly. The bootstrap therefore puts
+# the Cloud Core namespace in the mesh before Cloud Core is installed (CORE_MESH_EARLY), `arm`
+# checks both, and `assert` checks that each service pod is captured.
 # Bound to the aggregator Service, so the waypoint enforces it. A selector would hand it to ztunnel,
 # which cannot match paths. Only Cloud Core is denied: the DBaaS Operator and the database adapters
 # use the same API from their own namespaces. /api/composite stays open for core-operator.

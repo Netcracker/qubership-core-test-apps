@@ -6,8 +6,9 @@ site-management.
 
 ## How a fallback is caught
 
-The tests run Cloud Core in the Istio ambient mesh. `checks.sh arm` puts a waypoint in front of dbaas-aggregator with
-an `AuthorizationPolicy` that denies `/api/v3/dbaas/*` to the Cloud Core namespace (`assets/rest-fallback-trap.yaml`).
+The tests run Cloud Core and DBaaS in the Istio ambient mesh, with a waypoint in front of DBaaS. The bootstrap sets
+that up (`CORE_MESH_EARLY=true`, `MESH_DEPENDENCY_NAMESPACES=dbaas`). `checks.sh arm` adds an `AuthorizationPolicy` at
+that waypoint that denies `/api/v3/dbaas/*` to the Cloud Core namespace (`assets/rest-fallback-trap.yaml`).
 Every database lookup or creation over REST from a Cloud Core service is then denied with 403, whether it goes to
 dbaas-aggregator directly or through dbaas-agent, and the waypoint counts it by source workload. The rest of the
 aggregator stays open, so core-operator still registers the composite structure through dbaas-agent, and the DBaaS
@@ -56,8 +57,9 @@ A DENY rule that does not apply blocks nothing and reports nothing, so the tests
 
 - `arm` calls the denied path from a probe pod in the Cloud Core namespace and requires `403 RBAC: access denied`,
   and calls `/health` and requires an answer.
-- The waypoint sees only pods in the mesh. `arm` puts the Cloud Core namespace in the mesh before Cloud Core is
-  installed, and `assert` requires every pod of the services and of dbaas-agent to be captured.
+- The waypoint sees only pods in the mesh. The bootstrap puts the Cloud Core namespace in the mesh before Cloud Core
+  is installed, `arm` checks that both namespaces are in the mesh and that dbaas-aggregator is bound to the waypoint,
+  and `assert` requires every pod of the services and of dbaas-agent to be captured.
 - `assert` reads the waypoint's request metrics and requires no denied request from any Cloud Core workload but the
   probe: the services, dbaas-agent, and anything else, such as a Job. Readiness alone would miss a call that failed
   and was then retried from the Secret. The probe's own denied requests show that the metrics are there to read.
@@ -79,7 +81,7 @@ The tests need nothing from core-bootstrap beyond what an install already does: 
 | `upgrade` | Cloud Core installed as today, then upgraded after the operator is added, keeps the databases it already had: each claim resolves to the database recorded before the upgrade |
 
 `clean-install` installs the dependencies and Cloud Core in two runs, through the `make-targets` input of the setup
-action, so the trap is in place before the first Cloud Core pod starts. `upgrade` arms it after the baseline install
+action (`install-dependencies`, then `deploy-core`), so the trap is in place before the first Cloud Core pod starts. `upgrade` arms it after the baseline install
 and the database snapshot, which itself asks dbaas-aggregator from the Cloud Core namespace.
 
 ### Clean install
@@ -87,12 +89,11 @@ and the database snapshot, which itself asks dbaas-aggregator from the Cloud Cor
 ```mermaid
 %%{init: {"flowchart": {"wrappingWidth": 320}}}%%
 flowchart TD
-    A["Kind cluster"] --> B["make … deploy-dependencies<br/>Istio ambient, Postgres, DBaaS,<br/>DBaaS Operator"]
+    A["Kind cluster"] --> B["make install-dependencies enable-early-core-mesh<br/>Istio ambient, Postgres, DBaaS, DBaaS Operator;<br/>DBaaS and Cloud Core namespaces in the mesh,<br/>DBaaS behind a waypoint"]
     B --> C["checks.sh arm"]
 
     subgraph arm["arm: set the trap and prove it works"]
-        C1["wait for istiod, ztunnel, istio-cni"] --> C2["put the Cloud Core and DBaaS<br/>namespaces in the ambient mesh"]
-        C2 --> C3["apply the waypoint, the DENY policy,<br/>and the probe pod"]
+        C1["check: both namespaces in the mesh,<br/>dbaas-aggregator bound to the waypoint"] --> C3["apply the DENY policy<br/>and the probe pod"]
         C3 --> C4{"probe: /api/v3/dbaas/* gets 403?<br/>/health answers?"}
     end
 
@@ -130,7 +131,8 @@ flowchart TD
     C --> D["checks.sh snapshot<br/>ask dbaas-aggregator for each service's database<br/>and record its name"]
     D --> E["switch core-bootstrap to the feature branch"]
     E --> F["install only the DBaaS Operator<br/>into the running DBaaS"]
-    F --> G["checks.sh arm<br/>(after the snapshot, which itself calls REST<br/>from the Cloud Core namespace)"]
+    F --> F2["make deploy-dependency-waypoints<br/>DBaaS in the mesh, behind a waypoint"]
+    F2 --> G["checks.sh arm<br/>(after the snapshot, which itself calls REST<br/>from the Cloud Core namespace)"]
     G --> H["make … deploy-core<br/>upgrade Cloud Core onto the operator"]
     H --> I["DBaaS Operator adopts the existing databases:<br/>same classifier, so no new database"]
     I --> J["checks.sh assert --snapshot"]
@@ -177,9 +179,12 @@ another branch.
 To run the checks against your own cluster, for example one installed with `cloud-core-local-dev`:
 
 ```bash
-./checks.sh arm                              # before Cloud Core is installed or upgraded; needs ambient Istio
+./checks.sh arm                              # before Cloud Core is installed or upgraded; see below
 ./checks.sh assert --expect-no-legacy-secret
 ```
+
+`arm` needs what the bootstrap sets up with `INSTALL_ISTIO=true CORE_MESH_EARLY=true MESH_DEPENDENCY_NAMESPACES=dbaas`:
+the Cloud Core and DBaaS namespaces in the ambient mesh, and DBaaS behind the waypoint `waypoint`.
 
 The namespaces default to those of `cloud-core-local-dev`; set `CORE_NAMESPACE`, `PG_NAMESPACE`, or
 `DBAAS_NAMESPACE` only if yours differ. `checks.sh` without arguments prints the other subcommands. It needs
