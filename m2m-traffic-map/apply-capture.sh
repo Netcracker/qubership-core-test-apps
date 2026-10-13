@@ -1,30 +1,33 @@
 #!/usr/bin/env bash
 # Puts the capture into a cluster where Cloud Core runs in the Istio ambient mesh, with DBaaS and
-# MaaS installed:
+# MaaS installed, and Cloud Core not yet deployed (the dependencies in place, then this, then
+# deploy-core). What the services and the hooks do while Cloud Core installs is then seen.
 #
-#   1. a waypoint in the DBaaS and MaaS namespaces, which are not part of the mesh, so that the calls
-#      to dbaas-aggregator and maas-service pass a waypoint as the calls inside the core namespace do;
-#   2. an access log on every waypoint, one JSON line per request: the caller, the destination, the
+#   1. The core namespace is put into the mesh and gets a waypoint of its own, capture-waypoint.
+#      core-mesh-config does both, but only at the end of deploy-core, so until then the calls
+#      between the services, and to the agents, and the calls of the hooks, would pass no waypoint.
+#      core-mesh-config then moves the namespace to its own waypoint, which gets the same filter.
+#   2. The DBaaS and MaaS namespaces, which are not part of the mesh, get a waypoint too, so that the
+#      calls to dbaas-aggregator and maas-service pass one.
+#   3. An access log on every waypoint, one JSON line per request: the caller, the destination, the
 #      request, the answer and the credential (see below).
 #
-# usage: apply-capture.sh   (kubectl and jq on the path, a context for the cluster)
+# usage: apply-capture.sh   (kubectl on the path, a context for the cluster)
 set -euo pipefail
 
 CORE_NS="${CORE_NS:-core}"
 DBAAS_NS="${DBAAS_NS:-dbaas}"
 MAAS_NS="${MAAS_NS:-maas}"
-CORE_WAYPOINT="${CORE_WAYPOINT:-waypoint}"
+CORE_WAYPOINT="${CORE_WAYPOINT:-waypoint}"   # the one core-mesh-config makes
 CAPTURE_WAYPOINT=capture-waypoint
 
-echo "::group::Waypoints for $DBAAS_NS and $MAAS_NS"
-for ns in "$DBAAS_NS" "$MAAS_NS"; do
-  kubectl label namespace "$ns" istio.io/dataplane-mode=ambient --overwrite
+waypoint() { # $1 namespace
   kubectl apply -f - <<EOF
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: $CAPTURE_WAYPOINT
-  namespace: $ns
+  namespace: $1
   labels:
     istio.io/waypoint-for: service
 spec:
@@ -34,11 +37,24 @@ spec:
       port: 15008
       protocol: HBONE
 EOF
+}
+
+echo "::group::Waypoints"
+# the namespace of the core may not exist yet; the bootstrap takes one that does
+kubectl create namespace "$CORE_NS" --dry-run=client -o yaml | kubectl apply -f -
+for ns in "$CORE_NS" "$DBAAS_NS" "$MAAS_NS"; do
+  kubectl label namespace "$ns" istio.io/dataplane-mode=ambient --overwrite
+  waypoint "$ns"
 done
-for ns in "$DBAAS_NS" "$MAAS_NS"; do
+for ns in "$CORE_NS" "$DBAAS_NS" "$MAAS_NS"; do
   # gateways.core.netcracker.com is a resource of the core with the same short name
   kubectl -n "$ns" wait --for=condition=Programmed "gateway.gateway.networking.k8s.io/$CAPTURE_WAYPOINT" --timeout=180s
 done
+# the services of the core use it until core-mesh-config names its own; those of DBaaS and MaaS keep it
+kubectl label namespace "$CORE_NS" istio.io/use-waypoint="$CAPTURE_WAYPOINT" --overwrite
+DBAAS_SERVICE="${DBAAS_SERVICE_NAME:-dbaas-aggregator}"
+kubectl -n "$DBAAS_NS" label svc "$DBAAS_SERVICE" istio.io/use-waypoint="$CAPTURE_WAYPOINT" --overwrite
+kubectl -n "$MAAS_NS" label svc maas-service istio.io/use-waypoint="$CAPTURE_WAYPOINT" --overwrite
 echo "::endgroup::"
 
 # The access log of a waypoint, one JSON line per request. The caller is the identity in the
@@ -50,18 +66,25 @@ echo "::endgroup::"
 #                   cannot be used without
 #   x-capture-user  the user name of a Basic credential, not the password
 # Anything else of the Authorization header is the scheme, which is all the log keeps of it.
-access_log_filter() { # $1 namespace, $2 gateway
+access_log_filter() { # $1 namespace, $2... the gateways it applies to
+  local ns="$1"; shift
   cat <<EOF
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: capture-access-log
-  namespace: $1
+  namespace: $ns
 spec:
   targetRefs:
+EOF
+  for gateway in "$@"; do
+    cat <<EOF
     - kind: Gateway
       group: gateway.networking.k8s.io
-      name: $2
+      name: $gateway
+EOF
+  done
+  cat <<EOF
   configPatches:
     - applyTo: HTTP_FILTER
       match:
@@ -173,19 +196,13 @@ EOF
 
 echo "::group::Access logs"
 {
-  access_log_filter "$CORE_NS" "$CORE_WAYPOINT"
+  # the waypoint of core-mesh-config does not exist yet; the filter applies when it does
+  access_log_filter "$CORE_NS" "$CAPTURE_WAYPOINT" "$CORE_WAYPOINT"
   echo "---"
   access_log_filter "$DBAAS_NS" "$CAPTURE_WAYPOINT"
   echo "---"
   access_log_filter "$MAAS_NS" "$CAPTURE_WAYPOINT"
 } | kubectl apply -f -
-echo "::endgroup::"
-
-# the services of DBaaS and MaaS go through the waypoint made above
-echo "::group::Services"
-DBAAS_SERVICE="${DBAAS_SERVICE_NAME:-dbaas-aggregator}"
-kubectl -n "$DBAAS_NS" label svc "$DBAAS_SERVICE" istio.io/use-waypoint=$CAPTURE_WAYPOINT --overwrite
-kubectl -n "$MAAS_NS" label svc maas-service istio.io/use-waypoint=$CAPTURE_WAYPOINT --overwrite
 echo "::endgroup::"
 
 # the proxies take the new configuration within seconds

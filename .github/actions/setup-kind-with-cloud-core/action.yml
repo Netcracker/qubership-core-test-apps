@@ -39,6 +39,14 @@ inputs:
       (PATRONI_REPLICAS_NUMBER=2 RABBIT_INSTANCES=rabbitmq-1).
     required: false
     default: ''
+  make-targets:
+    description: >
+      Targets of the cloud-core local-dev make run. The default installs everything. A suite that has
+      to act between the dependencies and Cloud Core installs the dependencies here
+      (resolved-refs validate clone-repos template-values-files deploy-dependencies), then runs
+      deploy-core itself.
+    required: false
+    default: install
 
 runs:
   using: composite
@@ -56,6 +64,7 @@ runs:
         MESH_TYPE: ${{ inputs.mesh-type }}
         TEST_BRANCH: ${{ inputs.test-branch }}
         AUX_BOOTSTRAP_ARGS: ${{ inputs.aux-bootstrap-args }}
+        MAKE_TARGETS: ${{ inputs.make-targets }}
       run: |
         MAKE_ARGS="INSTALL_MAAS=$INSTALL_MAAS CORE_CONFIG_MAAS_ENABLED=$INSTALL_MAAS"
         MAKE_ARGS="$MAKE_ARGS INSTALL_ISTIO=$INSTALL_ISTIO SERVICE_MESH_TYPE=$MESH_TYPE"
@@ -70,4 +79,4 @@ runs:
         if [ -n "$AUX_BOOTSTRAP_ARGS" ]; then
           MAKE_ARGS="$MAKE_ARGS $AUX_BOOTSTRAP_ARGS"
         fi
-        make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/ install
+        make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/ $MAKE_TARGETS
