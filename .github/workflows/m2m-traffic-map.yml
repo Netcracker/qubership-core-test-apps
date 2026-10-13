@@ -214,6 +214,12 @@ jobs:
       - name: Put the capture in place
         run: bash m2m-traffic-map/apply-capture.sh
 
+      # core-operator calls DBaaS and MaaS only for a resource it has not reconciled yet, which it did
+      # when Cloud Core was installed. It reconciles again, on start, a resource whose observed
+      # generation is not the current one.
+      - name: Make core-operator reconcile its resources again
+        run: bash m2m-traffic-map/resync-operator.sh core
+
       # a service that has started before the capture is not seen starting
       - name: Restart the core services
         run: |
