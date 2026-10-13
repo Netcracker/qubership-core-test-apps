@@ -108,6 +108,8 @@ jobs:
               no-credential:*>dbaas-aggregator=k8s-token
               no-credential:*>maas-service=k8s-token
               edge:core-operator>dbaas-agent
+              credential:core-app-chart-pre-hook>dbaas-aggregator=basic
+              credential:core-app-chart-pre-hook>maas-service=basic
           - core: legacy
             servers: hybrid
             expect: >-
@@ -117,6 +119,8 @@ jobs:
               no-credential:*>dbaas-aggregator=k8s-token
               no-credential:*>maas-service=k8s-token
               edge:core-operator>dbaas-agent
+              credential:core-app-chart-pre-hook>dbaas-aggregator=basic
+              credential:core-app-chart-pre-hook>maas-service=basic
           - core: legacy
             servers: k8s
             expect: >-
@@ -126,6 +130,8 @@ jobs:
               no-credential:*>dbaas-aggregator=k8s-token
               no-credential:*>maas-service=k8s-token
               edge:core-operator>dbaas-agent
+              credential:core-app-chart-pre-hook>dbaas-aggregator=basic
+              credential:core-app-chart-pre-hook>maas-service=basic
 
           # A hybrid core sends a Kubernetes token. Where it is refused (DBaaS in legacy mode) the
           # request is made again to the agent, with a Basic credential; where it is taken the
@@ -139,6 +145,8 @@ jobs:
               edge:site-management>dbaas-agent
               refused:core-operator>dbaas-aggregator=k8s-token
               edge:core-operator>dbaas-agent
+              credential:core-app-chart-pre-hook>dbaas-aggregator=basic
+              credential:core-app-chart-pre-hook>maas-service=basic
           - core: hybrid
             servers: hybrid
             expect: >-
@@ -148,6 +156,8 @@ jobs:
               no-fallback:*
               credential:core-operator>dbaas-aggregator=k8s-token
               no-edge:core-operator>dbaas-agent
+              credential:core-app-chart-pre-hook>dbaas-aggregator=basic
+              credential:core-app-chart-pre-hook>maas-service=basic
           - core: hybrid
             servers: k8s
             expect: >-
@@ -157,6 +167,8 @@ jobs:
               no-fallback:*
               credential:core-operator>dbaas-aggregator=k8s-token
               no-edge:core-operator>dbaas-agent
+              credential:core-app-chart-pre-hook>dbaas-aggregator=basic
+              credential:core-app-chart-pre-hook>maas-service=basic
 
           # A k8s core sends a Kubernetes token and nothing else, and installs no agents. A DBaaS
           # in legacy mode refuses the token, and nothing takes the request again.
@@ -167,9 +179,11 @@ jobs:
               refused:site-management>dbaas-aggregator=k8s-token
               no-fallback:*
               no-edge:*>dbaas-agent
-              no-edge:*>maas-service
+              no-edge:maas-agent>maas-service
               refused:core-operator>dbaas-aggregator=k8s-token
               no-edge:core-operator>dbaas-agent
+              credential:core-app-chart-pre-hook>dbaas-aggregator=basic
+              credential:core-app-chart-pre-hook>maas-service=basic
           - core: k8s
             servers: hybrid
             expect: >-
@@ -177,9 +191,11 @@ jobs:
               no-credential:site-management>dbaas-aggregator=basic
               no-fallback:*
               no-edge:*>dbaas-agent
-              no-edge:*>maas-service
+              no-edge:maas-agent>maas-service
               credential:core-operator>dbaas-aggregator=k8s-token
               no-edge:core-operator>dbaas-agent
+              credential:core-app-chart-pre-hook>dbaas-aggregator=basic
+              credential:core-app-chart-pre-hook>maas-service=basic
           - core: k8s
             servers: k8s
             expect: >-
@@ -187,9 +203,11 @@ jobs:
               no-credential:site-management>dbaas-aggregator=basic
               no-fallback:*
               no-edge:*>dbaas-agent
-              no-edge:*>maas-service
+              no-edge:maas-agent>maas-service
               credential:core-operator>dbaas-aggregator=k8s-token
               no-edge:core-operator>dbaas-agent
+              credential:core-app-chart-pre-hook>dbaas-aggregator=basic
+              credential:core-app-chart-pre-hook>maas-service=basic
 
     env:
       # the bootstrap variables of both runs of make; TEST_BRANCH is added to the second, where it is set
