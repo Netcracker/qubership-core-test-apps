@@ -1,5 +1,5 @@
 name: M2M traffic map
-run-name: "[bootstrap=${{ inputs.core-bootstrap-branch || 'feat/early-mesh' }}] [dbaas=${{ inputs.dbaas-repo-branch || 'main' }}] [maas=${{ inputs.maas-branch || 'main' }}]"
+run-name: "[operator] [bootstrap=feat/dbaas-mounted-secret-migration] [dbaas=${{ inputs.dbaas-repo-branch || 'main' }}] [maas=${{ inputs.maas-branch || 'main' }}]"
 
 # Maps the interactions of the core services with each other, with DBaaS and MaaS and with their
 # agents, in each M2M mode.
@@ -26,6 +26,8 @@ run-name: "[bootstrap=${{ inputs.core-bootstrap-branch || 'feat/early-mesh' }}] 
 # legacy dependency falls back. So the same checks hold with and without the DBaaS Operator.
 
 on:
+  push:
+    branches: [tmp/m2m-traffic-operator]
   workflow_dispatch:
     inputs:
       # feat/early-mesh until Netcracker/qubership-core-bootstrap#229, which brings CORE_MESH_EARLY,
@@ -118,6 +120,9 @@ jobs:
         MAAS_BRANCH=${{ inputs.maas-branch || 'main' }}
         CORE_MESH_EARLY=true
         MESH_DEPENDENCY_NAMESPACES=dbaas,maas
+        DBAAS_OPERATOR_ENABLED=true
+        CORE_BOOTSTRAP_BRANCH=feat/dbaas-mounted-secret-migration
+        CORETPL_CHART_DIR=../coretpl
         ${{ inputs.aux-bootstrap-args }}
 
     steps:
@@ -132,8 +137,8 @@ jobs:
       - name: Setup Kind cluster and deploy Istio, DBaaS and MaaS
         uses: ./.github/actions/setup-kind-with-cloud-core
         with:
-          core-bootstrap-branch: ${{ inputs.core-bootstrap-branch || 'feat/early-mesh' }}
-          test-branch: ${{ inputs.test-branch }}
+          core-bootstrap-branch: feat/dbaas-mounted-secret-migration
+          test-branch: feat/dbaas-mounted-secret-migration
           install-maas: 'true'
           install-istio: 'true'
           mesh-type: 'Istio'
@@ -157,7 +162,7 @@ jobs:
         id: install
         continue-on-error: true
         env:
-          TEST_BRANCH: ${{ inputs.test-branch }}
+          TEST_BRANCH: feat/dbaas-mounted-secret-migration
         run: >-
           make -k -C core-bootstrap-repo/cloud-core-local-dev/ deploy-core
           ${TEST_BRANCH:+TEST_BRANCH=$TEST_BRANCH}
