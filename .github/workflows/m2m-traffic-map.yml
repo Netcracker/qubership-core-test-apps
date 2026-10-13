@@ -20,8 +20,10 @@ run-name: "[bootstrap=${{ inputs.core-bootstrap-branch || 'feat/early-mesh' }}] 
 # The hybrid core with DBaaS and MaaS in legacy mode shows the fallback: the Kubernetes token is
 # refused by dbaas-aggregator, and the same request is made to dbaas-agent with the legacy token.
 #
-# Each case checks the map against what the mode should do (traffic_map.py --expect): who reaches
-# the agents, who sends a Kubernetes token, and who falls back.
+# Each case checks the credentials against the modes (traffic_map.py --core-mode --dependency-mode),
+# not who calls whom: the core services send the token of their mode, a legacy token from a hybrid core
+# only in a fallback, the agents call DBaaS and MaaS with Basic, and only a hybrid core against a
+# legacy dependency falls back. So the same checks hold with and without the DBaaS Operator.
 
 on:
   workflow_dispatch:
@@ -100,119 +102,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          # A legacy core reaches DBaaS and MaaS through their agents, whatever their mode: it
-          # sends no Kubernetes token, and DBaaS and MaaS in any mode still take its credentials.
-          - core: legacy
-            servers: legacy
-            expect: >-
-              edge:site-management>dbaas-agent
-              edge:dbaas-agent>dbaas-aggregator
-              edge:maas-agent>maas-service
-              no-credential:*>dbaas-aggregator=k8s-token
-              no-credential:*>maas-service=k8s-token
-              edge:core-operator>dbaas-agent
-              credential:core-app-chart-pre-hook>dbaas-aggregator=basic
-              credential:core-app-chart-pre-hook>maas-service=basic
-          - core: legacy
-            servers: hybrid
-            expect: >-
-              edge:site-management>dbaas-agent
-              edge:dbaas-agent>dbaas-aggregator
-              edge:maas-agent>maas-service
-              no-credential:*>dbaas-aggregator=k8s-token
-              no-credential:*>maas-service=k8s-token
-              edge:core-operator>dbaas-agent
-              credential:core-app-chart-pre-hook>dbaas-aggregator=basic
-              credential:core-app-chart-pre-hook>maas-service=basic
-          - core: legacy
-            servers: k8s
-            expect: >-
-              edge:site-management>dbaas-agent
-              edge:dbaas-agent>dbaas-aggregator
-              edge:maas-agent>maas-service
-              no-credential:*>dbaas-aggregator=k8s-token
-              no-credential:*>maas-service=k8s-token
-              edge:core-operator>dbaas-agent
-              credential:core-app-chart-pre-hook>dbaas-aggregator=basic
-              credential:core-app-chart-pre-hook>maas-service=basic
-
-          # A hybrid core sends a Kubernetes token. Where it is refused (DBaaS in legacy mode) the
-          # request is made again to the agent, with a Basic credential; where it is taken the
-          # agent is not used.
-          - core: hybrid
-            servers: legacy
-            expect: >-
-              credential:site-management>dbaas-aggregator=k8s-token
-              refused:site-management>dbaas-aggregator=k8s-token
-              fallback:site-management
-              edge:site-management>dbaas-agent
-              refused:core-operator>dbaas-aggregator=k8s-token
-              edge:core-operator>dbaas-agent
-              credential:core-app-chart-pre-hook>dbaas-aggregator=basic
-              credential:core-app-chart-pre-hook>maas-service=basic
-          - core: hybrid
-            servers: hybrid
-            expect: >-
-              credential:site-management>dbaas-aggregator=k8s-token
-              no-edge:site-management>dbaas-agent
-              no-credential:site-management>dbaas-aggregator=basic
-              no-fallback:*
-              credential:core-operator>dbaas-aggregator=k8s-token
-              no-edge:core-operator>dbaas-agent
-              credential:core-app-chart-pre-hook>dbaas-aggregator=basic
-              credential:core-app-chart-pre-hook>maas-service=basic
-          - core: hybrid
-            servers: k8s
-            expect: >-
-              credential:site-management>dbaas-aggregator=k8s-token
-              no-edge:site-management>dbaas-agent
-              no-credential:site-management>dbaas-aggregator=basic
-              no-fallback:*
-              credential:core-operator>dbaas-aggregator=k8s-token
-              no-edge:core-operator>dbaas-agent
-              credential:core-app-chart-pre-hook>dbaas-aggregator=basic
-              credential:core-app-chart-pre-hook>maas-service=basic
-
-          # A k8s core sends a Kubernetes token and nothing else, and installs no agents. A DBaaS
-          # in legacy mode refuses the token, and nothing takes the request again.
-          - core: k8s
-            servers: legacy
-            expect: >-
-              credential:site-management>dbaas-aggregator=k8s-token
-              refused:site-management>dbaas-aggregator=k8s-token
-              no-fallback:*
-              no-edge:*>dbaas-agent
-              no-edge:maas-agent>maas-service
-              refused:core-operator>dbaas-aggregator=k8s-token
-              no-edge:core-operator>dbaas-agent
-              credential:core-app-chart-pre-hook>dbaas-aggregator=basic
-              credential:core-app-chart-pre-hook>maas-service=basic
-          - core: k8s
-            servers: hybrid
-            expect: >-
-              credential:site-management>dbaas-aggregator=k8s-token
-              no-credential:site-management>dbaas-aggregator=basic
-              no-fallback:*
-              no-edge:*>dbaas-agent
-              no-edge:maas-agent>maas-service
-              credential:core-operator>dbaas-aggregator=k8s-token
-              no-edge:core-operator>dbaas-agent
-              credential:core-app-chart-pre-hook>dbaas-aggregator=basic
-              credential:core-app-chart-pre-hook>maas-service=basic
-          - core: k8s
-            servers: k8s
-            expect: >-
-              credential:site-management>dbaas-aggregator=k8s-token
-              no-credential:site-management>dbaas-aggregator=basic
-              no-fallback:*
-              no-edge:*>dbaas-agent
-              no-edge:maas-agent>maas-service
-              credential:core-operator>dbaas-aggregator=k8s-token
-              no-edge:core-operator>dbaas-agent
-              credential:core-app-chart-pre-hook>dbaas-aggregator=basic
-              credential:core-app-chart-pre-hook>maas-service=basic
-
+        core: [legacy, hybrid, k8s]
+        servers: [legacy, hybrid, k8s]
     env:
       # the bootstrap variables of both runs of make; TEST_BRANCH is added to the second, where it is set
       BOOTSTRAP_ARGS: >-
@@ -298,7 +189,8 @@ jobs:
         env:
           CASE: core=${{ matrix.core }} dbaas and maas=${{ matrix.servers }}
           INSTALL_OUTCOME: ${{ steps.install.outcome }}
-          EXPECT: ${{ matrix.expect }}
+          CORE_MODE: ${{ matrix.core }}
+          DEPENDENCY_MODE: ${{ matrix.servers }}
         run: |
           {
             echo "## $CASE"
@@ -306,12 +198,11 @@ jobs:
             echo "The install of Cloud Core finished with: \`$INSTALL_OUTCOME\`."
             echo ""
           } >> "$GITHUB_STEP_SUMMARY"
-          # the rules hold > and *, which the shell must not take for a redirection or a pattern
-          read -ra rules <<< "$EXPECT"
           status=0
           python m2m-traffic-map/traffic_map.py --access-log waypoint-core.log waypoint-dbaas.log waypoint-maas.log \
             --pods pods.json --pod-ips pod-ips.txt \
-            --out-md map.md --out-json map.json --expect "${rules[@]}" || status=$?
+            --out-md map.md --out-json map.json \
+            --core-mode "$CORE_MODE" --dependency-mode "$DEPENDENCY_MODE" || status=$?
           cat map.md >> "$GITHUB_STEP_SUMMARY"
           exit "$status"
 
