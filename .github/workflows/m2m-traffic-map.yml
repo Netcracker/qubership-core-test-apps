@@ -191,13 +191,27 @@ jobs:
               credential:core-operator>dbaas-aggregator=k8s-token
               no-edge:core-operator>dbaas-agent
 
+    env:
+      # the bootstrap variables of both runs of make; TEST_BRANCH is added to the second, where it is set
+      BOOTSTRAP_ARGS: >-
+        INSTALL_MAAS=true
+        CORE_CONFIG_MAAS_ENABLED=true
+        INSTALL_ISTIO=true
+        SERVICE_MESH_TYPE=Istio
+        M2M_AUTH_MODE=${{ matrix.core }}
+        DBAAS_M2M_AUTH_MODE=${{ matrix.servers }}
+        MAAS_M2M_AUTH_MODE=${{ matrix.servers }}
+        DBAAS_REPO_BRANCH=${{ inputs.dbaas-repo-branch || 'main' }}
+        MAAS_BRANCH=${{ inputs.maas-branch || 'main' }}
+        ${{ inputs.aux-bootstrap-args }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Setup Kind cluster and deploy Cloud Core
-        id: install
-        continue-on-error: true
+      # The capture has to be in place before Cloud Core is deployed, to see what the services and the
+      # hooks do while it installs: the dependencies, the capture, then Cloud Core, in two runs of make.
+      - name: Setup Kind cluster and deploy Istio, DBaaS and MaaS
         uses: ./.github/actions/setup-kind-with-cloud-core
         with:
           core-bootstrap-branch: ${{ inputs.core-bootstrap-branch || 'main' }}
@@ -205,17 +219,8 @@ jobs:
           install-maas: 'true'
           install-istio: 'true'
           mesh-type: 'Istio'
-          # make -k goes on with what does not depend on a service that failed to install: a k8s core
-          # against a DBaaS in legacy mode fails at core-operator, and the services after it and the
-          # waypoint, which come last, would otherwise never exist
-          aux-bootstrap-args: >-
-            -k
-            M2M_AUTH_MODE=${{ matrix.core }}
-            DBAAS_M2M_AUTH_MODE=${{ matrix.servers }}
-            MAAS_M2M_AUTH_MODE=${{ matrix.servers }}
-            DBAAS_REPO_BRANCH=${{ inputs.dbaas-repo-branch || 'main' }}
-            MAAS_BRANCH=${{ inputs.maas-branch || 'main' }}
-            ${{ inputs.aux-bootstrap-args }}
+          make-targets: resolved-refs validate clone-repos template-values-files deploy-dependencies
+          aux-bootstrap-args: ${{ env.BOOTSTRAP_ARGS }}
 
       # the hooks of the services are deleted when they succeed, and the addresses of their pods are
       # needed to name the senders of what the access log shows without an identity
@@ -229,18 +234,18 @@ jobs:
       - name: Put the capture in place
         run: bash m2m-traffic-map/apply-capture.sh
 
-      # core-operator calls DBaaS and MaaS only for a resource it has not reconciled yet, which it did
-      # when Cloud Core was installed. It reconciles again, on start, a resource whose observed
-      # generation is not the current one.
-      - name: Make core-operator reconcile its resources again
-        run: bash m2m-traffic-map/resync-operator.sh core
-
-      # a service that has started before the capture is not seen starting
-      - name: Restart the core services
-        run: |
-          deployments="$(kubectl -n core get deploy -o json | jq -r '.items[] | select((.metadata.labels["gateway.networking.k8s.io/gateway-name"] // null) == null) | .metadata.name')"
-          for deployment in $deployments; do kubectl -n core rollout restart "deploy/$deployment"; done
-          for deployment in $deployments; do kubectl -n core rollout status "deploy/$deployment" --timeout=300s || true; done
+      # make -k goes on with what does not depend on a service that failed to install: a k8s core
+      # against a DBaaS in legacy mode fails at core-operator, and the services after it and the
+      # waypoint, which come last, would otherwise never exist
+      - name: Deploy Cloud Core
+        id: install
+        continue-on-error: true
+        env:
+          TEST_BRANCH: ${{ inputs.test-branch }}
+        run: >-
+          make -k -C core-bootstrap-repo/cloud-core-local-dev/ deploy-core
+          ${TEST_BRANCH:+TEST_BRANCH=$TEST_BRANCH}
+          $BOOTSTRAP_ARGS
 
       - name: Let the services run
         env:
