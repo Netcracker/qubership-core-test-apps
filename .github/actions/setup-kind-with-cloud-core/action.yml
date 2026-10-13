@@ -42,8 +42,7 @@ inputs:
   make-targets:
     description: >
       Targets of the cloud-core local-dev make run. The default installs everything. A suite that has
-      to act between the dependencies and Cloud Core installs the dependencies here
-      (resolved-refs validate clone-repos template-values-files deploy-dependencies), then runs
+      to act between the dependencies and Cloud Core passes install-dependencies here, then runs
       deploy-core itself.
     required: false
     default: install
