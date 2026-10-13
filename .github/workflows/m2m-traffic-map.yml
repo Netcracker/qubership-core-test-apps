@@ -12,8 +12,10 @@ run-name: "[bootstrap=${{ inputs.core-bootstrap-branch || 'main' }}] [dbaas=${{ 
 #               the credential: the user of a Basic credential, or the header and the claims of a
 #               bearer token (a Kubernetes token, or the legacy token)
 #
-# The services are restarted once the capture is in place, so that what they do on start is seen,
-# and the traffic of two minutes after that is mapped.
+# The capture is in place before Cloud Core is deployed: the core namespace gets the waypoint of
+# core-mesh-config, under its name, before any core pod exists, and the log of every waypoint pod is
+# followed from its start. So what the services and the hooks do while Cloud Core installs is seen,
+# with no restart, and the traffic until two minutes after the install is mapped.
 #
 # The hybrid core with DBaaS and MaaS in legacy mode shows the fallback: the Kubernetes token is
 # refused by dbaas-aggregator, and the same request is made to dbaas-agent with the legacy token.
@@ -240,21 +242,19 @@ jobs:
           make-targets: resolved-refs validate clone-repos template-values-files deploy-dependencies
           aux-bootstrap-args: ${{ env.BOOTSTRAP_ARGS }}
 
-      # the hooks of the services are deleted when they succeed, and the addresses of their pods are
-      # needed to name the senders of what the access log shows without an identity
-      - name: Record the addresses of the pods
+      # the addresses of the pods, and the log of every waypoint pod from its start, until "Collect
+      # the traffic" stops it
+      - name: Start recording
         run: |
-          nohup setsid bash -c 'while true; do
-            kubectl get pods -A -o jsonpath="{range .items[*]}{.status.podIP}{\" \"}{.metadata.name}{\"\n\"}{end}" >> "$GITHUB_WORKSPACE/pod-ips.txt" 2>/dev/null
-            sleep 2
-          done' > /dev/null 2>&1 &
+          nohup setsid bash m2m-traffic-map/record-traffic.sh "$RUNNER_TEMP/traffic" core dbaas maas > /dev/null 2>&1 &
+          echo $! > "$RUNNER_TEMP/record-traffic.pid"
 
       - name: Put the capture in place
         run: bash m2m-traffic-map/apply-capture.sh
 
       # make -k goes on with what does not depend on a service that failed to install: a k8s core
-      # against a DBaaS in legacy mode fails at core-operator, and the services after it and the
-      # waypoint, which come last, would otherwise never exist
+      # against a DBaaS in legacy mode fails at core-operator, and the services after it would
+      # otherwise never exist
       - name: Deploy Cloud Core
         id: install
         continue-on-error: true
@@ -272,9 +272,17 @@ jobs:
 
       - name: Collect the traffic
         run: |
-          for ns in core dbaas maas; do
-            kubectl -n "$ns" logs -l gateway.networking.k8s.io/gateway-name --all-containers --tail=-1 --prefix=false > "waypoint-$ns.log" 2>/dev/null || true
+          pid="$(cat "$RUNNER_TEMP/record-traffic.pid")"
+          kill "$pid" || true
+          for _ in $(seq 20); do
+            kill -0 "$pid" 2>/dev/null || break
+            sleep 1
           done
+          ls -l "$RUNNER_TEMP/traffic/waypoint"
+          for ns in core dbaas maas; do
+            cat "$RUNNER_TEMP/traffic/waypoint/$ns".* > "waypoint-$ns.log" 2>/dev/null || true
+          done
+          cp "$RUNNER_TEMP/traffic/pod-ips.txt" pod-ips.txt || true
           kubectl get pods -A -o json > pods.json
           kubectl get httproute.gateway.networking.k8s.io,envoyfilter.networking.istio.io,gateway.gateway.networking.k8s.io,svc -A -o yaml > mesh-config.yaml || true
           echo "access log lines: $(cat waypoint-*.log | grep -c '"kind":"capture"' || true)"
