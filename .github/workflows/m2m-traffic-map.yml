@@ -26,6 +26,8 @@ run-name: "[bootstrap=${{ inputs.core-bootstrap-branch || 'feat/early-mesh' }}] 
 # legacy dependency falls back. So the same checks hold with and without the DBaaS Operator.
 
 on:
+  push:
+    branches: [tmp/m2m-traffic-run]
   workflow_dispatch:
     inputs:
       # feat/early-mesh until Netcracker/qubership-core-bootstrap#229, which brings CORE_MESH_EARLY,
