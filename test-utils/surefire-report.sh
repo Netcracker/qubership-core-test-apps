@@ -59,8 +59,8 @@
 #       separate process from the checks, as a later workflow step. The XML holds exactly one <testsuite>
 #       with no <testsuites> wrapper, because the integration tests report reads the counts from the first
 #       <testsuite> tag. A `fail` becomes a <failure type="AssertionError">, an `error` becomes an
-#       <error type="SetupError">. It returns 0 whatever the checks found, and 2 if REPORT_DIR is not set
-#       or an option is unknown.
+#       <error type="SetupError">. It returns 0 whatever the checks found, and 2 if REPORT_DIR is not set,
+#       an option is unknown, or --job-status has no value.
 #
 # `surefire_on_abort` (the ERR trap handler) and `surefire_xml_escape` are internal; do not call them.
 #
