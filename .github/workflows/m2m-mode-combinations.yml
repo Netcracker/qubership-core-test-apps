@@ -1,0 +1,175 @@
+name: M2M mode combinations
+run-name: "[bootstrap=${{ inputs.core-bootstrap-branch || 'main' }}] [dbaas=${{ inputs.dbaas-repo-branch || 'main' }}] [maas=${{ inputs.maas-branch || 'main' }}]"
+
+# Installs Cloud Core with DBaaS and MaaS in different M2M modes (legacy, hybrid, k8s) and checks
+# that the combinations which should work do, and the ones which should not do not.
+#
+# legacy  - the M2M of Cloud Core: the calls go through the DBaaS and MaaS agents
+# hybrid  - Kubernetes projected tokens, with a fallback to legacy
+# k8s     - Kubernetes projected tokens only, no agents
+#
+# A core service can call DBaaS and MaaS when they accept the way it authenticates. In legacy mode
+# they accept only the legacy M2M; in hybrid and k8s mode they accept the Kubernetes tokens and
+# still the legacy credentials, so an older core keeps working against a newer DBaaS or MaaS:
+#
+#              DBaaS and MaaS: legacy   hybrid   k8s
+#   core legacy                works     works    works
+#   core hybrid                works     works    works    (legacy through the fallback)
+#   core k8s                   fails     works    works
+#
+# "works" runs the integration tests of the core. "fails" must fail the install: the job passes
+# when it does, and fails when the install succeeds. The dependencies are also set apart from each
+# other (a core in hybrid mode with DBaaS in k8s mode and MaaS in legacy mode, and the other way
+# round, which works because the fallback covers the legacy side; a k8s core with only DBaaS in
+# legacy mode, which fails because the core cannot reach DBaaS).
+
+on:
+  workflow_dispatch:
+    inputs:
+      core-bootstrap-branch:
+        description: 'Branch of core-bootstrap repo'
+        required: false
+        default: 'main'
+        type: string
+      test-branch:
+        description: 'Branch of the core services and of the test repositories. A repository that has no such branch stays on main. Empty leaves the core services to the bootstrap, which uses main'
+        required: false
+        default: ''
+        type: string
+      dbaas-repo-branch:
+        description: 'Branch or tag of qubership-dbaas. The pinned release of the bootstrap does not know the M2M modes yet, so this is main'
+        required: false
+        default: 'main'
+        type: string
+      maas-branch:
+        description: 'Branch or tag of qubership-maas. The pinned release of the bootstrap does not know the M2M modes yet, so this is main'
+        required: false
+        default: 'main'
+        type: string
+      aux-bootstrap-args:
+        description: 'Extra KEY=VALUE variables for the cloud-core bootstrap, space separated, applied last'
+        required: false
+        default: ''
+        type: string
+
+  workflow_call:
+    inputs:
+      core-bootstrap-branch:
+        description: 'Branch of core-bootstrap repo'
+        required: false
+        default: 'main'
+        type: string
+      test-branch:
+        description: 'Branch of the core services and of the test repositories. A repository that has no such branch stays on main. Empty leaves the core services to the bootstrap, which uses main'
+        required: false
+        default: ''
+        type: string
+      dbaas-repo-branch:
+        description: 'Branch or tag of qubership-dbaas'
+        required: false
+        default: 'main'
+        type: string
+      maas-branch:
+        description: 'Branch or tag of qubership-maas'
+        required: false
+        default: 'main'
+        type: string
+      aux-bootstrap-args:
+        description: 'Extra KEY=VALUE variables for the cloud-core bootstrap, space separated, applied last'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  works:
+    name: "works: core=${{ matrix.core }} dbaas=${{ matrix.dbaas }} maas=${{ matrix.maas }}"
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # the maas-agent tests need the MaaS agent, which a core in k8s mode does not install
+          - { core: legacy, dbaas: legacy, maas: legacy, tests: 'control-plane,paas-mediation,site-management,maas-agent' }
+          - { core: legacy, dbaas: hybrid, maas: hybrid, tests: 'control-plane,paas-mediation,site-management,maas-agent' }
+          - { core: legacy, dbaas: k8s, maas: k8s, tests: 'control-plane,paas-mediation,site-management,maas-agent' }
+          - { core: hybrid, dbaas: legacy, maas: legacy, tests: 'control-plane,paas-mediation,site-management,maas-agent' }
+          - { core: hybrid, dbaas: hybrid, maas: hybrid, tests: 'control-plane,paas-mediation,site-management,maas-agent' }
+          - { core: hybrid, dbaas: k8s, maas: k8s, tests: 'control-plane,paas-mediation,site-management,maas-agent' }
+          - { core: hybrid, dbaas: k8s, maas: legacy, tests: 'control-plane,paas-mediation,site-management,maas-agent' }
+          - { core: hybrid, dbaas: legacy, maas: k8s, tests: 'control-plane,paas-mediation,site-management,maas-agent' }
+          - { core: k8s, dbaas: hybrid, maas: hybrid, tests: 'control-plane,paas-mediation,site-management' }
+          - { core: k8s, dbaas: k8s, maas: k8s, tests: 'control-plane,paas-mediation,site-management' }
+    uses: ./.github/workflows/integration-tests.yml
+    with:
+      core-bootstrap-branch: ${{ inputs.core-bootstrap-branch || 'main' }}
+      test-branch: ${{ inputs.test-branch }}
+      install-maas: true
+      install-istio: false
+      mesh-type: 'Core'
+      m2m-auth-mode: ${{ matrix.core }}
+      aux-bootstrap-args: >-
+        DBAAS_M2M_AUTH_MODE=${{ matrix.dbaas }}
+        MAAS_M2M_AUTH_MODE=${{ matrix.maas }}
+        DBAAS_REPO_BRANCH=${{ inputs.dbaas-repo-branch || 'main' }}
+        MAAS_BRANCH=${{ inputs.maas-branch || 'main' }}
+        ${{ inputs.aux-bootstrap-args }}
+      test-usecase: m2m-${{ matrix.core }}-${{ matrix.dbaas }}-${{ matrix.maas }}
+      run-tests-for: ${{ matrix.tests }}
+
+  fails:
+    name: "fails: core=${{ matrix.core }} dbaas=${{ matrix.dbaas }} maas=${{ matrix.maas }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { core: k8s, dbaas: legacy, maas: legacy }
+          - { core: k8s, dbaas: legacy, maas: k8s }
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Kind cluster and deploy Cloud Core
+        id: install
+        continue-on-error: true
+        uses: ./.github/actions/setup-kind-with-cloud-core
+        with:
+          core-bootstrap-branch: ${{ inputs.core-bootstrap-branch || 'main' }}
+          test-branch: ${{ inputs.test-branch }}
+          install-maas: 'true'
+          install-istio: 'false'
+          mesh-type: 'Core'
+          aux-bootstrap-args: >-
+            M2M_AUTH_MODE=${{ matrix.core }}
+            DBAAS_M2M_AUTH_MODE=${{ matrix.dbaas }}
+            MAAS_M2M_AUTH_MODE=${{ matrix.maas }}
+            DBAAS_REPO_BRANCH=${{ inputs.dbaas-repo-branch || 'main' }}
+            MAAS_BRANCH=${{ inputs.maas-branch || 'main' }}
+            ${{ inputs.aux-bootstrap-args }}
+
+      # A failure of the Kind cluster or of the tooling would also fail the step above, and would
+      # pass for the failure this job waits for. A deployment in the core namespace shows that the
+      # install got as far as the core, after DBaaS and MaaS. (A release that fails to install is
+      # rolled back, so the list of Helm releases cannot tell.)
+      - name: Check that the install failed in Cloud Core
+        env:
+          INSTALL_OUTCOME: ${{ steps.install.outcome }}
+          EXPECTATION: core=${{ matrix.core }} dbaas=${{ matrix.dbaas }} maas=${{ matrix.maas }}
+        run: |
+          if [ "$INSTALL_OUTCOME" = "success" ]; then
+            echo "::error::The install succeeded with $EXPECTATION, and it must fail: the core cannot call a DBaaS or MaaS that does not accept its M2M mode"
+            exit 1
+          fi
+          deployments="$(kubectl get deploy -n core -o name 2>/dev/null || true)"
+          if [ -z "$deployments" ]; then
+            echo "::error::The install failed with $EXPECTATION before it reached Cloud Core, so the failure says nothing about the M2M modes"
+            exit 1
+          fi
+          echo "The install failed in Cloud Core with $EXPECTATION, as expected. Deployments in the core namespace:"
+          echo "$deployments"
+
+      - name: Collect Kubernetes diagnostics
+        if: ${{ always() && steps.install.outcome == 'failure' }}
+        uses: ./.github/actions/collect-k8s-diagnostics
+        with:
+          artifact-suffix: -m2m-${{ matrix.core }}-${{ matrix.dbaas }}-${{ matrix.maas }}

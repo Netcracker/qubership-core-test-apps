@@ -1,7 +1,6 @@
 package com.netcracker.it.spring.model.svt;
 
-import com.netcracker.it.spring.CommonOperations;
-import com.netcracker.it.spring.model.TraceResponse;
+import com.netcracker.it.common.model.TraceResponse;
 import com.netcracker.it.spring.utils.Utils;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;

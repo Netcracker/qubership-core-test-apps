@@ -204,3 +204,90 @@ spec:
                   prefix: /api/v1/mesh-test-service-spring/sleep
                 allowed: true
 {{- end }}
+{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}
+---
+apiVersion: core.netcracker.com/v1
+kind: Mesh
+subKind: RouteConfiguration
+metadata:
+  name: sleep-route-with-timeout-public
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
+    app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
+spec:
+  gateways: [ "public-gateway-service"]
+  listenerPort: 8080
+  virtualServices:
+    - name: "public-gateway-service"
+      routeConfiguration:
+        version: "{{ .Values.DEPLOYMENT_VERSION }}"
+        routes:
+          - destination:
+              cluster: "{{ .Values.SERVICE }}"
+              endpoint: http://{{ .Values.DEPLOYMENT_RESOURCE_NAME }}:8080
+            rules:
+              - match:
+                  prefix: /api/v1/mesh-test-service-spring/timeout/sleep
+                allowed: true
+                prefixRewrite: /api/v1/sleep
+                timeout: 10000
+---
+apiVersion: core.netcracker.com/v1
+kind: Mesh
+subKind: RouteConfiguration
+metadata:
+  name: sleep-route-with-timeout-private
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
+    app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
+spec:
+  gateways: [ "private-gateway-service"]
+  listenerPort: 8080
+  virtualServices:
+    - name: "private-gateway-service"
+      routeConfiguration:
+        version: "{{ .Values.DEPLOYMENT_VERSION }}"
+        routes:
+          - destination:
+              cluster: "{{ .Values.SERVICE }}"
+              endpoint: http://{{ .Values.DEPLOYMENT_RESOURCE_NAME }}:8080
+            rules:
+              - match:
+                  prefix: /api/v1/mesh-test-service-spring/timeout/sleep
+                allowed: true
+                prefixRewrite: /api/v1/sleep
+                timeout: 10000
+---
+apiVersion: core.netcracker.com/v1
+kind: Mesh
+subKind: RouteConfiguration
+metadata:
+  name: sleep-route-with-timeout-composite
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}' # needed for finalyzer check
+    app.kubernetes.io/processed-by-operator: "core-operator" # name of operator
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}' # needed for finalyzer check
+spec:
+  gateways: [ "mesh-test-app-gateway"]
+  listenerPort: 8080
+  virtualServices:
+    - name: "{{ .Values.SERVICE }}"
+      hosts: ["{{ .Values.SERVICE }}"]
+      routeConfiguration:
+        version: "{{ .Values.DEPLOYMENT_VERSION }}"
+        routes:
+          - destination:
+              cluster: "{{ .Values.SERVICE }}"
+              endpoint: http://{{ .Values.DEPLOYMENT_RESOURCE_NAME }}:8080
+            rules:
+              - match:
+                  prefix: /api/v1/mesh-test-service-spring/timeout/sleep
+                allowed: true
+                prefixRewrite: /api/v1/sleep
+                timeout: 10000
+{{- end }}                  

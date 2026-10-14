@@ -1,0 +1,4 @@
+microservice:
+  name: maas-failover-test-service-go
+deployment:
+  version: ${DEPLOYMENT_VERSION:v1}

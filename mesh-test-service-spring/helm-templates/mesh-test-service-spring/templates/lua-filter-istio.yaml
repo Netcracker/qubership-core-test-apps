@@ -68,7 +68,6 @@ spec:
           name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
           port: 8080
           weight: 1
-{{- if semverCompare ">=1.30.0" .Values.ISTIO_VERSION }}
 ---
 apiVersion: extensions.istio.io/v1alpha1
 kind: TrafficExtension
@@ -90,71 +89,4 @@ spec:
   lua:
     inlineCode: |
 {{ include "mesh-test-service-spring.luaFilterInlineCode" . | indent 6 }}
-{{- else if semverCompare "<1.30.0" .Values.ISTIO_VERSION }}
----
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: lua-filter-it
-  labels:
-    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
-    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
-    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
-spec:
-  targetRefs:
-    - kind: Gateway
-      group: gateway.networking.k8s.io
-      name: public-gateway
-  configPatches:
-    - applyTo: HTTP_FILTER
-      match:
-        context: GATEWAY
-        listener:
-          filterChain:
-            filter:
-              name: envoy.filters.network.http_connection_manager
-              subFilter:
-                name: envoy.filters.http.router
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: envoy.filters.http.lua
-          typed_config:
-            "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
-            stat_prefix: lua
-            inline_code: |
-{{ include "mesh-test-service-spring.luaFilterInlineCode" . | indent 14 }}
----
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: lua-filter-it-waypoint
-  labels:
-    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
-    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
-    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
-spec:
-  targetRefs:
-    - kind: Gateway
-      group: gateway.networking.k8s.io
-      name: waypoint
-  configPatches:
-    - applyTo: HTTP_FILTER
-      match:
-        listener:
-          filterChain:
-            filter:
-              name: envoy.filters.network.http_connection_manager
-              subFilter:
-                name: envoy.filters.http.router
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: envoy.filters.http.lua
-          typed_config:
-            "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
-            stat_prefix: lua
-            inline_code: |
-{{ include "mesh-test-service-spring.luaFilterInlineCode" . | indent 14 }}
-{{- end }}
 {{- end }}

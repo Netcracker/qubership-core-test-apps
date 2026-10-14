@@ -1,0 +1,44 @@
+{{- if .Values.EGRESS_BG_TESTS_ENABLED }}
+# nginx configuration for the egress Blue/Green endpoints. Kept in its own file
+# so EgressBgEcho.yaml can hash it and roll the pod when it changes.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: egress-bg-echo
+  labels:
+    app.kubernetes.io/part-of: 'mesh-test-app'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+data:
+  nginx.conf: |
+    worker_processes 1;
+    error_log /dev/stderr warn;
+    pid /tmp/nginx.pid;
+
+    events {
+        worker_connections 256;
+    }
+
+    http {
+        access_log /dev/stdout;
+        default_type application/json;
+        # Everything nginx writes goes under /tmp: the root filesystem is read-only.
+        client_body_temp_path /tmp/client_body;
+        proxy_temp_path /tmp/proxy;
+        fastcgi_temp_path /tmp/fastcgi;
+        uwsgi_temp_path /tmp/uwsgi;
+        scgi_temp_path /tmp/scgi;
+
+        # Production integration, reached through the bg-prod Service.
+        server {
+            listen 8081;
+            return 200 '{"endpoint":"bg-prod","host":"$host","uri":"$request_uri","xVersionName":"$http_x_version_name"}';
+        }
+
+        # Stub of that integration, reached through the bg-stub Service.
+        server {
+            listen 8082;
+            return 200 '{"endpoint":"bg-stub","host":"$host","uri":"$request_uri","xVersionName":"$http_x_version_name"}';
+        }
+    }
+{{- end }}
