@@ -26,8 +26,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 @SmokeTest
 class ThresholdIT {
 
-	@PortForward(serviceName = @Value(SERVICE_NAME), cloud = @Cloud(namespace = @Value(prop = ORIGIN_NAMESPACE_ENV_NAME)))
-    private static URL springCompositeGWServerUrl;
+	@PortForward(serviceName = @Value(PUBLIC_GW_SERVICE_NAME), cloud = @Cloud(namespace = @Value(prop = ORIGIN_NAMESPACE_ENV_NAME)))
+    private static URL publicGWServerUrl;
 
 	@PortForward(serviceName = @Value(QUARKUS_SERVICE_NAME), cloud = @Cloud(namespace = @Value(prop = ORIGIN_NAMESPACE_ENV_NAME)))
     private static URL quarkusCompositeGWServerUrl;
@@ -44,7 +44,7 @@ class ThresholdIT {
 
     @BeforeAll
     void init() {
-        assertNotNull(springCompositeGWServerUrl);
+        assertNotNull(publicGWServerUrl);
         assertNotNull(quarkusCompositeGWServerUrl);
         assertNotNull(egressGatewayUrl);
     }
@@ -52,7 +52,9 @@ class ThresholdIT {
     @Test
     void testLoadEnvoyWithConcurrency1AndConnectionLimit() throws Exception {
         //load envoy with concurrency=1 and connection limited cluster
-        loadEnvoy(springCompositeGWServerUrl.toString() + "api/v1/mesh-test-service-spring/sleep?seconds=" + SLEEP_DURATION_SECONDS_STRING, true);
+        // via the spring proxy: on Istio the composite routes are applied by the waypoint, which port-forward bypasses
+        loadEnvoy(publicGWServerUrl.toString() + "api/v1/mesh-test-service-spring/spring/proxy?url="
+                + SERVICE_NAME + ":8080/api/v1/mesh-test-service-spring/sleep?seconds=" + SLEEP_DURATION_SECONDS_STRING, true);
     }
 
     @Test
