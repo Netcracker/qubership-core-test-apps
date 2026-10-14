@@ -157,6 +157,8 @@ QUARKUS_ROOT="$PROJECT_ROOT/mesh-test-service-quarkus/"
 SPRING_CHART="$SPRING_ROOT/helm-templates/mesh-test-service-spring"
 QUARKUS_CHART="$QUARKUS_ROOT/helm-templates/mesh-test-service-quarkus"
 GO_CHART="$PROJECT_ROOT/mesh-test-service-go/helm-templates/mesh-test-service-go"
+# CoreDNS rewrites for the egress TLS test host names, see egress-tls/README.md
+EGRESS_TLS_DNS="$SCRIPT_DIR/egress-tls/egress-tls-dns.sh"
 # ================================================
 
 # Function to check if helm is installed
@@ -257,6 +259,8 @@ install_services() {
     echo "Go:      $GO_CHART"
     echo "Namespace: $NAMESPACE"
     
+    "$EGRESS_TLS_DNS" install "$NAMESPACE"
+
     # Install packages in specified order
     echo ""
     echo "🚀 Starting installation process..."
@@ -301,6 +305,8 @@ uninstall_services() {
     
     # 3. Uninstall Spring service third
     uninstall_helm_package "mesh-test-service-spring" "$NAMESPACE"
+
+    "$EGRESS_TLS_DNS" uninstall "$NAMESPACE"
     
     echo ""
     echo "🎉 All mesh test services uninstalled successfully!"

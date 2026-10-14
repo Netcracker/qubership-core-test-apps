@@ -1,0 +1,24 @@
+name: Setup Kind cluster and deploy Consul
+description: >
+  Spins up a Kind cluster and deploys Consul with the ACL system enabled into
+  it, and nothing else: the tests of the Consul login bring their own services
+  and do not need Cloud Core.
+
+inputs:
+  core-bootstrap-branch:
+    description: Branch of the qubership-core-bootstrap repo to check out
+    required: false
+    default: main
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Kind cluster
+      uses: ./.github/actions/setup-kind
+      with:
+        core-bootstrap-branch: ${{ inputs.core-bootstrap-branch }}
+
+    - name: Deploy Consul
+      shell: bash
+      run: |
+        make CONSUL_ACLS=true -C core-bootstrap-repo/cloud-core-local-dev/ deploy-consul

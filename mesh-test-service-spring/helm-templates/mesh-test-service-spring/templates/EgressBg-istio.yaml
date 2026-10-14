@@ -1,0 +1,100 @@
+{{- if .Values.EGRESS_BG_TESTS_ENABLED }}
+{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
+# Header-based egress routing on egress-gateway:8080/egress-bg/integration:
+#   x-version-name: candidate | legacy   -> bg-stub   (stub for tests)
+#   x-version-name: active   | absent    -> bg-prod   (production)
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: egress-bg-routes-spring
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "istiod"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: egress-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /egress-bg/integration
+      headers:
+      - name: x-version-name
+        type: RegularExpression
+        value: candidate|legacy
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - group: ''
+      kind: Service
+      name: bg-stub
+      port: 8080
+      weight: 1
+{{- if .Values.EGRESS_PROD_INTEGRATION_ENABLED }}
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /egress-bg/integration
+      headers:
+      - name: x-version-name
+        value: active
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - group: ''
+      kind: Service
+      name: bg-prod
+      port: 8080
+      weight: 1
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /egress-bg/integration
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - group: ''
+      kind: Service
+      name: bg-prod
+      port: 8080
+      weight: 1
+{{- end }}
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /egress-bg/stub-only
+      headers:
+      - name: x-version-name
+        type: RegularExpression
+        value: candidate|legacy
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - group: ''
+      kind: Service
+      name: bg-stub
+      port: 8080
+      weight: 1
+{{- end }}
+{{- end }}

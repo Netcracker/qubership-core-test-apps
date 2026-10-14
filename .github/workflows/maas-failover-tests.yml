@@ -1,0 +1,133 @@
+name: Run MaaS failover integration tests
+run-name: "[apps=${{ inputs.apps || 'spring,go' }}]"
+
+# A cluster of its own: the suite repeatedly kills the Patroni leader and a maas-agent instance,
+# which is not something the other suites should have to run alongside. It also needs a second
+# Patroni node and a registered RabbitMQ instance, neither of which the other suites install.
+
+on:
+  workflow_call:
+    inputs:
+      core-bootstrap-branch:
+        description: 'Branch of core-bootstrap repo'
+        required: false
+        default: 'main'
+        type: string
+      test-branch:
+        description: 'Branch of the core services and of the test repositories. A repository that has no such branch stays on main. Empty leaves the core services to the bootstrap, which uses main'
+        required: false
+        default: ''
+        type: string
+      aux-bootstrap-args:
+        description: 'Extra KEY=VALUE variables for the cloud-core bootstrap, space separated, applied last. Anything not above goes here: the tag of a core service (CONFIG_SERVER_TAG=my-tag), the branch or tag of a dependency (DBAAS_REPO_BRANCH=main, MAAS_BRANCH=main, ISTIO_REPO_BRANCH=main, CORE_MESH_CONFIG_REPO_BRANCH=main), M2M_AUTH_MODE=hybrid'
+        required: false
+        default: ''
+        type: string
+      apps:
+        description: 'Test applications to install and drive, comma separated: spring, go'
+        required: false
+        default: 'spring,go'
+        type: string
+      fail-on-test-failure:
+        description: 'Fail the job when a test fails. Set to false by callers that publish the results themselves'
+        required: false
+        default: true
+        type: boolean
+
+  workflow_dispatch:
+    inputs:
+      core-bootstrap-branch:
+        description: 'Branch of core-bootstrap repo'
+        required: false
+        default: 'main'
+        type: string
+      test-branch:
+        description: 'Branch of the core services and of the test repositories. A repository that has no such branch stays on main. Empty leaves the core services to the bootstrap, which uses main'
+        required: false
+        default: ''
+        type: string
+      aux-bootstrap-args:
+        description: 'Extra KEY=VALUE variables for the cloud-core bootstrap, space separated, applied last. Anything not above goes here: the tag of a core service (CONFIG_SERVER_TAG=my-tag), the branch or tag of a dependency (DBAAS_REPO_BRANCH=main, MAAS_BRANCH=main, ISTIO_REPO_BRANCH=main, CORE_MESH_CONFIG_REPO_BRANCH=main), M2M_AUTH_MODE=hybrid'
+        required: false
+        default: ''
+        type: string
+      apps:
+        description: 'Test applications to install and drive, comma separated: spring, go'
+        required: false
+        default: 'spring,go'
+        type: string
+      fail-on-test-failure:
+        description: 'Fail the job when a test fails'
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  maas-failover-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Kind cluster and deploy Cloud Core
+        uses: ./.github/actions/setup-kind-with-cloud-core
+        with:
+          core-bootstrap-branch: ${{ inputs.core-bootstrap-branch || 'main' }}
+          test-branch: ${{ inputs.test-branch }}
+          install-maas: 'true'
+          install-istio: 'false'
+          # a second Patroni node, so the leader has somewhere to move, and a registered RabbitMQ
+          # instance, which the bootstrap skips by default and the vhost scenarios need. The
+          # version of MaaS is the one the bootstrap takes. The caller's arguments come after
+          # these, so that they can change them.
+          aux-bootstrap-args: >-
+            PATRONI_REPLICAS_NUMBER=2
+            RABBIT_INSTANCES=rabbitmq-1
+            ${{ inputs.aux-bootstrap-args }}
+
+      - name: Run the MaaS failover integration tests
+        id: failover_tests
+        continue-on-error: true
+        uses: ./.github/actions/run-maas-failover-tests
+        with:
+          apps: ${{ inputs.apps || 'spring,go' }}
+          # the services stay up, so the diagnostics step below can collect their state
+          cleanup: 'false'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Aggregate Surefire reports
+        if: always()
+        run: |
+          module=maas-failover-resilience/integration-tests
+          mkdir -p artifacts/maas-failover-resilience
+          cp -r "$module/target/surefire-reports" artifacts/maas-failover-resilience/ || true
+          if [ -d "$module/target/reports" ]; then
+            cp -r "$module/target/reports" artifacts/maas-failover-resilience/ || true
+          fi
+
+      - name: Upload Surefire reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: surefire-reports-maas-failover
+          path: artifacts/*
+
+      - name: Collect Kubernetes diagnostics
+        if: ${{ failure() || steps.failover_tests.outcome == 'failure' }}
+        uses: ./.github/actions/collect-k8s-diagnostics
+        with:
+          collect-logs-for: 'app.kubernetes.io/part-of=maas-failover-test-app,name=maas-agent,name=maas-service'
+          artifact-suffix: '-maas-failover'
+
+      - name: Report the test outcome
+        if: ${{ steps.failover_tests.outcome == 'failure' }}
+        env:
+          FAIL_ON_TEST_FAILURE: ${{ inputs.fail-on-test-failure }}
+        run: |
+          if [ "$FAIL_ON_TEST_FAILURE" = "false" ]; then
+            echo "::warning::MaaS failover integration tests failed, see the uploaded reports"
+            exit 0
+          fi
+          echo "::error::MaaS failover integration tests failed, see the uploaded reports"
+          exit 1

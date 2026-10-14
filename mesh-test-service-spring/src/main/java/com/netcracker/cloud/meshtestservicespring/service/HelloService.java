@@ -2,6 +2,7 @@ package com.netcracker.cloud.meshtestservicespring.service;
 
 import com.google.gson.Gson;
 import com.netcracker.cloud.meshtestservicespring.model.TraceResponse;
+import com.netcracker.cloud.meshtestservicespring.utils.WebUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,7 +37,7 @@ public class HelloService {
 
     public String hello(HttpServletRequest request) {
         log.info("hello");
-        TraceResponse response = hello(request.getRemoteHost(), request.getHeader("X-Version"), request.getHeader("x-version-name"));
+        TraceResponse response = hello(request.getRemoteHost(), request.getHeader("X-Version"), request.getHeader("x-version-name"), request.getHeader(WebUtils.X_REQUEST_ID));
         log.info("Responding with service name:{} version:{}", response.getServiceName(), response.getVersion());
         return new Gson().toJson(response);
     }
@@ -52,10 +53,11 @@ public class HelloService {
         return response;
     }
 
-    public TraceResponse hello(String remoteHost, String xVersion, String xVersionName) {
+    public TraceResponse hello(String remoteHost, String xVersion, String xVersionName, String xRequestId) {
         TraceResponse response = hello();
         response.setXversion(xVersion);
         response.setXVersionName(xVersionName);
+        response.setXRequestId(xRequestId);
         response.setRemoteAddr(remoteHost);
         return response;
     }
