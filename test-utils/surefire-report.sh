@@ -201,9 +201,9 @@ fail() {
   failures=$((failures + 1))
 }
 
-# Under `set -Eeu`, a command that fails inside a check stops the script. This records where, as an
-# error named after the label, so the report names the step that stopped and does not lose the checks
-# after it. Only the top-level shell records: a failing command substitution also fails the
+# Under `set -Eeuo pipefail`, a command that fails inside a check stops the script. This records where,
+# as an error named after the label, so the report names the step that stopped and does not lose the
+# checks after it. Only the top-level shell records: a failing command substitution also fails the
 # assignment that runs it.
 surefire_record_aborts() { # label, such as "checks.sh assert"
   SUREFIRE_ABORT_LABEL="$1"
@@ -228,7 +228,9 @@ surefire_report() { # suite [--job-status <status>]
   shift
   while (($#)); do
     case "$1" in
-      --job-status) job_status="$2"; shift 2 ;;
+      --job-status)
+        [[ $# -ge 2 ]] || { echo "--job-status needs a value" >&2; return 2; }
+        job_status="$2"; shift 2 ;;
       *) echo "unknown option $1" >&2; return 2 ;;
     esac
   done
