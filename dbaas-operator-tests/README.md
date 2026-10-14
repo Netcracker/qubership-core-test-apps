@@ -164,6 +164,10 @@ integration tests report. With `REPORT_DIR` set, every check is recorded, and `c
 `surefire-reports/TEST-<suite>.xml` and `reports/surefire.html` there. The workflow uploads them as
 `surefire-reports-dbaas-operator-<scenario>`.
 
+The recording and the report come from `integration-tests-report/surefire-report.sh`, which any Bash suite can
+source; its header shows how. A check that stops `checks.sh` midway is recorded as an error at its line, so the checks
+after it do not silently vanish.
+
 The report runs even when an earlier step failed. If the cluster setup failed and no check ran, or a step failed
 outside the checks, it records a `setup` error, so a scenario that never ran shows as failed rather than disappearing
 from the report.
