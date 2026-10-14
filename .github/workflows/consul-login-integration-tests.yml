@@ -1,0 +1,166 @@
+name: Run Consul login integration tests
+run-name: Consul login integration tests
+
+on:
+  workflow_call:
+    inputs:
+      core-bootstrap-branch:
+        description: 'Branch of core-bootstrap repo'
+        required: false
+        default: 'main'
+        type: string
+  workflow_dispatch:
+    inputs:
+      core-bootstrap-branch:
+        description: 'Branch of core-bootstrap repo'
+        required: false
+        default: 'main'
+        type: string
+
+jobs:
+  # The services are built from the same ref as the scenarios and loaded into the cluster, so a run never depends
+  # on an image published earlier.
+  build-test-services:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [spring, quarkus, go]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up JDK 21
+        if: ${{ matrix.service != 'go' }}
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+          server-id: github
+
+      # The service resolves the login library from GitHub Packages, which the generated settings.xml reads
+      # GITHUB_ACTOR and GITHUB_TOKEN for.
+      - name: Package the service
+        if: ${{ matrix.service != 'go' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: mvn -B -ntp -f consul-login/test-service-${{ matrix.service }}/pom.xml package
+
+      # The Go service is built by its own Dockerfile, which carries the toolchain.
+      - name: Build the image
+        run: |
+          docker build -t consul-login-test-service-${{ matrix.service }}:it \
+            consul-login/test-service-${{ matrix.service }}
+
+      - name: Save the image
+        run: docker save -o image.tar consul-login-test-service-${{ matrix.service }}:it
+
+      - name: Upload the image
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: test-service-image-${{ matrix.service }}
+          path: image.tar
+          retention-days: 1
+
+  consul-login-integration-tests:
+    needs: build-test-services
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Kind cluster with Consul
+        uses: ./.github/actions/setup-kind-with-consul
+        with:
+          core-bootstrap-branch: ${{ inputs.core-bootstrap-branch || 'main' }}
+
+      - name: Download the test service images
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          path: test-service-images
+          pattern: test-service-image-*
+
+      - name: Load the test service images into the cluster
+        run: |
+          for archive in test-service-images/*/image.tar; do
+            kind load image-archive "$archive" --name kind
+          done
+
+      # Scenario failures are read from the test report, they do not fail the run.
+      - name: Run consul-login integration tests
+        id: consul_login_tests
+        continue-on-error: true
+        uses: ./.github/actions/run-integrations-tests
+        with:
+          repository: Netcracker/qubership-core-test-apps
+          branch: ${{ github.ref_name }}
+          path: repos/test-apps
+          test-folder: consul-login/integration-tests
+          test-service-name: consul-login-tests
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # The name of the artifact and the layout inside it are what the report job expects.
+      - name: Aggregate Surefire reports
+        run: |
+          module=repos/test-apps/consul-login/integration-tests
+          mkdir -p artifacts/consul-login
+          cp -r "$module/target/surefire-reports" artifacts/consul-login/ || true
+          if [ -d "$module/target/reports" ]; then
+            cp -r "$module/target/reports" artifacts/consul-login/ || true
+          fi
+
+      - name: Upload Surefire reports
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: surefire-reports-consul-login
+          path: artifacts/*
+
+      - name: Collect Kubernetes diagnostics
+        if: ${{ failure() || steps.consul_login_tests.outcome == 'failure' }}
+        run: |
+          set +e
+
+          {
+            echo "==== CLUSTER INFO ===="
+            kubectl version --short || true
+            kubectl cluster-info || true
+
+            echo
+            echo "==== PODS (ALL NAMESPACES) ===="
+            kubectl get pods -A -o wide || true
+
+            echo
+            echo "==== EVENTS (CHRONOLOGICAL) ===="
+            kubectl get events -A --sort-by=.metadata.creationTimestamp || true
+
+            echo
+            echo "==== KIND CONTROL PLANE LOGS ===="
+            docker logs kind-control-plane || true
+          } > cluster-state.txt 2>&1
+
+          {
+            echo "==== CONSUL SERVER LOGS ===="
+            kubectl logs -n consul --selector=app=consul,component=server --tail=200 || true
+
+            echo
+            echo "==== SERVICES UNDER TEST ===="
+            for ns in $(kubectl get namespaces -o name | grep consul-login | cut -d/ -f2); do
+              for pod in $(kubectl get pods -n "$ns" -o name); do
+                echo
+                echo "-- describe $pod in $ns"
+                kubectl describe -n "$ns" "$pod" || true
+                echo
+                echo "-- logs of $pod in $ns"
+                kubectl logs -n "$ns" "$pod" --tail=200 || true
+              done
+            done
+          } > pods-logs.txt 2>&1
+
+      - name: Upload Kubernetes diagnostics
+        if: ${{ failure() || steps.consul_login_tests.outcome == 'failure' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: kind-k8s-debug-consul-login
+          path: |
+            cluster-state.txt
+            pods-logs.txt

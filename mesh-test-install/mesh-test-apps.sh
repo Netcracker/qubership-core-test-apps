@@ -157,6 +157,8 @@ QUARKUS_ROOT="$PROJECT_ROOT/mesh-test-service-quarkus/"
 SPRING_CHART="$SPRING_ROOT/helm-templates/mesh-test-service-spring"
 QUARKUS_CHART="$QUARKUS_ROOT/helm-templates/mesh-test-service-quarkus"
 GO_CHART="$PROJECT_ROOT/mesh-test-service-go/helm-templates/mesh-test-service-go"
+# CoreDNS rewrites for the egress TLS test host names, see egress-tls/README.md
+EGRESS_TLS_DNS="$SCRIPT_DIR/egress-tls/egress-tls-dns.sh"
 # ================================================
 
 # Function to check if helm is installed
@@ -166,26 +168,6 @@ check_helm() {
         exit 1
     fi
     echo "Helm version: $(helm version --short)"
-}
-
-detect_istio_version() {
-    local version=""
-    if command -v kubectl &> /dev/null; then
-        version=$(kubectl get deployment istiod -n istio-system -o jsonpath='{.metadata.labels.operator\.istio\.io/version}' 2>/dev/null || true)
-        if [[ -z "$version" ]]; then
-            local image
-            image=$(kubectl get deployment istiod -n istio-system -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null || true)
-            if [[ -n "$image" ]]; then
-                version=$(echo "$image" | sed -E 's/.*:v?([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
-            fi
-        fi
-    fi
-    if [[ -z "$version" ]]; then
-        echo "Warning: Istio version not detected from istiod, defaulting to 1.29.2" >&2
-        version="1.29.2"
-    fi
-    echo "Detected Istio version: $version" >&2
-    echo "$version"
 }
 
 # Function to install a helm package
@@ -211,11 +193,6 @@ install_helm_package() {
     echo "Updating helm dependencies for $service_name..."
     helm dependency update "$chart_path"
     
-    local helm_extra_args=()
-    if [[ "$MESH_TYPE" == "Istio" ]]; then
-        helm_extra_args+=(--set "ISTIO_VERSION=$ISTIO_VERSION")
-    fi
-
     # Install or upgrade the helm chart
     echo "Installing/upgrading $service_name with tag: $tag..."
     helm upgrade --install "$service_name" "$chart_path" \
@@ -224,7 +201,6 @@ install_helm_package() {
         --set TAG="$tag" \
         --set CONSUL_ENABLED="true" \
         --set CONSUL_URL="http://consul-consul-server.consul.svc.cluster.local:8500" \
-        "${helm_extra_args[@]}" \
         --wait \
         --timeout=300s
 
@@ -282,11 +258,9 @@ install_services() {
     echo "Quarkus: $QUARKUS_CHART"
     echo "Go:      $GO_CHART"
     echo "Namespace: $NAMESPACE"
-
-    if [[ "$MESH_TYPE" == "Istio" ]]; then
-        ISTIO_VERSION=$(detect_istio_version)
-    fi
     
+    "$EGRESS_TLS_DNS" install "$NAMESPACE"
+
     # Install packages in specified order
     echo ""
     echo "🚀 Starting installation process..."
@@ -331,6 +305,8 @@ uninstall_services() {
     
     # 3. Uninstall Spring service third
     uninstall_helm_package "mesh-test-service-spring" "$NAMESPACE"
+
+    "$EGRESS_TLS_DNS" uninstall "$NAMESPACE"
     
     echo ""
     echo "🎉 All mesh test services uninstalled successfully!"

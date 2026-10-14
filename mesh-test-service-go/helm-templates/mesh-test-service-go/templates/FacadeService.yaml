@@ -6,6 +6,7 @@ metadata:
 spec:
   port: 8080
   env:
+    facadeGatewayConcurrency: 1
     facadeGatewayCpuLimit: 100m
     facadeGatewayCpuRequest: 50m
     facadeGatewayMemoryLimit: 64Mi

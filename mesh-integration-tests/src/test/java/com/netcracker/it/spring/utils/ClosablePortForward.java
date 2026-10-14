@@ -20,7 +20,8 @@ public class ClosablePortForward implements CloseableUrl {
 
     public ClosablePortForward(PortForwardService portForwardService, String namespace, String serviceName, int containerPort) {
         this.portForwardService = portForwardService;
-        ServicePortForwardParams<NetSocketAddress> params = ServicePortForwardParams.builder(serviceName, containerPort)
+        ServicePortForwardParams<NetSocketAddress> params = ServicePortForwardParams
+                .builder(serviceName, containerPort)
                 .namespace(namespace)
                 .build();
         address = portForwardService.portForward(params);

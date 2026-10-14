@@ -2,7 +2,6 @@ package com.netcracker.cloud.meshtestservicespring.configuration;
 
 import com.netcracker.cloud.meshtestservicespring.service.EgressService;
 import com.netcracker.cloud.meshtestservicespring.service.HelloService;
-import com.netcracker.cloud.meshtestservicespring.service.ProxyHeadersService;
 import com.netcracker.cloud.meshtestservicespring.service.ProxyService;
 import com.netcracker.cloud.meshtestservicespring.service.TcpService;
 import org.springframework.context.annotation.Bean;
@@ -20,11 +19,6 @@ public class ServiceConfiguration {
     @Bean
     public ProxyService proxyService() {
         return new ProxyService();
-    }
-
-    @Bean
-    public ProxyHeadersService proxyHeadersService() {
-        return new ProxyHeadersService();
     }
 
     @Bean

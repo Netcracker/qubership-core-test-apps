@@ -37,7 +37,7 @@ runs:
   steps:
     - name: Checkout requested branch
       id: checkout-requested-branch
-      uses: actions/checkout@v4
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       continue-on-error: true
       with:
         repository: ${{ inputs.repository }}
@@ -46,7 +46,7 @@ runs:
 
     - name: Checkout main branch
       if: ${{ steps.checkout-requested-branch.outcome == 'failure' && inputs.branch != 'main' }}
-      uses: actions/checkout@v4
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       with:
         repository: ${{ inputs.repository }}
         ref: main
@@ -62,7 +62,6 @@ runs:
       run: |
         ./run-it/run-integration-tests.sh \
           --exec-mode "${{ inputs.exec-mode }}" \
-          --mesh-type "${{ inputs.mesh-type }}" \
           kind-kind \
           core \
           kind-control-plane:10.244.0.1 \

@@ -2,7 +2,7 @@ package com.netcracker.it.spring;
 
 import com.google.gson.Gson;
 import com.netcracker.cloud.junit.cloudcore.extension.annotations.*;
-import com.netcracker.it.spring.model.TraceResponse;
+import com.netcracker.it.common.model.TraceResponse;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.Request;

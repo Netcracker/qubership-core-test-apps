@@ -44,7 +44,7 @@ INGRESS_CLASS: ""
 K8S_SERVICE_TYPE: 'HEADLESS'
 CLOUD_PUBLIC_HOST: "svc.cluster.local"
 CLOUD_PRIVATE_HOST: "svc.cluster.local"
-CR_SYNCHRONIZER_IMAGE: "ghcr.io/netcracker/cr-synchronizer:latest"
+CR_SYNCHRONIZER_IMAGE: "ghcr.io/netcracker/cr-synchronizer:latest@sha256:7595ec3d46bffe0c2c912110ac47843710b83e4603de6b7d1b914d61cb37b195"
 EXTERNAL_IPS: '' # TO_BE_REPLACED
 DEPLOYMENT_SESSION_ID:
 RESOURCE_POLLING_TIMEOUT: 60
@@ -52,4 +52,20 @@ SERVICE_MESH_TYPE: "Core"
 CONSUL_ENABLED: false
 CONSUL_URL: ''
 
-ISTIO_VERSION: ""
+# Egress Blue/Green tests: header-based routing on the egress gateway between a
+# production endpoint and its stub, selected by x-version-name. Deploys the two
+# endpoints and the egress routes; see mesh-test-install/egress-bg/README.md.
+EGRESS_BG_TESTS_ENABLED: true
+# Renders the production endpoint of /egress-bg/integration. A candidate deployment
+# sets it to false so that a request which lost its x-version-name on the way fails
+# instead of reaching production.
+EGRESS_PROD_INTEGRATION_ENABLED: true
+
+# Egress TLS tests: deploy the simulated external HTTPS site and the egress TLS
+# mesh resources. Requires the *.external.test CoreDNS rewrite that
+# mesh-test-install/mesh-test-apps.sh installs.
+EGRESS_TLS_TESTS_ENABLED: true
+
+# Image serving the simulated external site for egress tests. Any nginx that runs as non-root and
+# reads its config from -c will do; override to point at an internal mirror.
+EGRESS_ECHO_IMAGE: 'nginxinc/nginx-unprivileged:1.31-alpine@sha256:b9241c6e7b8e9a862f129d8d4199ab64b10390949a78bdd5603379b32c844083'

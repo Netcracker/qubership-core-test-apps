@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.google.gson.Gson;
-import com.netcracker.cloud.security.core.utils.tls.TlsUtils;
+import com.netcracker.it.common.model.TraceResponse;
 import com.netcracker.it.spring.model.*;
 import com.netcracker.it.spring.utils.TCPUtils;
 import io.fabric8.kubernetes.api.model.ConfigMap;
@@ -18,7 +18,10 @@ import io.fabric8.kubernetes.api.model.apps.DeploymentList;
 import io.fabric8.kubernetes.api.model.networking.v1.Ingress;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import lombok.extern.slf4j.Slf4j;
-import okhttp3.*;
+import okhttp3.MediaType;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 
@@ -80,7 +83,7 @@ public class CommonOperations {
 
     public static void validateNodePorts(KubernetesClient platformClient, String namespace, URL gateway) throws Exception {
         log.info("Test node ports on '{}' namespace", namespace);
-        String springNodeIp = getNodeIp(platformClient, namespace, Const.MESH_TEST_SERVICE_SPRING_V1);
+        String springNodeIp = getNodeIp(platformClient, namespace, "mesh-test-service-spring-v1");
 
         TraceResponse traceResponse = sendPostTextRequest(gateway + GO_TO_SPRING_TCP_URL, springNodeIp + ":" + MESH_TCP_NODE_PORT_VALUE, 200);
         log.info("Trace response '{}'", traceResponse);
