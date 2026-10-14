@@ -1,0 +1,107 @@
+name: Run config-server migration integration tests
+run-name: Config-server migration integration tests
+
+# Started by hand only, and not called by the nightly report: the migration is checked on demand.
+on:
+  workflow_dispatch:
+    inputs:
+      core-bootstrap-branch:
+        description: 'Branch of core-bootstrap repo'
+        required: false
+        default: 'main'
+        type: string
+      core-legacy-api-branch:
+        description: 'Branch of qubership-mini-core repo; its chart and the image built from it are installed'
+        required: false
+        default: 'main'
+        type: string
+      config-server-tag:
+        description: 'Image tag of the config-server the stand starts with'
+        required: false
+        default: 'latest'
+        type: string
+
+jobs:
+  config-server-migration-integration-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # CORE_LEGACY_API_BRANCH is set here too, so that the bootstrap clones the chart the replacement step installs.
+      - name: Setup Kind cluster with Cloud Core and config-server on Consul
+        uses: ./.github/actions/setup-kind-with-cloud-core
+        with:
+          core-bootstrap-branch: ${{ inputs.core-bootstrap-branch }}
+          install-istio: 'false'
+          aux-bootstrap-args: >-
+            CONFIG_SERVER_CONSUL_ENABLED=true
+            CONFIG_SERVER_TAG=${{ inputs.config-server-tag }}
+            CORE_LEGACY_API_BRANCH=${{ inputs.core-legacy-api-branch }}
+
+      # A failed phase does not stop the run: the next steps still replace config-server, run the other phase, and
+      # upload the reports.
+      - name: Run the before-migration phase
+        id: before_migration
+        continue-on-error: true
+        run: mvn -B -ntp -f config-server-migration/integration-tests/pom.xml test -Dtest=BeforeMigrationIT
+
+      - name: Save the config-server logs
+        run: kubectl logs deployment/config-server -n core --tail=500 > config-server.log 2>&1 || true
+
+      - name: Replace config-server with core-legacy-api
+        env:
+          CORE_LEGACY_API_BRANCH: ${{ inputs.core-legacy-api-branch }}
+        run: |
+          make -C core-bootstrap-repo/cloud-core-local-dev/ uninstall-config-server deploy-core-legacy-api \
+            INSTALL_CONFIG_SERVER=false INSTALL_CORE_LEGACY_API=true CORE_LEGACY_API_BRANCH="$CORE_LEGACY_API_BRANCH"
+
+      - name: Run the after-migration phase
+        id: after_migration
+        continue-on-error: true
+        run: mvn -B -ntp -f config-server-migration/integration-tests/pom.xml test -Dtest=AfterMigrationIT
+
+      - name: Upload Surefire reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: surefire-reports-config-server-migration
+          path: config-server-migration/integration-tests/target/surefire-reports
+
+      - name: Collect Kubernetes diagnostics
+        if: >-
+          ${{ failure() || steps.before_migration.outcome == 'failure'
+          || steps.after_migration.outcome == 'failure' }}
+        run: |
+          set +e
+
+          {
+            echo "==== PODS (ALL NAMESPACES) ===="
+            kubectl get pods -A -o wide
+
+            echo
+            echo "==== EVENTS (CHRONOLOGICAL) ===="
+            kubectl get events -A --sort-by=.metadata.creationTimestamp
+          } > cluster-state.txt 2>&1
+
+          {
+            echo "==== CORE-LEGACY-API ===="
+            kubectl describe deployment/core-legacy-api -n core
+            kubectl logs deployment/core-legacy-api -n core --tail=500
+
+            echo
+            echo "==== CONSUL SERVER LOGS ===="
+            kubectl logs -n consul --selector=app=consul,component=server --tail=200
+          } > pods-logs.txt 2>&1
+
+      - name: Upload Kubernetes diagnostics
+        if: >-
+          ${{ failure() || steps.before_migration.outcome == 'failure'
+          || steps.after_migration.outcome == 'failure' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: kind-k8s-debug-config-server-migration
+          path: |
+            cluster-state.txt
+            pods-logs.txt
+            config-server.log
