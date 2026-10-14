@@ -4,26 +4,38 @@ run-name: "[bootstrap=${{ inputs.core-bootstrap-branch || 'feat/early-mesh' }}] 
 # Maps the interactions of the core services with each other, with DBaaS and MaaS and with their
 # agents, in each M2M mode.
 #
-# Cloud Core is installed in the Istio ambient mesh with DBaaS and MaaS. Then the traffic is
-# captured at the waypoints, which every request in the core namespace passes (the namespaces of
-# DBaaS and MaaS get a waypoint of their own):
+# The capture is in place before Cloud Core is installed: the bootstrap puts DBaaS and MaaS behind a
+# waypoint of their own (MESH_DEPENDENCY_NAMESPACES) and gives the core namespace the waypoint of
+# core-mesh-config before any core pod exists (CORE_MESH_EARLY). Then Cloud Core is installed in the
+# Istio ambient mesh, and every request to a service passes a waypoint, which writes:
 #
 #   access log  a JSON line per request: the caller, the destination, the request, the answer, and
 #               the credential: the user of a Basic credential, or the header and the claims of a
 #               bearer token (a Kubernetes token, or the legacy token)
 #
-# The capture is in place before Cloud Core is deployed: the bootstrap gives the core namespace the
-# waypoint of core-mesh-config before any core pod exists (CORE_MESH_EARLY), and the log of every
-# waypoint pod is followed from its start. So what the services and the hooks do while Cloud Core installs is seen,
-# with no restart, and the traffic until two minutes after the install is mapped.
+# The log of every waypoint pod is followed from its start. So what the services and the hooks do
+# while Cloud Core installs is seen, with no restart, and the traffic until settle-seconds after the
+# install is mapped.
 #
 # The hybrid core with DBaaS and MaaS in legacy mode shows the fallback: the Kubernetes token is
 # refused by dbaas-aggregator, and the same request is made to dbaas-agent with the legacy token.
 #
-# Each case checks the credentials against the modes (traffic_map.py --core-mode --dependency-mode),
-# not who calls whom: the core services send the token of their mode, a legacy token from a hybrid core
-# only in a fallback, the agents call DBaaS and MaaS with Basic, and only a hybrid core against a
-# legacy dependency falls back. So the same checks hold with and without the DBaaS Operator.
+# Each case checks credentials against the modes (traffic_map.py --core-mode --dependency-mode), not
+# who calls whom:
+#
+#   - the core services send the token of the core's mode, and a hybrid core a legacy token only in a
+#     fallback;
+#   - the agents call DBaaS and MaaS with Basic;
+#   - only a hybrid core against a legacy dependency falls back;
+#   - at least one core service sent a token of the core's mode, so a capture that saw nothing fails;
+#   - every Kubernetes token belongs to its sender's service account (where the sender's namespace is
+#     known) and carries the audience of DBaaS or MaaS where it goes to one of them.
+#
+# So the same checks hold with and without the DBaaS Operator. To run the cases with the operator,
+# set core-bootstrap-branch and test-branch to the branch of the operator work
+# (feat/dbaas-mounted-secret-migration, Netcracker/qubership-core-bootstrap#208, until it is merged)
+# and aux-bootstrap-args to:
+#   DBAAS_OPERATOR_ENABLED=true CORE_BOOTSTRAP_BRANCH=<that branch> CORETPL_CHART_DIR=../coretpl
 
 on:
   workflow_dispatch:
@@ -51,7 +63,7 @@ on:
         default: 'main'
         type: string
       settle-seconds:
-        description: 'How long to let the restarted services run before the traffic is collected'
+        description: 'How long to let the services run after the install before the traffic is collected'
         required: false
         default: '120'
         type: string
@@ -84,7 +96,7 @@ on:
         default: 'main'
         type: string
       settle-seconds:
-        description: 'How long to let the restarted services run before the traffic is collected'
+        description: 'How long to let the services run after the install before the traffic is collected'
         required: false
         default: '120'
         type: string
@@ -105,7 +117,8 @@ jobs:
         core: [legacy, hybrid, k8s]
         servers: [legacy, hybrid, k8s]
     env:
-      # the bootstrap variables of both runs of make; TEST_BRANCH is added to the second, where it is set
+      # the bootstrap variables of both runs of make, install-dependencies and deploy-core; both also get
+      # TEST_BRANCH where it is set: the action from test-branch, the deploy-core step from its env
       BOOTSTRAP_ARGS: >-
         INSTALL_MAAS=true
         CORE_CONFIG_MAAS_ENABLED=true

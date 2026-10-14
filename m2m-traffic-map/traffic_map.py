@@ -21,7 +21,8 @@ services make no call to DBaaS at all. Each sender is one of
 
   core     a service in the core namespace, other than an agent or a hook
   agent    dbaas-agent and maas-agent
-  shown    anything else, such as dbaas-operator and the install hooks: on the map, not checked
+  shown    anything else, such as dbaas-operator and the install hooks: on the map, and not checked
+           against the modes; their Kubernetes tokens get the token check below
 
 and with --core-mode and --dependency-mode (legacy, hybrid or k8s) these must hold:
 
@@ -35,9 +36,10 @@ and with --core-mode and --dependency-mode (legacy, hybrid or k8s) these must ho
     the capture saw nothing, or when the core does not run in its mode.
 
 A bearer token that is not a Kubernetes token, whether it is a JWT or not, is the legacy token.
-Whatever the modes, every Kubernetes token seen must be the token its sender is meant to send: issued
-for the service account of the sender, in the namespace of the sender, and for the audience of DBaaS
-(dbaas) or of MaaS (maas) where it goes to one of them. Exit status 1 when a check fails.
+Whatever the modes and the group, every Kubernetes token seen must be the token its sender is meant
+to send: issued for the service account of the sender, in the namespace of the sender where that
+namespace is known, and for the audience of DBaaS (dbaas) or of MaaS (maas) where it goes to one of
+them. Exit status 1 when a check fails.
 """
 import argparse
 import base64
@@ -61,7 +63,7 @@ AGENT_TARGETS = ("dbaas-aggregator", "maas-service")
 # senders that are on the map but not checked, wherever they run: the install hooks
 SHOWN_ONLY = ("*-pre-hook", "*-post-hook", "*-job-*", "dbaas-operator")
 GROUP_ORDER = {"core": 0, "agent": 1, "shown": 2}
-GROUP_LABELS = {"core": "core service", "agent": "agent", "shown": "shown only"}
+GROUP_LABELS = {"core": "core service", "agent": "agent", "shown": "token check only"}
 # the audience a Kubernetes token has to carry for these targets
 AUDIENCES = {"dbaas-aggregator": "dbaas", "maas-service": "maas"}
 
@@ -176,8 +178,8 @@ def credential_of(record, claims):
     if scheme.startswith("basic"):
         return "basic"
     if scheme.startswith("bearer"):
-        # A Kubernetes token is a JWT, and its claims are known. Any other bearer token, one the
-        # claims of which are unknown because it is not a JWT, is the legacy token.
+        # A Kubernetes token is a JWT whose claims name a service account. Any other bearer token,
+        # whether it is a JWT or not, is the legacy token.
         if claims and ("kubernetes.io" in claims or (claims.get("sub") or "").startswith("system:serviceaccount:")):
             return "k8s-token"
         return "legacy-token"
