@@ -1,7 +1,8 @@
 {{- define "mesh-test-service-spring.luaFilterInlineCode" -}}
 function envoy_on_request(request_handle)
-  local path = request_handle:headers():get(":path")
-  if not string.find(path, "/api/v1/{{ .Values.SERVICE }}/lua-filter/", 1, true) then
+  -- ignore the query, so that a lua-filter URL passed as a parameter does not trigger the filter
+  local path = string.match(request_handle:headers():get(":path"), "^[^?]*")
+  if string.find(path, "/api/v1/{{ .Values.SERVICE }}/lua-filter/", 1, true) ~= 1 then
     return
   end
   request_handle:logInfo("Path: " .. path)
