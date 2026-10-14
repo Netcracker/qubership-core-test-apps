@@ -39,6 +39,25 @@ jobs:
             CONFIG_SERVER_TAG=${{ inputs.config-server-tag }}
             CORE_LEGACY_API_BRANCH=${{ inputs.core-legacy-api-branch }}
 
+      # The dev resource profile of config-server caps Metaspace at 128m, which config-server exhausts on the first
+      # .json request (https://github.com/Netcracker/qubership-core-config-server/issues/238). These are the dev
+      # profile values with MaxMetaspaceSize and the memory limit raised.
+      - name: Raise the Metaspace limit of config-server
+        run: |
+          cat > config-server-memory.yaml <<'EOF'
+          MEM_ARGS: >-
+            -XX:+UseSerialGC -XX:+UnlockExperimentalVMOptions -Xms64m -Xmx64m -Xss256k
+            -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=256m -XX:MaxDirectMemorySize=10m
+            -XX:ReservedCodeCacheSize=32M -XX:CompressedClassSpaceSize=32M -XX:MinMetaspaceExpansion=1M
+            -XX:MaxMetaspaceExpansion=8M -XX:CodeCacheExpansionSize=256k -XX:MinHeapFreeRatio=20
+            -XX:MaxHeapFreeRatio=40 -XX:GCTimeRatio=4 -XX:AdaptiveSizePolicyWeight=90
+          MEMORY_LIMIT: "512Mi"
+          EOF
+          helm upgrade config-server \
+            core-bootstrap-repo/cloud-core-local-dev/.tmp/qubership-core-config-server/helm-templates/config-server \
+            -n core --reuse-values -f config-server-memory.yaml
+          kubectl rollout status deployment/config-server -n core --timeout=5m
+
       # A failed phase does not stop the run: the next steps still replace config-server, run the other phase, and
       # upload the reports.
       - name: Run the before-migration phase
