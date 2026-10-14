@@ -29,7 +29,10 @@ and with --core-mode and --dependency-mode (legacy, hybrid or k8s) these must ho
     core, Kubernetes tokens only for a k8s core, and for a hybrid core Kubernetes tokens, and legacy
     tokens only in a fallback. A Basic credential of a core service is shown, not checked;
   - the agents call dbaas-aggregator and maas-service with a Basic credential;
-  - a core service falls back when a hybrid core meets a legacy dependency, and in no other case.
+  - a core service falls back when a hybrid core meets a legacy dependency, and in no other case;
+  - at least one core service sent a token of the mode of the core (a legacy token for a legacy core,
+    a Kubernetes token otherwise). The other checks pass when nothing is seen; this one fails when
+    the capture saw nothing, or when the core does not run in its mode.
 
 A bearer token that is not a Kubernetes token, whether it is a JWT or not, is the legacy token.
 Whatever the modes, every Kubernetes token seen must be the token its sender is meant to send: issued
@@ -50,6 +53,8 @@ ID_PART = re.compile(r"^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a
 ADDRESS = re.compile(r"^\d+\.\d+\.\d+\.\d+$")
 DEPENDENCIES = ("dbaas-aggregator", "dbaas-agent", "maas-service", "maas-agent")
 MODES = ("legacy", "hybrid", "k8s")
+# the token a core service of each mode sends first
+MODE_TOKENS = {"legacy": "legacy-token", "hybrid": "k8s-token", "k8s": "k8s-token"}
 # the agents carry the legacy calls of the core to DBaaS and MaaS, with a Basic credential
 AGENTS = ("dbaas-agent", "maas-agent")
 AGENT_TARGETS = ("dbaas-aggregator", "maas-service")
@@ -218,6 +223,12 @@ def check(interactions, fallbacks, core_mode, dependency_mode):
               and request["credential"] != "basic"):
             problems[f"{request['caller']} > {request['target']}: {request['credential']}, not Basic"] += 1
     lines = [f"{problem} (x{count})" for problem, count in problems.items()]
+    # Each rule above passes when nothing is seen, so require evidence that the capture worked and
+    # that the core runs in its mode: one token of that mode from a core service, whatever it called.
+    wanted = MODE_TOKENS[core_mode]
+    if not any(r["group"] == "core" and r["credential"] == wanted for r in interactions):
+        lines.append(f"no core service sent a {wanted}, so nothing shows that the core runs in {core_mode} mode "
+                     f"({len(interactions)} requests passed a waypoint)")
     groups = {request["caller"]: request["group"] for request in interactions}
     core_fallbacks = sorted({caller for (caller, _t, _m, _p) in fallbacks if groups.get(caller) == "core"})
     if core_mode == "hybrid" and dependency_mode == "legacy":
