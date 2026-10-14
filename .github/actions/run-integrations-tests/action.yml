@@ -28,6 +28,10 @@ inputs:
     description: 'Executor mode for tests — EXEC_IN_POD or PORT_FORWARD'
     required: false
     default: 'PORT_FORWARD'
+  profile:
+    description: Maven profile to run the tests with; empty leaves the choice to the runner script
+    required: false
+    default: ''
   github-token:
     description: GitHub token for Maven/GitHub Packages access
     required: true
@@ -59,8 +63,14 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         CHECKOUT_PATH: ${{ inputs.path }}
         TEST_FOLDER: ${{ inputs.test-folder }}
+        PROFILE: ${{ inputs.profile }}
       run: |
+        profile_args=()
+        if [ -n "$PROFILE" ]; then
+          profile_args=(--profile "$PROFILE")
+        fi
         ./run-it/run-integration-tests.sh \
+          "${profile_args[@]}" \
           --exec-mode "${{ inputs.exec-mode }}" \
           kind-kind \
           core \
