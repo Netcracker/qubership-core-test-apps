@@ -39,27 +39,12 @@ jobs:
             CONFIG_SERVER_TAG=${{ inputs.config-server-tag }}
             CORE_LEGACY_API_BRANCH=${{ inputs.core-legacy-api-branch }}
 
-      # Scenario failures are read from the test reports, they do not fail the run.
+      # A failed phase does not stop the run: the next steps still replace config-server, run the other phase, and
+      # upload the reports.
       - name: Run the before-migration phase
         id: before_migration
         continue-on-error: true
-        uses: ./.github/actions/run-integrations-tests
-        with:
-          repository: Netcracker/qubership-core-test-apps
-          branch: ${{ github.ref_name }}
-          path: repos/test-apps
-          test-folder: config-server-migration/integration-tests
-          test-service-name: config-server-migration-before
-          profile: before-migration
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      # The next phase starts with mvn clean, so the reports of this one are copied out first.
-      - name: Save the before-migration reports
-        if: ${{ !cancelled() }}
-        run: |
-          mkdir -p artifacts/config-server-migration/before-migration
-          cp -r repos/test-apps/config-server-migration/integration-tests/target/surefire-reports \
-            artifacts/config-server-migration/before-migration/ || true
+        run: mvn -B -ntp -f config-server-migration/integration-tests/pom.xml test -Dtest=BeforeMigrationIT
 
       - name: Save the config-server logs
         run: kubectl logs deployment/config-server -n core --tail=500 > config-server.log 2>&1 || true
@@ -74,29 +59,14 @@ jobs:
       - name: Run the after-migration phase
         id: after_migration
         continue-on-error: true
-        uses: ./.github/actions/run-integrations-tests
-        with:
-          repository: Netcracker/qubership-core-test-apps
-          branch: ${{ github.ref_name }}
-          path: repos/test-apps
-          test-folder: config-server-migration/integration-tests
-          test-service-name: config-server-migration-after
-          profile: after-migration
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Save the after-migration reports
-        if: ${{ !cancelled() }}
-        run: |
-          mkdir -p artifacts/config-server-migration/after-migration
-          cp -r repos/test-apps/config-server-migration/integration-tests/target/surefire-reports \
-            artifacts/config-server-migration/after-migration/ || true
+        run: mvn -B -ntp -f config-server-migration/integration-tests/pom.xml test -Dtest=AfterMigrationIT
 
       - name: Upload Surefire reports
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: surefire-reports-config-server-migration
-          path: artifacts/*
+          path: config-server-migration/integration-tests/target/surefire-reports
 
       - name: Collect Kubernetes diagnostics
         if: >-

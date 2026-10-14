@@ -7,7 +7,7 @@ writable through the same Service `config-server`.
 
 ## Scenarios
 
-The tests run in two phases, one on each side of the replacement.
+The tests run in two phases, one on each side of the replacement, each in a Maven run of its own selected with `-Dtest`.
 
 | Phase | Scenario | What it establishes |
 | --- | --- | --- |
@@ -39,11 +39,11 @@ To run the phases against a stand of your own, from the current kubeconfig conte
 1. In `cloud-core-local-dev` of qubership-core-bootstrap, install Cloud Core with config-server on Consul:
    `make install CONFIG_SERVER_CONSUL_ENABLED=true`.
 2. In this repository, run the `before-migration` phase:
-   `mvn -f config-server-migration/integration-tests/pom.xml test -P before-migration`.
+   `mvn -f config-server-migration/integration-tests/pom.xml test -Dtest=BeforeMigrationIT`.
 3. In `cloud-core-local-dev`, replace config-server with core-legacy-api:
    `make uninstall-config-server deploy-core-legacy-api INSTALL_CONFIG_SERVER=false INSTALL_CORE_LEGACY_API=true`.
 4. In this repository, run the `after-migration` phase:
-   `mvn -f config-server-migration/integration-tests/pom.xml test -P after-migration`.
+   `mvn -f config-server-migration/integration-tests/pom.xml test -Dtest=AfterMigrationIT`.
    It changes the properties it compares, so it runs once per stand: to repeat it, start again from step 1.
 
 The tests reach config-server, core-legacy-api, and Consul through port forwards.
