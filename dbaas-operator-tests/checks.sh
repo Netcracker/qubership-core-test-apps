@@ -18,7 +18,7 @@
 # With REPORT_DIR set, every check is also recorded there, and `report` turns the records into
 # REPORT_DIR/surefire-reports/TEST-<suite>.xml and REPORT_DIR/reports/surefire.html, the layout the
 # integration tests report reads.
-set -euo pipefail
+set -Eeuo pipefail
 
 CORE_NAMESPACE="${CORE_NAMESPACE:-core}"
 PG_NAMESPACE="${PG_NAMESPACE:-postgres}"
@@ -387,7 +387,7 @@ cmd_assert() {
     if kube get secret "$secret" -o json | jq -e '.data["metadata.json"] and .data["connectionProperties.json"]' >/dev/null; then
       pass "$service Secret $secret is materialized"
     else
-      fail "$service Secret $secret is missing or incomplete"
+      fail "$service Secret $secret is missing or incomplete; its data keys: $(kube get secret "$secret" -o json 2>&1 | jq -c '.data // {} | keys' 2>/dev/null || echo 'none, the Secret cannot be read')"
     fi
     if kube rollout status "deployment/$service" --timeout="$WAIT_TIMEOUT" >/dev/null; then
       pass "$service is ready"
@@ -407,10 +407,12 @@ cmd_assert() {
   done
 
   # 4. control-plane runs in operator mode, without the core-bootstrap credentials.
-  if [[ "$(container_env control-plane DBAAS_OPERATOR_ENABLED)" == "true" ]]; then
+  local operator_flag
+  operator_flag="$(container_env control-plane DBAAS_OPERATOR_ENABLED)"
+  if [[ "$operator_flag" == "true" ]]; then
     pass "control-plane has DBAAS_OPERATOR_ENABLED=true"
   else
-    fail "control-plane is not in operator mode"
+    fail "control-plane is not in operator mode: DBAAS_OPERATOR_ENABLED is '$operator_flag'"
   fi
   if kube get deployment control-plane -o json | jq -e '[.spec.template.spec.volumes[]?.name] | index("pod-secrets")' >/dev/null; then
     fail "control-plane still mounts the legacy pod-secrets volume"
@@ -457,8 +459,9 @@ cmd_report() {
   touch "$results"
 
   # A step that failed outside the checks, such as the cluster setup, must not leave a report that
-  # only lists passes, or a scenario that never ran would look healthy.
-  if [[ "$job_status" != "success" ]] && ! grep -q '^fail' "$results"; then
+  # only lists passes, or a scenario that never ran would look healthy. A failed check or a stopped
+  # subcommand is already recorded.
+  if [[ "$job_status" != "success" ]] && ! grep -qE '^(fail|error)' "$results"; then
     local message="a workflow step outside the checks failed (job status: $job_status); see the job log"
     [[ -s "$results" ]] || message="no checks ran: the cluster setup or an earlier step failed (job status: $job_status)"
     printf 'error\tsetup\t0\t%s\n' "$message" >>"$results"
@@ -507,6 +510,18 @@ cmd_report() {
 
   echo "Wrote $xml ($tests tests, $failed failures, $errors errors)"
 }
+
+# A command that fails inside a subcommand stops the script under `set -e`. Record where, so that the
+# report names the subcommand that stopped and does not lose the checks after it. Only the top-level
+# shell records: a failing command substitution also fails the assignment that runs it.
+SUBCOMMAND="${1:-}"
+on_error() { # line, command, exit status
+  ((BASH_SUBSHELL == 0)) || return 0
+  local message="checks.sh $SUBCOMMAND stopped at line $1: '$2' exited with $3, so the checks after it did not run"
+  echo "ERROR: $message" >&2
+  record error "$SUBCOMMAND stopped at line $1" "$message"
+}
+trap 'on_error "$LINENO" "$BASH_COMMAND" "$?"' ERR
 
 case "${1:-}" in
   snapshot) cmd_snapshot "$2" ;;

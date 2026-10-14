@@ -81,15 +81,16 @@ The tests need nothing from core-bootstrap beyond what an install already does: 
 | `upgrade` | Cloud Core installed as today, then upgraded after the operator is added, keeps the databases it already had: each claim resolves to the database recorded before the upgrade |
 
 `clean-install` installs the dependencies and Cloud Core in two runs, through the `make-targets` input of the setup
-action (`install-dependencies`, then `deploy-core`), so the trap is in place before the first Cloud Core pod starts. `upgrade` arms it after the baseline install
-and the database snapshot, which itself asks dbaas-aggregator from the Cloud Core namespace.
+action (`install-dependencies ensure-core-namespace enable-early-core-mesh`, then `deploy-core`), so the trap is in
+place before the first Cloud Core pod starts. `upgrade` arms it after the baseline install and the database snapshot,
+which itself asks dbaas-aggregator from the Cloud Core namespace.
 
 ### Clean install
 
 ```mermaid
 %%{init: {"flowchart": {"wrappingWidth": 320}}}%%
 flowchart TD
-    A["Kind cluster"] --> B["make install-dependencies enable-early-core-mesh<br/>Istio ambient, Postgres, DBaaS, DBaaS Operator;<br/>DBaaS and Cloud Core namespaces in the mesh,<br/>DBaaS behind a waypoint"]
+    A["Kind cluster"] --> B["make install-dependencies ensure-core-namespace<br/>enable-early-core-mesh<br/>Istio ambient, Postgres, DBaaS, DBaaS Operator;<br/>DBaaS and Cloud Core namespaces in the mesh,<br/>DBaaS behind a waypoint"]
     B --> C["checks.sh arm"]
 
     subgraph arm["arm: set the trap and prove it works"]
@@ -179,7 +180,7 @@ another branch.
 To run the checks against your own cluster, for example one installed with `cloud-core-local-dev`:
 
 ```bash
-./checks.sh arm                              # before Cloud Core is installed or upgraded; see below
+./checks.sh arm                              # before Cloud Core is installed or upgraded, on the mesh setup it needs
 ./checks.sh assert --expect-no-legacy-secret
 ```
 
