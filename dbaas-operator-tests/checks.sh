@@ -15,7 +15,7 @@
 # waypoint counts it. `assert` requires every service to be ready, captured by the mesh, and to have
 # had no request denied: each one resolved its database from the Secret the DBaaS Operator mounted.
 #
-# Checks are recorded and reported through integration-tests-report/surefire-report.sh: with
+# Checks are recorded and reported through test-utils/surefire-report.sh: with
 # REPORT_DIR set, `report` writes them as a Surefire report the integration tests report reads.
 set -Eeuo pipefail
 
@@ -32,8 +32,8 @@ WAIT_TIMEOUT="${WAIT_TIMEOUT:-600s}"
 
 AGGREGATOR_URL="http://$DBAAS_SERVICE_NAME.$DBAAS_NAMESPACE.svc.cluster.local:8080"
 ASSETS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/assets"
-# shellcheck source=../integration-tests-report/surefire-report.sh
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../integration-tests-report/surefire-report.sh"
+# shellcheck source=../test-utils/surefire-report.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../test-utils/surefire-report.sh"
 
 # Every Cloud Core service that owns a database. Keep in sync with the charts.
 SERVICES=(control-plane config-server site-management)

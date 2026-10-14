@@ -164,7 +164,7 @@ integration tests report. With `REPORT_DIR` set, every check is recorded, and `c
 `surefire-reports/TEST-<suite>.xml` and `reports/surefire.html` there. The workflow uploads them as
 `surefire-reports-dbaas-operator-<scenario>`.
 
-The recording and the report come from `integration-tests-report/surefire-report.sh`, which any Bash suite can
+The recording and the report come from `test-utils/surefire-report.sh`, which any Bash suite can
 source; its header shows how. A check that stops `checks.sh` midway is recorded as an error at its line, so the checks
 after it do not silently vanish.
 
