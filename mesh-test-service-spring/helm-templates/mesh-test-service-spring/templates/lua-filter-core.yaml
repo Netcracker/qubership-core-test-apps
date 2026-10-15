@@ -1,0 +1,101 @@
+{{- define "mesh-test-service-spring.luaScriptCore" -}}
+function envoy_on_request(request_handle)
+    local path = request_handle:headers():get(":path")
+    local uuid = string.match(path, ".*/([a-z0-9-]+)$")
+    if uuid then
+        request_handle:headers():add("X-Uuid", uuid)
+    end
+end
+{{- end }}
+{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}
+---
+apiVersion: core.netcracker.com/v1
+kind: Mesh
+subKind: HttpFilters
+metadata:
+  name: mesh-test-service-spring-lua-filters
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "core-operator"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  gateways:
+    - public-gateway-service
+  luaFilters:
+    - name: uuid-from-path
+      luaScript: |
+{{ include "mesh-test-service-spring.luaScriptCore" . | indent 8 }}
+---
+apiVersion: core.netcracker.com/v1
+kind: Mesh
+subKind: RouteConfiguration
+metadata:
+  name: mesh-test-service-spring-lua-routes
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "core-operator"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  gateways: ["public-gateway-service"]
+  virtualServices:
+    - name: public-gateway-service
+      hosts: ["*"]
+      routeConfiguration:
+        version: {{ .Values.DEPLOYMENT_VERSION }}
+        routes:
+          - destination:
+              cluster: {{ .Values.SERVICE }}
+              endpoint: http://{{ .Values.DEPLOYMENT_RESOURCE_NAME }}:8080
+            rules:
+              - match:
+                  prefix: /api/v1/{{ .Values.SERVICE }}/lua-filter/
+                allowed: true
+                luaFilter: uuid-from-path
+---
+apiVersion: core.netcracker.com/v1
+kind: Mesh
+subKind: HttpFilters
+metadata:
+  name: mesh-test-service-spring-mesh-lua-filters
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "core-operator"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  gateways:
+    - internal-gateway-service
+  luaFilters:
+    - name: uuid-from-path-mesh
+      luaScript: |
+{{ include "mesh-test-service-spring.luaScriptCore" . | indent 8 }}
+---
+apiVersion: core.netcracker.com/v1
+kind: Mesh
+subKind: RouteConfiguration
+metadata:
+  name: mesh-test-service-spring-mesh-lua-routes
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/processed-by-operator: "core-operator"
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  gateways: ["internal-gateway-service"]
+  virtualServices:
+    - name: internal-gateway-service
+      hosts: ["*"]
+      routeConfiguration:
+        version: {{ .Values.DEPLOYMENT_VERSION }}
+        routes:
+          - destination:
+              cluster: {{ .Values.SERVICE }}
+              endpoint: http://{{ .Values.DEPLOYMENT_RESOURCE_NAME }}:8080
+            rules:
+              - match:
+                  prefix: /api/v1/{{ .Values.SERVICE }}/lua-filter/
+                allowed: true
+                luaFilter: uuid-from-path-mesh
+{{- end }}
