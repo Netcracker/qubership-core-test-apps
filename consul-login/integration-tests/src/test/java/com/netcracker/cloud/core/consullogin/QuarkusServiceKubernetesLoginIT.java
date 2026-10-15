@@ -89,7 +89,7 @@ class QuarkusServiceKubernetesLoginIT {
     void serviceLogsInAndReadsItsProperties() {
         JsonNode status = TestService.awaitLoginStatus(servicePortForward);
 
-        assertEquals("kubernetes", status.path("loginMode").asText(), "login mode");
+        assertEquals("k8s", status.path("loginMode").asText(), "login mode");
         assertTrue(status.path("tokenPresent").asBoolean(), "the service holds a Consul token");
         assertEquals(MARKER_VALUE, status.path("consulMarker").asText(), "property read from Consul");
         assertTrue(ConsulAcl.issuedTokenCount(consul, AUTH_METHOD) > 0,
@@ -101,7 +101,7 @@ class QuarkusServiceKubernetesLoginIT {
                 "CLOUD_NAMESPACE", NAMESPACE,
                 "MICROSERVICE_NAME", SERVICE.serviceName(),
                 "CONSUL_URL", Cluster.CONSUL_IN_CLUSTER_URL + "/",
-                "CONSUL_AUTH_MODE", "kubernetes",
+                "CONSUL_AUTH_MODE", "k8s",
                 "CONSUL_AUTH_METHOD", AUTH_METHOD,
                 "CONSUL_AUTH_AUDIENCE", ProjectedToken.AUDIENCE);
     }
