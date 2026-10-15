@@ -122,16 +122,15 @@ flowchart TD
 
 ### Upgrade
 
-Yellow steps run Cloud Core from `main`, before the operator.
+Yellow steps run Cloud Core without the operator, as installed today.
 
 ```mermaid
 %%{init: {"flowchart": {"wrappingWidth": 320}}}%%
 flowchart TD
-    A["Kind cluster"] --> B["setup action: install from main<br/>Istio ambient, DBaaS without the operator,<br/>Cloud Core in legacy mode"]
+    A["Kind cluster"] --> B["setup action: install<br/>Istio ambient, DBaaS without the operator,<br/>Cloud Core in legacy mode"]
     B --> C["services create their databases over REST"]
     C --> D["checks.sh snapshot<br/>ask dbaas-aggregator for each service's database<br/>and record its name"]
-    D --> E["switch core-bootstrap to the feature branch"]
-    E --> F["install only the DBaaS Operator<br/>into the running DBaaS"]
+    D --> F["install only the DBaaS Operator<br/>into the running DBaaS"]
     F --> F2["make deploy-dependency-waypoints<br/>DBaaS in the mesh, behind a waypoint"]
     F2 --> G["checks.sh arm<br/>(after the snapshot, which itself calls REST<br/>from the Cloud Core namespace)"]
     G --> H["make … deploy-core<br/>upgrade Cloud Core onto the operator"]
@@ -174,12 +173,9 @@ from the report.
 
 ## Running
 
-The workflow is `DBaaS Operator integration tests`. The core-bootstrap branch is inlined in it as
-`OPERATOR_BOOTSTRAP_BRANCH`, because it exists only while this work is open; the bootstrap derives the core-bootstrap
-image and the Core service tags from the branches. `CORETPL_CHART_DIR` is inlined for the same reason: the charts need
-`coretpl` 0.2.4, which is packaged from the core-bootstrap branch until it is published. Once this merges, drop both,
-and the defaults, `main` and `latest`, apply. `test-branch` stays an input, so the service charts can be taken from
-another branch.
+The workflow is `DBaaS Operator integration tests`. It installs core-bootstrap and the Core services from `main`. Set
+`test-branch` to take the Core services from another branch, for example to test a change before it merges; a
+repository without that branch stays on `main`.
 
 To run the checks against your own cluster, for example one installed with `cloud-core-local-dev`:
 
