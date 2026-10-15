@@ -1,7 +1,8 @@
-name: Setup Kind cluster and deploy Cloud Core
+name: Setup Kind cluster and run the Cloud Core bootstrap
 description: >
   Spins up a Kind cluster, installs required tooling, checks out the
-  qubership-core-bootstrap repo, and deploys Cloud Core with Core or Istio service mesh.
+  qubership-core-bootstrap repo, and runs its make-targets: by default the dependencies and
+  Cloud Core with Core or Istio service mesh.
   The branches, tags and images of the core services and of the dependencies are resolved by the
   bootstrap and printed at the top of its log, so this action only passes on what a suite has to
   change: everything but the inputs below goes in aux-bootstrap-args.
@@ -39,6 +40,13 @@ inputs:
       (PATRONI_REPLICAS_NUMBER=2 RABBIT_INSTANCES=rabbitmq-1).
     required: false
     default: ''
+  make-targets:
+    description: >
+      Targets of the cloud-core local-dev make run. The default installs everything. A suite that has
+      to act between the dependencies and Cloud Core passes install-dependencies here, then runs
+      deploy-core itself.
+    required: false
+    default: install
 
 runs:
   using: composite
@@ -48,7 +56,7 @@ runs:
       with:
         core-bootstrap-branch: ${{ inputs.core-bootstrap-branch }}
 
-    - name: Deploy cloud core
+    - name: Run the cloud core bootstrap
       shell: bash
       env:
         INSTALL_MAAS: ${{ inputs.install-maas }}
@@ -56,6 +64,7 @@ runs:
         MESH_TYPE: ${{ inputs.mesh-type }}
         TEST_BRANCH: ${{ inputs.test-branch }}
         AUX_BOOTSTRAP_ARGS: ${{ inputs.aux-bootstrap-args }}
+        MAKE_TARGETS: ${{ inputs.make-targets }}
       run: |
         MAKE_ARGS="INSTALL_MAAS=$INSTALL_MAAS CORE_CONFIG_MAAS_ENABLED=$INSTALL_MAAS"
         MAKE_ARGS="$MAKE_ARGS INSTALL_ISTIO=$INSTALL_ISTIO SERVICE_MESH_TYPE=$MESH_TYPE"
@@ -70,4 +79,4 @@ runs:
         if [ -n "$AUX_BOOTSTRAP_ARGS" ]; then
           MAKE_ARGS="$MAKE_ARGS $AUX_BOOTSTRAP_ARGS"
         fi
-        make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/ install
+        make $MAKE_ARGS -C core-bootstrap-repo/cloud-core-local-dev/ $MAKE_TARGETS
