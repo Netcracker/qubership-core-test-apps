@@ -32,7 +32,7 @@ hand only; the nightly report does not include it. Its inputs:
 | --- | --- | --- |
 | `core-bootstrap-branch` | `main` | The branch of [qubership-core-bootstrap](https://github.com/Netcracker/qubership-core-bootstrap) that installs the stand |
 | `core-legacy-api-branch` | `main` | The branch of qubership-mini-core whose chart and image replace config-server |
-| `config-server-tag` | `latest` | The image tag of config-server the stand starts with |
+| `config-server-branch` | `main` | The branch of qubership-core-config-server whose chart and image the stand starts with |
 
 To run the phases against a stand of your own, from the current kubeconfig context:
 
