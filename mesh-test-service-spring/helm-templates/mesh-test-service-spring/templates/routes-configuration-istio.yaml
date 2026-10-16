@@ -60,7 +60,7 @@ spec:
           replacePrefixMatch: /api/v1/hello
     backendRefs:
     - kind: Service
-      name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
+      name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}-cb"
       port: 8080
   - matches:
     - path:
@@ -74,7 +74,7 @@ spec:
           replacePrefixMatch: /api/v1/declarative_hello
     backendRefs:
     - kind: Service
-      name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
+      name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}-cb"
       port: 8080
   - matches:
     - path:
@@ -88,7 +88,7 @@ spec:
           replacePrefixMatch: /api/v1/egress
     backendRefs:
     - kind: Service
-      name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
+      name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}-cb"
       port: 8080
   - matches:
     - path:
@@ -102,7 +102,7 @@ spec:
           replacePrefixMatch: /api/v1/sleep
     backendRefs:
     - kind: Service
-      name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
+      name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}-cb"
       port: 8080
 {{- end }}
 {{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
