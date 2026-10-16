@@ -15,10 +15,10 @@ on:
         required: false
         default: 'main'
         type: string
-      config-server-tag:
-        description: 'Image tag of the config-server the stand starts with'
+      config-server-branch:
+        description: 'Branch of qubership-core-config-server repo; its chart and the image built from it are installed'
         required: false
-        default: 'latest'
+        default: 'main'
         type: string
 
 jobs:
@@ -36,14 +36,20 @@ jobs:
           install-istio: 'false'
           aux-bootstrap-args: >-
             CONFIG_SERVER_CONSUL_ENABLED=true
-            CONFIG_SERVER_TAG=${{ inputs.config-server-tag }}
+            CONFIG_SERVER_BRANCH=${{ inputs.config-server-branch }}
             CORE_LEGACY_API_BRANCH=${{ inputs.core-legacy-api-branch }}
+
+      # The stand installs config-server without waiting for it to become ready.
+      - name: Wait for config-server
+        run: kubectl rollout status deployment/config-server -n core --timeout=5m
 
       # A failed phase does not stop the run: the next steps still replace config-server, run the other phase, and
       # upload the reports.
       - name: Run the before-migration phase
         id: before_migration
         continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: mvn -B -ntp -f config-server-migration/integration-tests/pom.xml test -Dtest=BeforeMigrationIT
 
       - name: Save the config-server logs
@@ -59,6 +65,8 @@ jobs:
       - name: Run the after-migration phase
         id: after_migration
         continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: mvn -B -ntp -f config-server-migration/integration-tests/pom.xml test -Dtest=AfterMigrationIT
 
       - name: Upload Surefire reports
