@@ -44,6 +44,8 @@ jobs:
       - name: Run the before-migration phase
         id: before_migration
         continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: mvn -B -ntp -f config-server-migration/integration-tests/pom.xml test -Dtest=BeforeMigrationIT
 
       - name: Save the config-server logs
@@ -59,6 +61,8 @@ jobs:
       - name: Run the after-migration phase
         id: after_migration
         continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: mvn -B -ntp -f config-server-migration/integration-tests/pom.xml test -Dtest=AfterMigrationIT
 
       - name: Upload Surefire reports

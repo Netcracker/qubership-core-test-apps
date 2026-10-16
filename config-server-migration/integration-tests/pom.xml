@@ -22,10 +22,17 @@
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
         <surefire-plugin.version>3.6.0</surefire-plugin.version>
-        <fabric8.version>7.5.2</fabric8.version>
+        <cloud.junit.cloudcore.version>8.11.2</cloud.junit.cloudcore.version>
         <jackson.version>2.21.7</jackson.version>
         <junit.version>5.10.5</junit.version>
     </properties>
+
+    <repositories>
+        <repository>
+            <id>github</id>
+            <url>https://maven.pkg.github.com/netcracker/*</url>
+        </repository>
+    </repositories>
 
     <scm>
         <connection>scm:git:https://github.com/Netcracker/qubership-core-test-apps.git</connection>
@@ -37,9 +44,9 @@
 
     <dependencies>
         <dependency>
-            <groupId>io.fabric8</groupId>
-            <artifactId>kubernetes-client</artifactId>
-            <version>${fabric8.version}</version>
+            <groupId>com.netcracker.cloud.junit.cloudcore</groupId>
+            <artifactId>cloud-core-extension</artifactId>
+            <version>${cloud.junit.cloudcore.version}</version>
         </dependency>
 
         <dependency>

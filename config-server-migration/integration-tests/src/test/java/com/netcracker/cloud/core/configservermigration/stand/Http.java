@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URL;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -19,10 +20,10 @@ public final class Http {
             .connectTimeout(Duration.ofSeconds(10))
             .build();
 
-    private final String baseUrl;
+    private final URI baseUri;
 
-    public Http(String baseUrl) {
-        this.baseUrl = baseUrl;
+    public Http(URL baseUrl) {
+        this.baseUri = URI.create(baseUrl.toString());
     }
 
     public Response get(String path) {
@@ -38,7 +39,7 @@ public final class Http {
     }
 
     private HttpRequest.Builder request(String path) {
-        return HttpRequest.newBuilder(URI.create(baseUrl + path)).timeout(Duration.ofSeconds(30));
+        return HttpRequest.newBuilder(baseUri.resolve(path)).timeout(Duration.ofSeconds(30));
     }
 
     private static HttpRequest.BodyPublisher json(Object body) {

@@ -3,12 +3,16 @@ package com.netcracker.cloud.core.configservermigration;
 import com.netcracker.cloud.core.configservermigration.stand.Cluster;
 import com.netcracker.cloud.core.configservermigration.stand.Http;
 import com.netcracker.cloud.core.configservermigration.stand.Snapshot;
+import com.netcracker.cloud.junit.cloudcore.extension.annotations.Cloud;
+import com.netcracker.cloud.junit.cloudcore.extension.annotations.EnableExtension;
+import com.netcracker.cloud.junit.cloudcore.extension.annotations.IntValue;
+import com.netcracker.cloud.junit.cloudcore.extension.annotations.PortForward;
+import com.netcracker.cloud.junit.cloudcore.extension.annotations.Value;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.fabric8.kubernetes.client.LocalPortForward;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.net.URL;
 import java.time.Duration;
 
 import static com.netcracker.cloud.core.configservermigration.MigrationData.APPLICATION;
@@ -30,32 +34,33 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  *
  * <p>A failure here leaves no baseline, and {@link AfterMigrationIT} then fails on every check.
  */
+@EnableExtension
 class BeforeMigrationIT {
 
-    private static KubernetesClient kubernetes;
-    private static LocalPortForward configServerPort;
-    private static LocalPortForward consulPort;
-    private static Http configServer;
-    private static Http consul;
+    @Cloud(namespace = @Value(Cluster.CORE_NAMESPACE))
+    private KubernetesClient kubernetes;
+
+    @PortForward(serviceName = @Value(Cluster.CONFIG_SERVER),
+            cloud = @Cloud(namespace = @Value(Cluster.CORE_NAMESPACE)))
+    private URL configServerUrl;
+
+    @PortForward(serviceName = @Value(Cluster.CONSUL_SERVER), port = @IntValue(8500),
+            cloud = @Cloud(namespace = @Value(Cluster.CONSUL_NAMESPACE)))
+    private URL consulUrl;
+
+    private Http configServer;
+    private Http consul;
 
     @BeforeAll
-    static void connect() {
-        kubernetes = Cluster.newClient();
+    void connect() {
         Cluster.deleteBaseline(kubernetes);
-        configServerPort = Cluster.forwardConfigServerPort(kubernetes);
-        consulPort = Cluster.forwardConsulPort(kubernetes);
-        configServer = new Http(Cluster.url(configServerPort));
-        consul = new Http(Cluster.url(consulPort));
+        configServer = new Http(configServerUrl);
+        consul = new Http(consulUrl);
         await("config-server answers GET /applications")
                 .atMost(Duration.ofMinutes(2))
                 .pollInterval(Duration.ofSeconds(2))
                 .ignoreExceptions()
                 .until(() -> configServer.get("/applications").status() == 200);
-    }
-
-    @AfterAll
-    static void disconnect() {
-        Cluster.tearDown(kubernetes, configServerPort, consulPort);
     }
 
     /**

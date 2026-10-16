@@ -6,15 +6,19 @@ import com.netcracker.cloud.core.configservermigration.stand.Cluster;
 import com.netcracker.cloud.core.configservermigration.stand.Http;
 import com.netcracker.cloud.core.configservermigration.stand.ResponseForms;
 import com.netcracker.cloud.core.configservermigration.stand.Snapshot;
+import com.netcracker.cloud.junit.cloudcore.extension.annotations.Cloud;
+import com.netcracker.cloud.junit.cloudcore.extension.annotations.EnableExtension;
+import com.netcracker.cloud.junit.cloudcore.extension.annotations.IntValue;
+import com.netcracker.cloud.junit.cloudcore.extension.annotations.PortForward;
+import com.netcracker.cloud.junit.cloudcore.extension.annotations.Value;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.fabric8.kubernetes.client.LocalPortForward;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestFactory;
 
 import java.io.IOException;
+import java.net.URL;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -39,26 +43,32 @@ import static org.junit.jupiter.api.Assertions.assertNull;
  * the tests run in. A difference the migration guide allows is normalized in {@link ResponseForms}; any other
  * difference fails, and becomes allowed only once the guide lists it.
  */
+@EnableExtension
 class AfterMigrationIT {
 
     private static final ObjectMapper JSON = new ObjectMapper();
 
-    private static KubernetesClient kubernetes;
-    private static LocalPortForward coreLegacyApiPort;
-    private static LocalPortForward consulPort;
-    private static Http coreLegacyApi;
-    private static Http consul;
-    private static Snapshot baseline;
-    private static Snapshot migrated;
+    @Cloud(namespace = @Value(Cluster.CORE_NAMESPACE))
+    private KubernetesClient kubernetes;
+
+    @PortForward(serviceName = @Value(Cluster.CONFIG_SERVER),
+            cloud = @Cloud(namespace = @Value(Cluster.CORE_NAMESPACE)))
+    private URL coreLegacyApiUrl;
+
+    @PortForward(serviceName = @Value(Cluster.CONSUL_SERVER), port = @IntValue(8500),
+            cloud = @Cloud(namespace = @Value(Cluster.CONSUL_NAMESPACE)))
+    private URL consulUrl;
+
+    private Http coreLegacyApi;
+    private Http consul;
+    private Snapshot baseline;
+    private Snapshot migrated;
 
     @BeforeAll
-    static void readBothSnapshots() {
-        kubernetes = Cluster.newClient();
+    void readBothSnapshots() {
         Cluster.requireCoreLegacyApiInPlaceOfConfigServer(kubernetes);
-        coreLegacyApiPort = Cluster.forwardConfigServerPort(kubernetes);
-        consulPort = Cluster.forwardConsulPort(kubernetes);
-        coreLegacyApi = new Http(Cluster.url(coreLegacyApiPort));
-        consul = new Http(Cluster.url(consulPort));
+        coreLegacyApi = new Http(coreLegacyApiUrl);
+        consul = new Http(consulUrl);
         await("core-legacy-api answers GET /applications")
                 .atMost(Duration.ofMinutes(2))
                 .pollInterval(Duration.ofSeconds(2))
@@ -66,11 +76,6 @@ class AfterMigrationIT {
                 .until(() -> coreLegacyApi.get("/applications").status() == 200);
         baseline = Snapshot.fromJson(Cluster.loadBaseline(kubernetes));
         migrated = Snapshot.take(coreLegacyApi, consul, REQUESTS);
-    }
-
-    @AfterAll
-    static void disconnect() {
-        Cluster.tearDown(kubernetes, coreLegacyApiPort, consulPort);
     }
 
     /**
@@ -144,7 +149,7 @@ class AfterMigrationIT {
     }
 
     /** The value of the source with the highest precedence that has the key, or {@code null} if none has it. */
-    private static String servedValue(String key) throws IOException {
+    private String servedValue(String key) throws IOException {
         JsonNode environment = JSON.readTree(coreLegacyApi.get("/" + APPLICATION + "/dev").body());
         for (JsonNode source : environment.get("propertySources")) {
             JsonNode value = source.get("source").get(key);
@@ -155,7 +160,7 @@ class AfterMigrationIT {
         return null;
     }
 
-    private static Http.Response storedValue(String keyPath) {
+    private Http.Response storedValue(String keyPath) {
         return consul.get("/v1/kv/" + Snapshot.kvPrefix() + APPLICATION + ",dev/" + keyPath + "?raw");
     }
 }
