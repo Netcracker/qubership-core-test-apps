@@ -28,7 +28,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/molecule-man/go-brrr v1.1.1 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.7.2 // indirect
+	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.7.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel/log v1.47.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
@@ -51,10 +51,10 @@ require (
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
-	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.12.1
-	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.11.1
+	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.12.3
+	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.11.3
 	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.9.1
-	github.com/netcracker/qubership-core-lib-go/v3 v3.15.0
+	github.com/netcracker/qubership-core-lib-go/v3 v3.15.2
 	github.com/openzipkin/zipkin-go v0.4.3 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.25.0 // indirect
