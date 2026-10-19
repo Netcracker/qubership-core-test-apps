@@ -9,7 +9,7 @@ require (
 	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.11.3
 	github.com/netcracker/qubership-core-lib-go-maas-client/v3 v3.7.3
 	github.com/netcracker/qubership-core-lib-go-maas-core/v3 v3.7.2
-	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.9.1
+	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.10.1
 	github.com/netcracker/qubership-core-lib-go/v3 v3.15.2
 )
 
