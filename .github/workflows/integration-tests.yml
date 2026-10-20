@@ -281,6 +281,10 @@ jobs:
                   site_management=true
                   ;;
                 maas-agent|maas_agent)
+                  if [[ "$INSTALL_MAAS" != "true" ]]; then
+                    echo "::error::maas-agent tests need install-maas: bootstrap installs maas-agent only together with MaaS"
+                    exit 1
+                  fi
                   maas_agent=true
                   ;;
                 "")

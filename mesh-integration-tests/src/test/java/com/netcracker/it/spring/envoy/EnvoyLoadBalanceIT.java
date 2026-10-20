@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import static com.netcracker.it.spring.CommonOperations.getCountOfReplicas;
@@ -62,7 +63,8 @@ class EnvoyLoadBalanceIT extends BaseTest {
     private static final String SPRING_DEPLOYMENT = "mesh-test-service-spring-v1";
     private static final int LB_REPLICAS = 2;
     private static final Duration SCALE_TIMEOUT = Duration.ofMinutes(3);
-    private static int originalReplicas;
+    // null until captured: scaling back to an unknown count would take spring down for the next suites
+    private static Integer originalReplicas;
 
     @Cloud
     protected static KubernetesClient kubernetesClient;
@@ -78,7 +80,9 @@ class EnvoyLoadBalanceIT extends BaseTest {
 
     @AfterAll
     static void scaleSpringBack() {
-        scaleSpring(originalReplicas);
+        if (originalReplicas != null) {
+            scaleSpring(originalReplicas);
+        }
     }
 
     private static void scaleSpring(int replicas) {
@@ -91,9 +95,13 @@ class EnvoyLoadBalanceIT extends BaseTest {
                 .until(() -> {
                     DeploymentStatus status = kubernetesClient.apps().deployments().inNamespace(namespace)
                             .withName(SPRING_DEPLOYMENT).get().getStatus();
+                    // evicted or completed pods never go away by themselves
+                    long livePods = kubernetesClient.pods().inNamespace(namespace).withLabel("name", SPRING_DEPLOYMENT)
+                            .list().getItems().stream()
+                            .filter(pod -> !Set.of("Failed", "Succeeded").contains(pod.getStatus().getPhase()))
+                            .count();
                     return status != null && Integer.valueOf(replicas).equals(status.getReadyReplicas())
-                            && kubernetesClient.pods().inNamespace(namespace).withLabel("name", SPRING_DEPLOYMENT)
-                            .list().getItems().size() == replicas;
+                            && livePods == replicas;
                 });
     }
 
@@ -104,7 +112,10 @@ class EnvoyLoadBalanceIT extends BaseTest {
     @ParameterizedTest(name = "[{index}] {0}")
     @MethodSource("gateways")
     void testCookieStickinessPinsRequestsToOnePod(String gateway) {
-        awaitAllReplicasBehind(gateway);
+        // Istio gives a cookieless client the same generated cookie every time, a random one spreads the probes;
+        // Core names its cookie after the version, so it ignores this one and balances freely
+        awaitAllReplicasBehind(gateway, LB_TEST_PATH,
+                () -> Map.of("Cookie", STICKY_COOKIE_BASE_NAME + "=" + UUID.randomUUID()));
         HttpResult first = awaitTrace(gateway, LB_TEST_PATH, Map.of());
         String stickyCookie = first.setCookies().stream()
                 .filter(cookie -> cookie.startsWith(STICKY_COOKIE_BASE_NAME))
@@ -127,7 +138,8 @@ class EnvoyLoadBalanceIT extends BaseTest {
     @ParameterizedTest(name = "[{index}] {0}")
     @MethodSource("gateways")
     void testHeaderHashPinsSameHeaderValueToOnePod(String gateway) {
-        awaitAllReplicasBehind(gateway);
+        // without X-User-Id there is nothing to hash, so the probes are spread
+        awaitAllReplicasBehind(gateway, LB_HEADER_PATH, Map::of);
         Map<String, String> headers = Map.of(LB_HEADER_NAME, UUID.randomUUID().toString());
 
         Set<String> pods = new LinkedHashSet<>();
@@ -139,17 +151,15 @@ class EnvoyLoadBalanceIT extends BaseTest {
                         .formatted(gateway, LB_HEADER_NAME, pods));
     }
 
-    // Pinning to one pod proves nothing until the gateway reaches both replicas. Probed without X-User-Id: the
-    // cookie route would pin a cookieless client to the same pod on Istio.
-    private void awaitAllReplicasBehind(String gateway) {
-        String path = LB_HEADER_PATH;
+    // pinning to one pod proves nothing until the route reaches both replicas
+    private void awaitAllReplicasBehind(String gateway, String path, Supplier<Map<String, String>> probeHeaders) {
         Set<String> pods = new HashSet<>();
         await("%s %s reaches %d pods".formatted(gateway, path, LB_REPLICAS))
                 .atMost(READY_TIMEOUT)
                 .pollInterval(Duration.ofMillis(500))
                 .ignoreExceptions()
                 .until(() -> {
-                    HttpResult result = get(gateway, path, Map.of());
+                    HttpResult result = get(gateway, path, probeHeaders.get());
                     if (result.status() == 200) {
                         pods.add(result.trace().getPodId());
                     }
