@@ -63,6 +63,7 @@ class EnvoyLoadBalanceIT extends BaseTest {
     private static final String SPRING_DEPLOYMENT = "mesh-test-service-spring-v1";
     private static final int LB_REPLICAS = 2;
     private static final Duration SCALE_TIMEOUT = Duration.ofMinutes(3);
+    private static final Set<String> TERMINAL_POD_PHASES = Set.of("Failed", "Succeeded");
     // null until captured: scaling back to an unknown count would take spring down for the next suites
     private static Integer originalReplicas;
 
@@ -95,13 +96,15 @@ class EnvoyLoadBalanceIT extends BaseTest {
                 .until(() -> {
                     DeploymentStatus status = kubernetesClient.apps().deployments().inNamespace(namespace)
                             .withName(SPRING_DEPLOYMENT).get().getStatus();
+                    if (status == null || !Integer.valueOf(replicas).equals(status.getReadyReplicas())) {
+                        return false;
+                    }
                     // evicted or completed pods never go away by themselves
                     long livePods = kubernetesClient.pods().inNamespace(namespace).withLabel("name", SPRING_DEPLOYMENT)
                             .list().getItems().stream()
-                            .filter(pod -> !Set.of("Failed", "Succeeded").contains(pod.getStatus().getPhase()))
+                            .filter(pod -> !TERMINAL_POD_PHASES.contains(pod.getStatus().getPhase()))
                             .count();
-                    return status != null && Integer.valueOf(replicas).equals(status.getReadyReplicas())
-                            && livePods == replicas;
+                    return livePods == replicas;
                 });
     }
 
