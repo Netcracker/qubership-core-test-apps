@@ -4,9 +4,11 @@ import com.google.gson.Gson;
 import com.netcracker.cloud.junit.cloudcore.extension.annotations.Cloud;
 import com.netcracker.cloud.junit.cloudcore.extension.annotations.EnableExtension;
 import com.netcracker.it.common.model.TraceResponse;
+import io.fabric8.kubernetes.api.model.apps.DeploymentStatus;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.Response;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -14,6 +16,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -22,6 +25,8 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
+import static com.netcracker.it.spring.CommonOperations.getCountOfReplicas;
+import static com.netcracker.it.spring.CommonOperations.scaleDeployment;
 import static com.netcracker.it.spring.envoy.Paths.API_V_1_MESH_TEST_SERVICE_SPRING;
 import static com.netcracker.it.spring.envoy.Paths.INTERNAL_GATEWAY_BASE_PATH;
 import static org.awaitility.Awaitility.await;
@@ -31,7 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 /**
  * Cookie stickiness ({@code StatefulSession} / {@code DestinationRule} cookie hash) and header-hash load balancing
  * ({@code LoadBalance} / {@code DestinationRule} header hash) must behave the same on both meshes.
- * With {@code REPLICAS: 2} pinning is observable via {@code podId}.
+ * The test scales spring to two replicas for its own run, so that pinning is observable via {@code podId}.
  */
 @EnableExtension
 @Slf4j
@@ -53,14 +58,43 @@ class EnvoyLoadBalanceIT extends BaseTest {
     private static final Duration READY_TIMEOUT = Duration.ofMinutes(2);
     private static final Duration POLL_INTERVAL = Duration.ofSeconds(2);
 
+    // other suites keep one replica: Envoy lets each extra endpoint exceed a connection limit
+    private static final String SPRING_DEPLOYMENT = "mesh-test-service-spring-v1";
+    private static final int LB_REPLICAS = 2;
+    private static final Duration SCALE_TIMEOUT = Duration.ofMinutes(3);
+    private static int originalReplicas;
+
     @Cloud
     protected static KubernetesClient kubernetesClient;
 
     private static InClusterCurl inClusterCurl;
 
     @BeforeAll
-    static void initInClusterCurl() {
+    static void scaleUpSpringAndInitInClusterCurl() {
+        originalReplicas = getCountOfReplicas(kubernetesClient, kubernetesClient.getNamespace(), SPRING_DEPLOYMENT);
+        scaleSpring(LB_REPLICAS);
         inClusterCurl = new InClusterCurl(kubernetesClient);
+    }
+
+    @AfterAll
+    static void scaleSpringBack() {
+        scaleSpring(originalReplicas);
+    }
+
+    private static void scaleSpring(int replicas) {
+        String namespace = kubernetesClient.getNamespace();
+        scaleDeployment(kubernetesClient, namespace, SPRING_DEPLOYMENT, replicas);
+        // terminating pods still serve until they are gone, and the next suite must see the final count
+        await("%s ready with %d pods".formatted(SPRING_DEPLOYMENT, replicas))
+                .atMost(SCALE_TIMEOUT)
+                .pollInterval(POLL_INTERVAL)
+                .until(() -> {
+                    DeploymentStatus status = kubernetesClient.apps().deployments().inNamespace(namespace)
+                            .withName(SPRING_DEPLOYMENT).get().getStatus();
+                    return status != null && Integer.valueOf(replicas).equals(status.getReadyReplicas())
+                            && kubernetesClient.pods().inNamespace(namespace).withLabel("name", SPRING_DEPLOYMENT)
+                            .list().getItems().size() == replicas;
+                });
     }
 
     static Stream<String> gateways() {
@@ -70,6 +104,7 @@ class EnvoyLoadBalanceIT extends BaseTest {
     @ParameterizedTest(name = "[{index}] {0}")
     @MethodSource("gateways")
     void testCookieStickinessPinsRequestsToOnePod(String gateway) {
+        awaitAllReplicasBehind(gateway, LB_TEST_PATH);
         HttpResult first = awaitTrace(gateway, LB_TEST_PATH, Map.of());
         String stickyCookie = first.setCookies().stream()
                 .filter(cookie -> cookie.startsWith(STICKY_COOKIE_BASE_NAME))
@@ -92,6 +127,7 @@ class EnvoyLoadBalanceIT extends BaseTest {
     @ParameterizedTest(name = "[{index}] {0}")
     @MethodSource("gateways")
     void testHeaderHashPinsSameHeaderValueToOnePod(String gateway) {
+        awaitAllReplicasBehind(gateway, LB_HEADER_PATH);
         Map<String, String> headers = Map.of(LB_HEADER_NAME, UUID.randomUUID().toString());
 
         Set<String> pods = new LinkedHashSet<>();
@@ -101,6 +137,22 @@ class EnvoyLoadBalanceIT extends BaseTest {
         assertEquals(1, pods.size(),
                 "%s: header consistent hash must pin one %s value to a single pod, but saw %s"
                         .formatted(gateway, LB_HEADER_NAME, pods));
+    }
+
+    // pinning to one pod proves nothing until the route reaches both replicas
+    private void awaitAllReplicasBehind(String gateway, String path) {
+        Set<String> pods = new HashSet<>();
+        await("%s %s reaches %d pods".formatted(gateway, path, LB_REPLICAS))
+                .atMost(READY_TIMEOUT)
+                .pollInterval(Duration.ofMillis(500))
+                .ignoreExceptions()
+                .until(() -> {
+                    HttpResult result = get(gateway, path, Map.of());
+                    if (result.status() == 200) {
+                        pods.add(result.trace().getPodId());
+                    }
+                    return pods.size() >= LB_REPLICAS;
+                });
     }
 
     private HttpResult awaitTrace(String gateway, String path, Map<String, String> headers) {
