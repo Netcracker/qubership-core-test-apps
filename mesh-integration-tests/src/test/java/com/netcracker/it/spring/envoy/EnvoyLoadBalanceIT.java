@@ -104,7 +104,7 @@ class EnvoyLoadBalanceIT extends BaseTest {
     @ParameterizedTest(name = "[{index}] {0}")
     @MethodSource("gateways")
     void testCookieStickinessPinsRequestsToOnePod(String gateway) {
-        awaitAllReplicasBehind(gateway, LB_TEST_PATH);
+        awaitAllReplicasBehind(gateway);
         HttpResult first = awaitTrace(gateway, LB_TEST_PATH, Map.of());
         String stickyCookie = first.setCookies().stream()
                 .filter(cookie -> cookie.startsWith(STICKY_COOKIE_BASE_NAME))
@@ -127,7 +127,7 @@ class EnvoyLoadBalanceIT extends BaseTest {
     @ParameterizedTest(name = "[{index}] {0}")
     @MethodSource("gateways")
     void testHeaderHashPinsSameHeaderValueToOnePod(String gateway) {
-        awaitAllReplicasBehind(gateway, LB_HEADER_PATH);
+        awaitAllReplicasBehind(gateway);
         Map<String, String> headers = Map.of(LB_HEADER_NAME, UUID.randomUUID().toString());
 
         Set<String> pods = new LinkedHashSet<>();
@@ -139,8 +139,10 @@ class EnvoyLoadBalanceIT extends BaseTest {
                         .formatted(gateway, LB_HEADER_NAME, pods));
     }
 
-    // pinning to one pod proves nothing until the route reaches both replicas
-    private void awaitAllReplicasBehind(String gateway, String path) {
+    // Pinning to one pod proves nothing until the gateway reaches both replicas. Probed without X-User-Id: the
+    // cookie route would pin a cookieless client to the same pod on Istio.
+    private void awaitAllReplicasBehind(String gateway) {
+        String path = LB_HEADER_PATH;
         Set<String> pods = new HashSet<>();
         await("%s %s reaches %d pods".formatted(gateway, path, LB_REPLICAS))
                 .atMost(READY_TIMEOUT)
