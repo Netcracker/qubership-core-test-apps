@@ -60,7 +60,7 @@ spec:
           replacePrefixMatch: /api/v1/hello
     backendRefs:
     - kind: Service
-      name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}-cb"
+      name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
       port: 8080
   - matches:
     - path:
@@ -74,7 +74,7 @@ spec:
           replacePrefixMatch: /api/v1/declarative_hello
     backendRefs:
     - kind: Service
-      name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}-cb"
+      name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
       port: 8080
   - matches:
     - path:
@@ -88,12 +88,26 @@ spec:
           replacePrefixMatch: /api/v1/egress
     backendRefs:
     - kind: Service
-      name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}-cb"
+      name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
       port: 8080
   - matches:
     - path:
         type: PathPrefix
         value: /api/v1/mesh-test-service-spring/sleep
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /api/v1/sleep
+    backendRefs:
+    - kind: Service
+      name: "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}"
+      port: 8080
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/mesh-test-service-spring/connection-limit/sleep
     filters:
     - type: URLRewrite
       urlRewrite:

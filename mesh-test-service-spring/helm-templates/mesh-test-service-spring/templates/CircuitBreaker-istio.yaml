@@ -1,7 +1,5 @@
 {{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
-# Istio counterpart of the Core composite-gateway circuitBreaker (maxConnections: 2): the composite routes
-# (mesh-test-app-gateway-spring-routes) target this dedicated host, so the limit does not reach the
-# public/private gateways or other DestinationRules on {{ .Values.DEPLOYMENT_RESOURCE_NAME }}.
+# Istio counterpart of the Core connection-limited route: only /connection-limit/sleep targets this host.
 ---
 kind: Service
 apiVersion: v1

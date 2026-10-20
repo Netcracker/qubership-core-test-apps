@@ -1,6 +1,7 @@
 name: Mesh-test-service-spring build
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - 'mesh-test-service-spring/**'
