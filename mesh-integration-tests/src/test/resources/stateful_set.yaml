@@ -11,9 +11,6 @@ spec:
     metadata:
       labels:
         app: {{label}}
-      annotations:
-        # placeholder workload, no mesh traffic: a sidecar only takes cpu away from the single test node
-        sidecar.istio.io/inject: "false"
     spec:
       containers:
         - name: container

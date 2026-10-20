@@ -24,15 +24,11 @@ import static com.netcracker.it.spring.Const.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 @Slf4j
 @EnableExtension
 @SmokeTest
 class ThresholdIT {
-
-	@PortForward(serviceName = @Value(SERVICE_NAME), cloud = @Cloud(namespace = @Value(prop = ORIGIN_NAMESPACE_ENV_NAME)))
-    private static URL springCompositeGWServerUrl;
 
 	@PortForward(serviceName = @Value(PUBLIC_GW_SERVICE_NAME), cloud = @Cloud(namespace = @Value(prop = ORIGIN_NAMESPACE_ENV_NAME)))
     private static URL publicGWServerUrl;
@@ -46,46 +42,31 @@ class ThresholdIT {
     private static final int SLEEP_DURATION_SECONDS = 12;
     private static final String SLEEP_DURATION_SECONDS_STRING = String.valueOf(SLEEP_DURATION_SECONDS);
 
-    /**
-     * Requests that get an upstream connection right away come back after ~SLEEP_DURATION_SECONDS, the
-     * throttled ones wait for a free connection and come back after at least twice that, so the cutoff is
-     * put in the middle to leave the same margin on both sides.
-     */
+    // halfway between one sleep (served at once) and two (waited for a free connection)
     private static final long FAST_RESPONSE_CUTOFF_MILLIS = SLEEP_DURATION_SECONDS * 1500L;
     private static final int CONNECT_TIMEOUT_MILLIS = 30_000;
     private static final int START_ALIGN_TIMEOUT_MILLIS = 30_000;
     private static final int READ_TIMEOUT_MILLIS = SLEEP_DURATION_SECONDS * 1000 * (REQUESTS_NUMBER / LIMIT_VALUE) + 60_000;
 
-    /**
-     * Route bound to a cluster used by this test only: circuit breaker settings belong to the cluster and
-     * control-plane drops them as soon as the same cluster is registered again without a circuitBreaker
-     * section, which the service does on every startup for its own routes.
-     */
-    private static final String CONNECTION_LIMITED_SLEEP_PATH =
-            "api/v1/mesh-test-service-spring/connection-limit/sleep?seconds=" + SLEEP_DURATION_SECONDS_STRING;
+    // composite routes are called through the spring proxy: a port-forward skips the Istio waypoint
+    private static final String CONNECTION_LIMITED_SLEEP_VIA_SPRING_PROXY =
+            "api/v1/mesh-test-service-spring/spring/proxy?url=" + SERVICE_NAME
+                    + ":8080/api/v1/mesh-test-service-spring/connection-limit/sleep?seconds=" + SLEEP_DURATION_SECONDS_STRING;
 
-    /**
-     * The quarkus composite service is reached from inside the mesh, through the spring service: an address
-     * forwarded from outside the cluster skips the mesh proxies in Istio mesh mode and the composite route is
-     * never applied there.
-     */
     private static final String QUARKUS_SLEEP_VIA_SPRING_PROXY =
             "api/v1/mesh-test-service-spring/spring/proxy?url=" + QUARKUS_SERVICE_NAME
                     + ":8080/api/v1/mesh-test-service-quarkus/sleep?seconds=" + SLEEP_DURATION_SECONDS_STRING;
 
     @BeforeAll
     void init() {
-        assertNotNull(springCompositeGWServerUrl);
         assertNotNull(publicGWServerUrl);
         assertNotNull(egressGatewayUrl);
     }
 
     @Test
     void testLoadEnvoyWithConcurrency1AndConnectionLimit() throws Exception {
-        // connection limit comes from the control-plane circuitBreaker, Istio mesh has no equivalent configuration
-        assumeFalse(isIstioMesh(), "Connection limit is configured in Core mesh only");
         //load envoy with concurrency=1 and connection limited cluster
-        loadEnvoy(springCompositeGWServerUrl.toString() + CONNECTION_LIMITED_SLEEP_PATH, true);
+        loadEnvoy(publicGWServerUrl.toString() + CONNECTION_LIMITED_SLEEP_VIA_SPRING_PROXY, true);
     }
 
     @Test
@@ -116,7 +97,6 @@ class ThresholdIT {
         for (int i = 0; i < REQUESTS_NUMBER; i++) {
             reqs.add(() -> {
                 try {
-                    // all threads leave at once, so response times are comparable to each other
                     startLine.countDown();
                     if (!startLine.await(START_ALIGN_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)) {
                         throw new IllegalStateException("Requests could not be started simultaneously");

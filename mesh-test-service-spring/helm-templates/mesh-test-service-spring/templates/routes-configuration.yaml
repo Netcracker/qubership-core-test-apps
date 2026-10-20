@@ -306,10 +306,7 @@ spec:
       routeConfiguration:
         version: "{{ .Values.DEPLOYMENT_VERSION }}"
         routes:
-          # Dedicated cluster: circuit breaker settings live on the cluster, and control-plane drops them
-          # as soon as the same cluster is registered again without a circuitBreaker section (declarative
-          # routes, timeout routes, or the service's own route registration on startup). A cluster name
-          # used by this route only keeps the limit stable for the whole test run.
+          # own cluster: control-plane drops circuitBreaker once the cluster is registered again without it
           - destination:
               cluster: "{{ .Values.SERVICE }}-connection-limited"
               endpoint: http://{{ .Values.DEPLOYMENT_RESOURCE_NAME }}:8080
