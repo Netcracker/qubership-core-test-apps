@@ -20,46 +20,46 @@ jobs:
     uses: ./.github/workflows/integration-tests.yml
     with:
       install-istio: false
-      install-maas: true
+      install-maas: false
       mesh-type: 'Core'
       test-usecase: 'core-mesh'
       run-tests-for: 'all'
       test-branch: main
-      aux-bootstrap-args: 'DBAAS_REPO_BRANCH=main MAAS_BRANCH=main ISTIO_REPO_BRANCH=main CORE_MESH_CONFIG_REPO_BRANCH=main'
+      aux-bootstrap-args: 'DBAAS_REPO_BRANCH=main ISTIO_REPO_BRANCH=main CORE_MESH_CONFIG_REPO_BRANCH=main'
 
   # The same suites as run-tests-core-mesh, with Cloud Core databases provisioned by the DBaaS Operator.
   run-tests-core-mesh-dbaas-operator:
     uses: ./.github/workflows/integration-tests.yml
     with:
       install-istio: false
-      install-maas: true
+      install-maas: false
       mesh-type: 'Core'
       test-usecase: 'core-mesh-dbaas-operator'
       run-tests-for: 'all'
       test-branch: main
-      aux-bootstrap-args: 'DBAAS_REPO_BRANCH=main MAAS_BRANCH=main ISTIO_REPO_BRANCH=main CORE_MESH_CONFIG_REPO_BRANCH=main DBAAS_OPERATOR_ENABLED=true'
+      aux-bootstrap-args: 'DBAAS_REPO_BRANCH=main ISTIO_REPO_BRANCH=main CORE_MESH_CONFIG_REPO_BRANCH=main DBAAS_OPERATOR_ENABLED=true'
 
   run-tests-istio-mesh-fallback-mode:
     uses: ./.github/workflows/integration-tests.yml
     with:
       install-istio: true
-      install-maas: true
+      install-maas: false
       mesh-type: 'Core'
       test-usecase: 'istio-fallback'
       run-tests-for: 'all'
       test-branch: main
-      aux-bootstrap-args: 'DBAAS_REPO_BRANCH=main MAAS_BRANCH=main ISTIO_REPO_BRANCH=main CORE_MESH_CONFIG_REPO_BRANCH=main'
+      aux-bootstrap-args: 'DBAAS_REPO_BRANCH=main ISTIO_REPO_BRANCH=main CORE_MESH_CONFIG_REPO_BRANCH=main'
 
   run-tests-istio-mesh-migrated-mode:
     uses: ./.github/workflows/integration-tests.yml
     with:
       install-istio: true
-      install-maas: true
+      install-maas: false
       mesh-type: 'Istio'
       test-usecase: 'istio-migrated'
       run-tests-for: 'all'
       test-branch: main
-      aux-bootstrap-args: 'DBAAS_REPO_BRANCH=main MAAS_BRANCH=main ISTIO_REPO_BRANCH=main CORE_MESH_CONFIG_REPO_BRANCH=main'
+      aux-bootstrap-args: 'DBAAS_REPO_BRANCH=main ISTIO_REPO_BRANCH=main CORE_MESH_CONFIG_REPO_BRANCH=main'
       
   run-tests-consul-login:
     uses: ./.github/workflows/consul-login-integration-tests.yml

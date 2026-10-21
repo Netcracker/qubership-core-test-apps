@@ -28,12 +28,21 @@ runs:
 
         {
           echo "==== CLUSTER INFO ===="
-          kubectl version --short || true
+          kubectl version || true
           kubectl cluster-info || true
 
           echo
           echo "==== NODES ===="
           kubectl get nodes -o wide || true
+
+          echo
+          echo "==== NODE RESOURCES (allocated requests/limits per pod) ===="
+          kubectl describe nodes || true
+
+          echo
+          echo "==== RESOURCE USAGE (metrics-server) ===="
+          kubectl top nodes || true
+          kubectl top pods -A --sort-by=cpu || true
 
           echo
           echo "==== PODS (ALL NAMESPACES) ===="

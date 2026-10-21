@@ -33,7 +33,21 @@ runs:
         retention-days: 7
 
     - name: Setup istioctl
-      uses: istio/get-istioctl@e908dc03effc9f7043e52b3c1fa06ebab63c6551 # main
+      # diagnostics only: a missing istioctl must not fail the job, the dump steps record the error
+      continue-on-error: true
+      shell: bash
+      run: |
+        image=$(kubectl get deployment istiod -n istio-system -o jsonpath='{.spec.template.spec.containers[0].image}')
+        version="${image##*:}"
+        version="${version%%-*}"
+        if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "::warning::Cannot read the Istio version from istiod image '$image', istioctl is not installed"
+          exit 1
+        fi
+        echo "istiod image: $image, installing istioctl $version"
+        curl -sSfL --retry 3 "https://github.com/istio/istio/releases/download/${version}/istioctl-${version}-linux-amd64.tar.gz" \
+          | tar -xz -C "$RUNNER_TEMP"
+        echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
 
     - name: Check gateway proxy config
       shell: bash

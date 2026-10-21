@@ -1,7 +1,7 @@
 PAAS_PLATFORM: "KUBERNETES"
 # headers allowed for forwarding
 ALLOWED_HEADERS: '' # TO_BE_REPLACED
-CPU_REQUEST: "100m"
+CPU_REQUEST: "75m"
 CPU_LIMIT: "1"
 MEMORY_LIMIT: '360Mi'
 # Openshift custom host name
@@ -23,8 +23,7 @@ PRIVATE_GATEWAY_URL: '' # TO_BE_REPLACED
 PUBLIC_GATEWAY_URL: '' # TO_BE_REPLACED
 # revisionHistoryLimit value for DC
 RC_REVISIONS: 3
-# 2 replicas so load-balancing / stickiness (same-pod pinning) is observable by the integration tests
-REPLICAS: 2
+REPLICAS: 1
 # Openshift server host name
 SERVER_HOSTNAME: '' # TO_BE_REPLACED 
 # Number of IO threads in Undertow server

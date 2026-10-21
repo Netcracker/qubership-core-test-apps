@@ -222,28 +222,12 @@ jobs:
           echo "run-tests-for=${{ inputs.run-tests-for || 'all' }}"
           echo "::endgroup::"
 
-      - name: Setup Kind cluster and deploy Cloud Core
-        uses: ./.github/actions/setup-kind-with-cloud-core
-        with:
-          core-bootstrap-branch: ${{ inputs.core-bootstrap-branch }}
-          test-branch: ${{ inputs.test-branch }}
-          install-maas: ${{ inputs.install-maas || 'false' }}
-          install-istio: ${{ inputs.install-istio || 'false' }}
-          mesh-type: ${{ inputs.mesh-type || 'Core' }}
-          # the caller's arguments come last, so that they can override the mode
-          aux-bootstrap-args: M2M_AUTH_MODE=${{ inputs.m2m-auth-mode || 'legacy' }} ${{ inputs.aux-bootstrap-args }}
-
-      - name: preserve-cpu-resources-workaround
-        if: ${{ inputs.do-resources-workaround }}
-        run: |
-          # to preserve some resources for tests
-          kubectl scale deployment site-management -n core --replicas=0
-
       - name: Resolve integration tests to run
         id: integrations_tests_selection
         shell: bash
         env:
           RUN_TESTS_FOR: ${{ inputs.run-tests-for || 'all' }}
+          INSTALL_MAAS: ${{ (inputs.install-maas && 'true') || 'false' }}
         run: |
           selected="$RUN_TESTS_FOR"
           normalized="$(echo "$selected" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
@@ -261,7 +245,8 @@ jobs:
             paas_mediation=true
             control_plane=true
             site_management=true
-            maas_agent=true
+            # bootstrap installs maas-agent only together with MaaS
+            maas_agent="$INSTALL_MAAS"
           else
             IFS=',' read -ra services <<< "$normalized"
             for service in "${services[@]}"; do
@@ -279,6 +264,10 @@ jobs:
                   site_management=true
                   ;;
                 maas-agent|maas_agent)
+                  if [[ "$INSTALL_MAAS" != "true" ]]; then
+                    echo "::error::maas-agent tests need install-maas: bootstrap installs maas-agent only together with MaaS"
+                    exit 1
+                  fi
                   maas_agent=true
                   ;;
                 "")
@@ -297,6 +286,24 @@ jobs:
           echo "control_plane=$control_plane" >> "$GITHUB_OUTPUT"
           echo "site_management=$site_management" >> "$GITHUB_OUTPUT"
           echo "maas_agent=$maas_agent" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Kind cluster and deploy Cloud Core
+        id: setup_cluster
+        uses: ./.github/actions/setup-kind-with-cloud-core
+        with:
+          core-bootstrap-branch: ${{ inputs.core-bootstrap-branch }}
+          test-branch: ${{ inputs.test-branch }}
+          install-maas: ${{ inputs.install-maas || 'false' }}
+          install-istio: ${{ inputs.install-istio || 'false' }}
+          mesh-type: ${{ inputs.mesh-type || 'Core' }}
+          # the caller's arguments come last, so that they can override the mode
+          aux-bootstrap-args: M2M_AUTH_MODE=${{ inputs.m2m-auth-mode || 'legacy' }} ${{ inputs.aux-bootstrap-args }}
+
+      - name: preserve-cpu-resources-workaround
+        if: ${{ inputs.do-resources-workaround }}
+        run: |
+          # to preserve some resources for tests
+          kubectl scale deployment site-management -n core --replicas=0
 
       - name: Run mesh integration tests (test apps in ${{ inputs.mesh-type || 'Core' }} mesh mode)
         id: mesh_tests
@@ -397,13 +404,14 @@ jobs:
           path: artifacts/*
 
       - name: Collect Istio debug info
-        if: ${{ inputs.install-istio && (failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure') }}
+        if: ${{ inputs.install-istio && steps.setup_cluster.outcome != 'skipped' && (failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure') }}
         uses: ./.github/actions/collect-istio-debug-info
         with:
           artifact-suffix: ${{ inputs.test-usecase != '' && format('-{0}', inputs.test-usecase) || '' }}
 
       - name: Collect Kubernetes diagnostics
-        if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure' }}
+        # no cluster to inspect when the job failed before the setup
+        if: ${{ steps.setup_cluster.outcome != 'skipped' && (failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure') }}
         uses: ./.github/actions/collect-k8s-diagnostics
         with:
           collect-logs-for: ${{ inputs.collect-logs-for || '' }}
