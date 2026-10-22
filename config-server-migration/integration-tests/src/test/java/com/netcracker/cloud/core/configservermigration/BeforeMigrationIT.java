@@ -10,10 +10,10 @@ import com.netcracker.cloud.junit.cloudcore.extension.annotations.PortForward;
 import com.netcracker.cloud.junit.cloudcore.extension.annotations.Value;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.net.URL;
-import java.time.Duration;
 
 import static com.netcracker.cloud.core.configservermigration.MigrationData.APPLICATION;
 import static com.netcracker.cloud.core.configservermigration.MigrationData.APPLICATION_DEFAULT;
@@ -23,7 +23,6 @@ import static com.netcracker.cloud.core.configservermigration.MigrationData.CHAN
 import static com.netcracker.cloud.core.configservermigration.MigrationData.DEV_GREETING_KV_KEY;
 import static com.netcracker.cloud.core.configservermigration.MigrationData.GLOBAL_DEFAULT;
 import static com.netcracker.cloud.core.configservermigration.MigrationData.REQUESTS;
-import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -35,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * <p>A failure here leaves no baseline, and {@link AfterMigrationIT} then fails on every check.
  */
 @EnableExtension
+@Tag("migration")
 class BeforeMigrationIT {
 
     @Cloud(namespace = @Value(Cluster.CORE_NAMESPACE))
@@ -56,11 +56,7 @@ class BeforeMigrationIT {
         Cluster.deleteBaseline(kubernetes);
         configServer = new Http(configServerUrl);
         consul = new Http(consulUrl);
-        await("config-server answers GET /applications")
-                .atMost(Duration.ofMinutes(2))
-                .pollInterval(Duration.ofSeconds(2))
-                .ignoreExceptions()
-                .until(() -> configServer.get("/applications").status() == 200);
+        configServer.awaitOk(Cluster.CONFIG_SERVER, "/applications");
     }
 
     /**
