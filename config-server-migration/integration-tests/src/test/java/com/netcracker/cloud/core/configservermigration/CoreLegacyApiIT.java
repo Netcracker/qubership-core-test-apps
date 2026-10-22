@@ -39,8 +39,9 @@ class CoreLegacyApiIT {
 
     private static final String APPLICATION = "core-legacy-api-it";
 
-    /** A default core-legacy-api adds to global on startup when it is missing. */
+    /** Defaults core-legacy-api adds to global on startup when they are missing. */
     private static final String GLOBAL_DEFAULT = "apigateway.internal.url";
+    private static final String OVERRIDDEN_GLOBAL_DEFAULT = "error.page.customerSpecifier";
     /** The Consul name of global. */
     private static final String GLOBAL_KV_APPLICATION = "application";
 
@@ -72,6 +73,23 @@ class CoreLegacyApiIT {
 
         assertNotNull(served, GLOBAL_DEFAULT + " in GET /global/default");
         assertEquals(served, storedValue(GLOBAL_KV_APPLICATION, GLOBAL_DEFAULT), GLOBAL_DEFAULT + " in Consul");
+    }
+
+    /** The Go and Quarkus config clients read only the first property source of {@code GET /{app}/default}. */
+    @Test
+    void theFirstPropertySourceHasTheApplicationOverGlobal() throws IOException {
+        String path = "/" + APPLICATION + "/default";
+        assertEquals(201, coreLegacyApi.post(path, Map.of("own.key", "own", OVERRIDDEN_GLOBAL_DEFAULT, "overridden"))
+                .status(), "POST " + path);
+        String inherited = valueOf(firstSource("/global/default"), GLOBAL_DEFAULT);
+        assertNotNull(inherited, GLOBAL_DEFAULT + " in GET /global/default");
+
+        JsonNode source = firstSource(path);
+        assertAll(
+                () -> assertEquals("own", valueOf(source, "own.key"), "own.key in GET " + path),
+                () -> assertEquals("overridden", valueOf(source, OVERRIDDEN_GLOBAL_DEFAULT),
+                        OVERRIDDEN_GLOBAL_DEFAULT + " in GET " + path),
+                () -> assertEquals(inherited, valueOf(source, GLOBAL_DEFAULT), GLOBAL_DEFAULT + " in GET " + path));
     }
 
     @TestFactory
@@ -117,12 +135,21 @@ class CoreLegacyApiIT {
     private String servedValue(String application, String profile, String key) throws IOException {
         JsonNode environment = JSON.readTree(coreLegacyApi.get("/" + application + "/" + profile).body());
         for (JsonNode source : environment.get("propertySources")) {
-            JsonNode value = source.get("source").get(key);
+            String value = valueOf(source.get("source"), key);
             if (value != null) {
-                return value.asText();
+                return value;
             }
         }
         return null;
+    }
+
+    private JsonNode firstSource(String path) throws IOException {
+        return JSON.readTree(coreLegacyApi.get(path).body()).get("propertySources").get(0).get("source");
+    }
+
+    private static String valueOf(JsonNode source, String key) {
+        JsonNode value = source.get(key);
+        return value == null ? null : value.asText();
     }
 
     /** The value Consul stores for the key, or {@code null} if it has none. */

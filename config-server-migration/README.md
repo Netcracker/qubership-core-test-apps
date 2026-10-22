@@ -29,8 +29,10 @@ recorded.
 
 ## core-legacy-api scenarios
 
-`CoreLegacyApiIT` checks that a default core-legacy-api writes on startup is served from `global` and stored in Consul,
-and that a POST, a PUT, and a `properties-delete` reach the API and Consul. Each test writes its own data under the
+`CoreLegacyApiIT` checks that a default core-legacy-api writes on startup is served from `global` and stored in Consul;
+that the first property source of `GET /{application}/default`, the only one the Go and Quarkus config clients read,
+has the properties of the application over those of `global`; and that a POST, a PUT, and a `properties-delete` reach
+the API and Consul. Each test writes its own data under the
 application `core-legacy-api-it`, which the migration data and requests do not use. Run them with
 `-Dgroups=core-legacy-api`.
 
