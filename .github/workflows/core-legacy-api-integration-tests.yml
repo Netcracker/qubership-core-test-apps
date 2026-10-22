@@ -4,6 +4,10 @@ run-name: Core-legacy-api integration tests
 # The migration from config-server is checked by hand, in config-server-migration-integration-tests.yml.
 
 on:
+  # TEMPORARY: workflow_dispatch testing
+  push:
+    branches: [feat/add_minicore_night]
+
   workflow_call:
     inputs:
       core-bootstrap-branch:
