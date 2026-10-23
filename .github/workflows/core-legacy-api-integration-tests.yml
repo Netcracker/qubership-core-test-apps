@@ -1,0 +1,115 @@
+name: Run core-legacy-api integration tests
+run-name: Core-legacy-api integration tests
+
+# The migration from config-server is checked by hand, in config-server-migration-integration-tests.yml.
+
+on:
+  workflow_call:
+    inputs:
+      core-bootstrap-branch:
+        description: 'Branch of core-bootstrap repo'
+        required: false
+        default: 'main'
+        type: string
+      test-branch:
+        description: 'Branch of the core services, core-legacy-api included. A repository that has no such branch stays on main. Empty leaves the core services to the bootstrap, which uses main'
+        required: false
+        default: ''
+        type: string
+      aux-bootstrap-args:
+        description: 'Extra KEY=VALUE variables for the cloud-core bootstrap, space separated, applied last: the branch or tag of core-legacy-api (CORE_LEGACY_API_BRANCH=my-branch), the branch or tag of a dependency (DBAAS_REPO_BRANCH=main)'
+        required: false
+        default: ''
+        type: string
+      fail-on-test-failure:
+        description: 'Fail the job when a test fails. Set to false by callers that publish the results themselves'
+        required: false
+        default: true
+        type: boolean
+
+  workflow_dispatch:
+    inputs:
+      core-bootstrap-branch:
+        description: 'Branch of core-bootstrap repo'
+        required: false
+        default: 'main'
+        type: string
+      test-branch:
+        description: 'Branch of the core services, core-legacy-api included. A repository that has no such branch stays on main. Empty leaves the core services to the bootstrap, which uses main'
+        required: false
+        default: ''
+        type: string
+      aux-bootstrap-args:
+        description: 'Extra KEY=VALUE variables for the cloud-core bootstrap, space separated, applied last: the branch or tag of core-legacy-api (CORE_LEGACY_API_BRANCH=my-branch), the branch or tag of a dependency (DBAAS_REPO_BRANCH=main)'
+        required: false
+        default: ''
+        type: string
+      fail-on-test-failure:
+        description: 'Fail the job when a test fails'
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  core-legacy-api-integration-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # No wait step: the bootstrap waits for the core-legacy-api rollout itself.
+      - name: Setup Kind cluster with Cloud Core and core-legacy-api in place of config-server
+        uses: ./.github/actions/setup-kind-with-cloud-core
+        with:
+          core-bootstrap-branch: ${{ inputs.core-bootstrap-branch || 'main' }}
+          test-branch: ${{ inputs.test-branch }}
+          install-istio: 'false'
+          aux-bootstrap-args: >-
+            INSTALL_CONFIG_SERVER=false
+            INSTALL_CORE_LEGACY_API=true
+            ${{ inputs.aux-bootstrap-args }}
+
+      - name: Run the core-legacy-api integration tests
+        id: core_legacy_api_tests
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: mvn -B -ntp -f config-server-migration/integration-tests/pom.xml test -Dgroups=core-legacy-api
+
+      # The name of the artifact and the layout inside it are what the report job expects.
+      - name: Aggregate Surefire reports
+        if: always()
+        run: |
+          module=config-server-migration/integration-tests
+          mvn -B -ntp -f "$module/pom.xml" surefire-report:report-only || true
+          mkdir -p artifacts/core-legacy-api
+          cp -r "$module/target/surefire-reports" artifacts/core-legacy-api/ || true
+          if [ -d "$module/target/reports" ]; then
+            cp -r "$module/target/reports" artifacts/core-legacy-api/ || true
+          fi
+
+      - name: Upload Surefire reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: surefire-reports-core-legacy-api
+          path: artifacts/*
+
+      - name: Collect Kubernetes diagnostics
+        if: ${{ failure() || steps.core_legacy_api_tests.outcome == 'failure' }}
+        uses: ./.github/actions/collect-k8s-diagnostics
+        with:
+          collect-logs-for: 'name=core-legacy-api'
+          artifact-suffix: '-core-legacy-api'
+
+      - name: Report the test outcome
+        if: ${{ steps.core_legacy_api_tests.outcome == 'failure' }}
+        env:
+          FAIL_ON_TEST_FAILURE: ${{ inputs.fail-on-test-failure }}
+        run: |
+          if [ "$FAIL_ON_TEST_FAILURE" = "false" ]; then
+            echo "::warning::core-legacy-api integration tests failed, see the uploaded reports"
+            exit 0
+          fi
+          echo "::error::core-legacy-api integration tests failed, see the uploaded reports"
+          exit 1

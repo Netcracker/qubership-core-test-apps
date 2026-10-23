@@ -27,13 +27,13 @@ public final class Cluster {
     }
 
     /**
-     * Throws unless config-server is uninstalled and core-legacy-api is ready: with config-server still behind the
-     * Service, the second phase would compare config-server with itself.
+     * Throws unless core-legacy-api is ready and config-server is not installed: with config-server behind the
+     * Service, the checks would run against config-server instead.
      */
     public static void requireCoreLegacyApiInPlaceOfConfigServer(KubernetesClient kubernetes) {
         if (deployment(kubernetes, CONFIG_SERVER) != null) {
-            throw new IllegalStateException("deployment " + CONFIG_SERVER + " is still installed in namespace "
-                    + CORE_NAMESPACE + ": the replacement step did not uninstall it");
+            throw new IllegalStateException("deployment " + CONFIG_SERVER + " is installed in namespace "
+                    + CORE_NAMESPACE + ": core-legacy-api must serve the Service " + CONFIG_SERVER + " alone");
         }
         Deployment coreLegacyApi = deployment(kubernetes, CORE_LEGACY_API);
         if (coreLegacyApi == null) {

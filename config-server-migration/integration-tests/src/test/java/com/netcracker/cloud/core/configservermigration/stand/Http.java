@@ -11,6 +11,8 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 
+import static org.awaitility.Awaitility.await;
+
 /** Sends requests to one HTTP API, config-server's or Consul's, and returns the status and the body as they came. */
 public final class Http {
 
@@ -24,6 +26,15 @@ public final class Http {
 
     public Http(URL baseUrl) {
         this.baseUri = URI.create(baseUrl.toString());
+    }
+
+    /** Waits until the service answers {@code GET path} with 200; {@code name} is for the failure message. */
+    public void awaitOk(String name, String path) {
+        await(name + " answers GET " + path)
+                .atMost(Duration.ofMinutes(2))
+                .pollInterval(Duration.ofSeconds(2))
+                .ignoreExceptions()
+                .until(() -> get(path).status() == 200);
     }
 
     public Response get(String path) {

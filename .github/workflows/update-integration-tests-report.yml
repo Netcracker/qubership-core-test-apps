@@ -72,8 +72,17 @@ jobs:
       aux-bootstrap-args: 'DBAAS_REPO_BRANCH=main MAAS_BRANCH=main ISTIO_REPO_BRANCH=main CORE_MESH_CONFIG_REPO_BRANCH=main'
       fail-on-test-failure: false
 
+  run-core-legacy-api-tests:
+    uses: ./.github/workflows/core-legacy-api-integration-tests.yml
+    with:
+      test-branch: main
+      aux-bootstrap-args: 'DBAAS_REPO_BRANCH=main ISTIO_REPO_BRANCH=main CORE_MESH_CONFIG_REPO_BRANCH=main'
+      fail-on-test-failure: false
+
+  # A suite that fails to set up its stand publishes no results, but must not take the report down with it.
   update-report:
-    needs: [run-tests-core-mesh, run-tests-core-mesh-dbaas-operator, run-tests-istio-mesh-fallback-mode, run-tests-istio-mesh-migrated-mode, run-tests-consul-login, run-maas-failover-tests]
+    if: ${{ !cancelled() }}
+    needs: [run-tests-core-mesh, run-tests-core-mesh-dbaas-operator, run-tests-istio-mesh-fallback-mode, run-tests-istio-mesh-migrated-mode, run-tests-consul-login, run-maas-failover-tests, run-core-legacy-api-tests]
     runs-on: ubuntu-latest
     environment:
       name: pages
