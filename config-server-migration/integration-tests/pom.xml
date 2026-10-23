@@ -24,7 +24,7 @@
         <surefire-plugin.version>3.6.0</surefire-plugin.version>
         <cloud.junit.cloudcore.version>8.11.3</cloud.junit.cloudcore.version>
         <jackson.version>2.21.7</jackson.version>
-        <junit.version>5.10.5</junit.version>
+        <junit.version>6.0.3</junit.version>
     </properties>
 
     <repositories>
