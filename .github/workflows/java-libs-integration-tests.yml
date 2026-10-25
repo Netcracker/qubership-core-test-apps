@@ -199,12 +199,12 @@ jobs:
     with:
       java-libs-artifact: ${{ needs.java-libs.outputs.artifact }}
       images-artifact-pattern: java-libs-image-*
-      config-server-tag: ${{ needs.java-libs.outputs.image-tag }}
-      core-operator-tag: ${{ needs.java-libs.outputs.image-tag }}
       mesh-test-spring-tag: ${{ needs.java-libs.outputs.image-tag }}
       mesh-test-quarkus-tag: ${{ needs.java-libs.outputs.image-tag }}
       # the local images are not in ghcr.io, so the bootstrap's lookup is off
       aux-bootstrap-args: >-
+        CONFIG_SERVER_TAG=${{ needs.java-libs.outputs.image-tag }}
+        CORE_OPERATOR_TAG=${{ needs.java-libs.outputs.image-tag }}
         DBAAS_TAG=${{ needs.java-libs.outputs.image-tag }}
         CHECK_IMAGES=false
       test-branch: ${{ inputs.services-branch }}

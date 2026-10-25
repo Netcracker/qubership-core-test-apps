@@ -89,7 +89,7 @@ on:
         default: ''
         type: string
       images-artifact-pattern:
-        description: 'Artifacts of this run with images to load into kind; point the *-tag inputs at them'
+        description: 'Artifacts of this run with images to load into kind; pass their tags in aux-bootstrap-args, or in mesh-test-*-tag for the mesh test services'
         required: false
         default: ''
         type: string
