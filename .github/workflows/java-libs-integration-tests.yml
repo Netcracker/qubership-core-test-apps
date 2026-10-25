@@ -104,7 +104,7 @@ jobs:
         run: |
           set -e
           url="https://github.com/$REPOSITORY.git"
-          has_branch() { git ls-remote --exit-code --heads "$url" "$1" > /dev/null; }
+          has_branch() { git ls-remote --exit-code --heads "$url" "refs/heads/$1" > /dev/null; }
           if [ -n "$BOOTSTRAP_REF" ] && ! { [ "$BRANCH" != main ] && has_branch "$BRANCH"; }; then
             ref="$(curl -fsSL "https://raw.githubusercontent.com/Netcracker/qubership-core-bootstrap/$BOOTSTRAP_BRANCH/cloud-core-local-dev/dependencies.mk" \
               | sed -n "s/^$BOOTSTRAP_REF[[:space:]]*?=[[:space:]]*\([^[:space:]#]*\).*/\1/p" | head -n1)"

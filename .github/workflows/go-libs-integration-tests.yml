@@ -159,7 +159,7 @@ jobs:
           REPOSITORY: Netcracker/${{ matrix.repository }}
           BRANCH: ${{ inputs.services-branch }}
         run: |
-          if git ls-remote --exit-code --heads "https://github.com/$REPOSITORY.git" "$BRANCH" > /dev/null; then
+          if git ls-remote --exit-code --heads "https://github.com/$REPOSITORY.git" "refs/heads/$BRANCH" > /dev/null; then
             echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
           else
             echo "::notice::$REPOSITORY has no branch $BRANCH, building main"
@@ -260,7 +260,7 @@ jobs:
           REPOSITORY: ${{ matrix.repository }}
           BRANCH: ${{ inputs.services-branch }}
         run: |
-          if git ls-remote --exit-code --heads "https://github.com/$REPOSITORY.git" "$BRANCH" > /dev/null; then
+          if git ls-remote --exit-code --heads "https://github.com/$REPOSITORY.git" "refs/heads/$BRANCH" > /dev/null; then
             echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
           else
             echo "::notice::$REPOSITORY has no branch $BRANCH, building main"
