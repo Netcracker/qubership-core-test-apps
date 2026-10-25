@@ -101,6 +101,9 @@ runs:
         if [ -n "$TEST_BRANCH" ]; then
           MAKE_ARGS="$MAKE_ARGS TEST_BRANCH=$TEST_BRANCH"
         fi
+        # the bootstrap appends a table of the branches and image tags it resolved, and where each
+        # came from, to this file: it lands in the summary of the run
+        MAKE_ARGS="$MAKE_ARGS RESOLVED_REFS_FILE=$GITHUB_STEP_SUMMARY"
         # appended last, so a caller can override anything set above: make takes the last
         # assignment of a variable on the command line. Left out when empty, because an empty
         # assignment would still override the bootstrap default.
