@@ -45,7 +45,6 @@ spec:
     - kind: Service
       group: ''
       name: internal-gateway-service
-      port: 8080
   rules:
     - matches:
         - path:
