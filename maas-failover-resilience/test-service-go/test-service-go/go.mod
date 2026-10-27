@@ -4,7 +4,7 @@ go 1.26.7
 
 require (
 	github.com/go-resty/resty/v2 v2.17.2
-	github.com/gofiber/fiber/v2 v2.52.15
+	github.com/gofiber/fiber/v2 v2.52.16
 	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.12.3
 	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.11.3
 	github.com/netcracker/qubership-core-lib-go-maas-client/v3 v3.7.3
