@@ -17,7 +17,7 @@
     </licenses>
 
     <properties>
-        <quarkus.version>3.33.4</quarkus.version>
+        <quarkus.version>3.33.4.1</quarkus.version>
         <quarkus-plugin.version>${quarkus.version}</quarkus-plugin.version>
         <quarkus.platform.version>${quarkus.version}</quarkus.platform.version>
         <compiler-plugin.version>3.16.0</compiler-plugin.version>
@@ -29,9 +29,9 @@
         <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
         <quarkus.core.version>10.3.3</quarkus.core.version>
-        <surefire-plugin.version>3.6.0</surefire-plugin.version>
-        <lombok.version>1.18.46</lombok.version>
-        <jacoco.plugin.version>0.8.15</jacoco.plugin.version>
+        <surefire-plugin.version>3.6.1</surefire-plugin.version>
+        <lombok.version>1.18.48</lombok.version>
+        <jacoco.plugin.version>0.8.16</jacoco.plugin.version>
         <sonar.coverage.exclusions>src/main/java/com/netcracker/quarkus/Main.java</sonar.coverage.exclusions>
         <mockito.core.version>5.23.0</mockito.core.version>
     </properties>
