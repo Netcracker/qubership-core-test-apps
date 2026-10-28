@@ -28,7 +28,7 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
-        <quarkus.core.version>10.3.3</quarkus.core.version>
+        <quarkus.core.version>10.3.4</quarkus.core.version>
         <surefire-plugin.version>3.6.1</surefire-plugin.version>
         <lombok.version>1.18.48</lombok.version>
         <jacoco.plugin.version>0.8.16</jacoco.plugin.version>
