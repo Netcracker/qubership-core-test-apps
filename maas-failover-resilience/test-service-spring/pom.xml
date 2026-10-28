@@ -28,8 +28,8 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <cloud.core.java.bom.version>12.2.6</cloud.core.java.bom.version>
-        <surefire-plugin.version>3.6.0</surefire-plugin.version>
-        <jacoco.plugin.version>0.8.15</jacoco.plugin.version>
+        <surefire-plugin.version>3.6.1</surefire-plugin.version>
+        <jacoco.plugin.version>0.8.16</jacoco.plugin.version>
     </properties>
 
     <scm>
