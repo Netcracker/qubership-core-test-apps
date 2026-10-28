@@ -1,6 +1,6 @@
 module github.com/netcracker/qubership-mesh-test-service-go
 
-go 1.26.7
+go 1.26.9
 
 require (
 	github.com/gofiber/fiber/v2 v2.52.16
@@ -14,7 +14,7 @@ require (
 	github.com/fatih/color v1.19.0 // indirect
 	github.com/go-pkgz/expirable-cache/v3 v3.1.1 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
-	github.com/hashicorp/consul/api v1.34.5 // indirect
+	github.com/hashicorp/consul/api v1.35.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-hclog v1.6.3 // indirect
@@ -53,7 +53,7 @@ require (
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.12.4
 	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.11.4
-	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.10.1
+	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.11.0
 	github.com/netcracker/qubership-core-lib-go/v3 v3.15.3
 	github.com/openzipkin/zipkin-go v0.4.3 // indirect
 	github.com/pkg/errors v0.9.1 // indirect

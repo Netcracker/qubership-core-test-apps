@@ -1,6 +1,6 @@
 module github.com/netcracker/qubership-maas-failover-test-service-go
 
-go 1.26.7
+go 1.26.9
 
 require (
 	github.com/go-resty/resty/v2 v2.17.2
@@ -9,7 +9,7 @@ require (
 	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.11.4
 	github.com/netcracker/qubership-core-lib-go-maas-client/v3 v3.7.4
 	github.com/netcracker/qubership-core-lib-go-maas-core/v3 v3.7.3
-	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.10.1
+	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.11.0
 	github.com/netcracker/qubership-core-lib-go/v3 v3.15.3
 )
 
@@ -30,7 +30,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
-	github.com/hashicorp/consul/api v1.34.5 // indirect
+	github.com/hashicorp/consul/api v1.35.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-hclog v1.6.3 // indirect
