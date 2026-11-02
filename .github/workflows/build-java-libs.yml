@@ -15,6 +15,11 @@ on:
         required: false
         default: Netcracker/qubership-core-java-libs
         type: string
+      skip-tests:
+        description: Skip the java-libs tests
+        required: false
+        default: false
+        type: boolean
     outputs:
       artifact:
         description: Artifact name for use-java-libs
@@ -96,7 +101,8 @@ jobs:
           working-directory: java-libs
           target-store: github
           maven-command: install
-          additional-mvn-args: '-ntp -T 1C -DskipTests -Djacoco.skip=true -Dmaven.javadoc.skip=true -Dmaven.source.skip=true -Dgpg.skip=true'
+          # JaCoCo stays on with the tests: the surefire argLine of java-libs refers to its @{argLine}
+          additional-mvn-args: "-ntp -T 1C ${{ inputs.skip-tests && '-DskipTests -Djacoco.skip=true' || '' }} -Dmaven.javadoc.skip=true -Dmaven.source.skip=true -Dgpg.skip=true"
           upload-artifact: 'false'
 
       - name: Package the installed modules
@@ -113,7 +119,7 @@ jobs:
           echo "artifact=java-libs-${{ steps.sha.outputs.sha }}-$(cat /proc/sys/kernel/random/uuid | cut -c1-8)" >> "$GITHUB_OUTPUT"
 
       - name: Upload the build
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: ${{ steps.package.outputs.artifact }}
           path: |

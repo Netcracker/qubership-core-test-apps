@@ -1,7 +1,7 @@
 PAAS_PLATFORM: "KUBERNETES"
 # headers allowed for forwarding
 ALLOWED_HEADERS: '' # TO_BE_REPLACED
-CPU_REQUEST: "100m"
+CPU_REQUEST: "75m"
 CPU_LIMIT: "1"
 MEMORY_LIMIT: '360Mi'
 # Openshift custom host name
@@ -43,7 +43,7 @@ INGRESS_CLASS: ""
 K8S_SERVICE_TYPE: 'HEADLESS'
 CLOUD_PUBLIC_HOST: "svc.cluster.local"
 CLOUD_PRIVATE_HOST: "svc.cluster.local"
-CR_SYNCHRONIZER_IMAGE: "ghcr.io/netcracker/cr-synchronizer:latest@sha256:ac6ecdf870c09406817114efca2dfffcbe41e667c854ffba7879a0eed67df8da"
+CR_SYNCHRONIZER_IMAGE: "ghcr.io/netcracker/cr-synchronizer:latest@sha256:c52a5d879acaacc009b74f39c54e5ceb69ff016fe03ed964f744ae912e7c9329"
 EXTERNAL_IPS: '' # TO_BE_REPLACED
 DEPLOYMENT_SESSION_ID:
 RESOURCE_POLLING_TIMEOUT: 60
@@ -67,4 +67,4 @@ EGRESS_TLS_TESTS_ENABLED: true
 
 # Image serving the simulated external site for egress tests. Any nginx that runs as non-root and
 # reads its config from -c will do; override to point at an internal mirror.
-EGRESS_ECHO_IMAGE: 'nginxinc/nginx-unprivileged:1.31-alpine@sha256:6a23acdfca2b9cfbcec61419e3f1426bcbedb91362f2f19306a8567423bb4612'
+EGRESS_ECHO_IMAGE: 'nginxinc/nginx-unprivileged:1.31-alpine@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e'

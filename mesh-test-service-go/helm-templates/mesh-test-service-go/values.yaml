@@ -6,7 +6,7 @@ REPLICAS: 1
 RC_REVISIONS: 3
 IMAGE_REPOSITORY: 'ghcr.io/netcracker/qubership-core-mesh-test-service-go'
 TAG: 'latest'
-CPU_REQUEST: "100m"
+CPU_REQUEST: "75m"
 CPU_LIMIT: "100m"
 MEMORY_REQUEST: "20Mi"
 MEMORY_LIMIT: "20Mi"

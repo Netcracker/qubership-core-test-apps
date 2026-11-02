@@ -18,7 +18,7 @@ spring:
 
 consul:
   auth:
-    mode: kubernetes
+    mode: k8s
     method: consul-login-test-service
     audience: netcracker
     fallback-recheck-interval: 5h

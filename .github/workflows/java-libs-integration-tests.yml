@@ -31,12 +31,23 @@ on:
         required: false
         default: true
         type: boolean
+      skip-java-libs-tests:
+        description: 'Skip the java-libs tests in its build'
+        required: false
+        default: false
+        type: boolean
+      skip-services-tests:
+        description: 'Skip the tests of the rebuilt services in their build'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   java-libs:
     uses: ./.github/workflows/build-java-libs.yml
     with:
       java-libs-ref: ${{ inputs.java-libs-ref }}
+      skip-tests: ${{ inputs.skip-java-libs-tests }}
 
   images:
     needs: java-libs
@@ -150,7 +161,7 @@ jobs:
           working-directory: ${{ env.SOURCES }}/${{ matrix.maven-dir }}
           target-store: github
           maven-command: package
-          additional-mvn-args: '-ntp -DskipTests'
+          additional-mvn-args: ${{ inputs.skip-services-tests && '-ntp -DskipTests' || '-ntp' }}
           upload-artifact: 'false'
 
       # same builder as workflow-hub's docker-action, but loaded locally instead of pushed
@@ -187,7 +198,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload the image
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: java-libs-image-${{ matrix.name }}
           path: ${{ matrix.name }}.tar
@@ -199,12 +210,12 @@ jobs:
     with:
       java-libs-artifact: ${{ needs.java-libs.outputs.artifact }}
       images-artifact-pattern: java-libs-image-*
-      config-server-tag: ${{ needs.java-libs.outputs.image-tag }}
-      core-operator-tag: ${{ needs.java-libs.outputs.image-tag }}
       mesh-test-spring-tag: ${{ needs.java-libs.outputs.image-tag }}
       mesh-test-quarkus-tag: ${{ needs.java-libs.outputs.image-tag }}
       # the local images are not in ghcr.io, so the bootstrap's lookup is off
       aux-bootstrap-args: >-
+        CONFIG_SERVER_TAG=${{ needs.java-libs.outputs.image-tag }}
+        CORE_OPERATOR_TAG=${{ needs.java-libs.outputs.image-tag }}
         DBAAS_TAG=${{ needs.java-libs.outputs.image-tag }}
         CHECK_IMAGES=false
       test-branch: ${{ inputs.services-branch }}
@@ -230,7 +241,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download the test reports
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: surefire-reports*
           path: reports

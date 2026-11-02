@@ -19,6 +19,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static com.netcracker.it.spring.envoy.Paths.COMPOSITE_SERVICE_BASE_PATH;
+import static com.netcracker.it.spring.envoy.Paths.INTERNAL_GATEWAY_BASE_PATH;
 import static com.netcracker.it.spring.envoy.Paths.PROXY_PATH;
 import static com.netcracker.it.spring.Const.PRIVATE_GW_SERVICE_NAME;
 import static com.netcracker.it.spring.Const.PUBLIC_GW_SERVICE_NAME;
@@ -49,6 +50,14 @@ public abstract class BaseTest {
         return Stream.of(
                 Arguments.of("public-gateway-to-spring-proxy-service",
                         URL.of(new URI(publicGWServerUrl.toURI() + PROXY_PATH + COMPOSITE_SERVICE_BASE_PATH), null))
+        );
+    }
+
+    // On Istio internal-gateway-service routes are served by the waypoint
+    static Stream<Arguments> internalGatewayViaSpringProxy() throws MalformedURLException, URISyntaxException {
+        return Stream.of(
+                Arguments.of("public-gateway-to-spring-proxy-internal-gateway",
+                        URL.of(new URI(publicGWServerUrl.toURI() + PROXY_PATH + INTERNAL_GATEWAY_BASE_PATH), null))
         );
     }
 

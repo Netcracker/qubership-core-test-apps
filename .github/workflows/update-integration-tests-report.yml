@@ -12,33 +12,54 @@ concurrency:
   group: "integration-tests-report"
   cancel-in-progress: true
 
+# The suites run against main of everything: core-bootstrap (its default), the core services (test-branch) and
+# each dependency, which the bootstrap otherwise takes at a pinned release (aux-bootstrap-args).
+
 jobs:
   run-tests-core-mesh:
     uses: ./.github/workflows/integration-tests.yml
     with:
       install-istio: false
-      install-maas: true
+      install-maas: false
       mesh-type: 'Core'
       test-usecase: 'core-mesh'
       run-tests-for: 'all'
+      test-branch: main
+      aux-bootstrap-args: 'DBAAS_REPO_BRANCH=main ISTIO_REPO_BRANCH=main CORE_MESH_CONFIG_REPO_BRANCH=main'
+
+  # The same suites as run-tests-core-mesh, with Cloud Core databases provisioned by the DBaaS Operator.
+  run-tests-core-mesh-dbaas-operator:
+    uses: ./.github/workflows/integration-tests.yml
+    with:
+      install-istio: false
+      install-maas: false
+      mesh-type: 'Core'
+      test-usecase: 'core-mesh-dbaas-operator'
+      run-tests-for: 'all'
+      test-branch: main
+      aux-bootstrap-args: 'DBAAS_REPO_BRANCH=main ISTIO_REPO_BRANCH=main CORE_MESH_CONFIG_REPO_BRANCH=main DBAAS_OPERATOR_ENABLED=true'
 
   run-tests-istio-mesh-fallback-mode:
     uses: ./.github/workflows/integration-tests.yml
     with:
       install-istio: true
-      install-maas: true
+      install-maas: false
       mesh-type: 'Core'
       test-usecase: 'istio-fallback'
       run-tests-for: 'all'
+      test-branch: main
+      aux-bootstrap-args: 'DBAAS_REPO_BRANCH=main ISTIO_REPO_BRANCH=main CORE_MESH_CONFIG_REPO_BRANCH=main'
 
   run-tests-istio-mesh-migrated-mode:
     uses: ./.github/workflows/integration-tests.yml
     with:
       install-istio: true
-      install-maas: true
+      install-maas: false
       mesh-type: 'Istio'
       test-usecase: 'istio-migrated'
       run-tests-for: 'all'
+      test-branch: main
+      aux-bootstrap-args: 'DBAAS_REPO_BRANCH=main ISTIO_REPO_BRANCH=main CORE_MESH_CONFIG_REPO_BRANCH=main'
       
   run-tests-consul-login:
     uses: ./.github/workflows/consul-login-integration-tests.yml
@@ -47,10 +68,21 @@ jobs:
     uses: ./.github/workflows/maas-failover-tests.yml
     with:
       # the results are published in the report below, so a failed test must not skip it
+      test-branch: main
+      aux-bootstrap-args: 'DBAAS_REPO_BRANCH=main MAAS_BRANCH=main ISTIO_REPO_BRANCH=main CORE_MESH_CONFIG_REPO_BRANCH=main'
       fail-on-test-failure: false
 
+  run-core-legacy-api-tests:
+    uses: ./.github/workflows/core-legacy-api-integration-tests.yml
+    with:
+      test-branch: main
+      aux-bootstrap-args: 'DBAAS_REPO_BRANCH=main ISTIO_REPO_BRANCH=main CORE_MESH_CONFIG_REPO_BRANCH=main'
+      fail-on-test-failure: false
+
+  # A suite that fails to set up its stand publishes no results, but must not take the report down with it.
   update-report:
-    needs: [run-tests-core-mesh, run-tests-istio-mesh-fallback-mode, run-tests-istio-mesh-migrated-mode, run-tests-consul-login, run-maas-failover-tests]
+    if: ${{ !cancelled() }}
+    needs: [run-tests-core-mesh, run-tests-core-mesh-dbaas-operator, run-tests-istio-mesh-fallback-mode, run-tests-istio-mesh-migrated-mode, run-tests-consul-login, run-maas-failover-tests, run-core-legacy-api-tests]
     runs-on: ubuntu-latest
     environment:
       name: pages
@@ -60,7 +92,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Download Surefire reports artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           path: artifacts
           pattern: surefire-reports*

@@ -3,6 +3,7 @@ run-name: >-
   [Istio=${{ (inputs.install-istio && 'yes') || 'no' }}]
   [MaaS=${{ (inputs.install-maas && 'yes') || 'no' }}]
   [SERVICE_MESH_TYPE=${{ inputs.mesh-type || 'Core' }}]
+  [M2M_AUTH_MODE=${{ inputs.m2m-auth-mode || 'legacy' }}]
   [tests=${{ inputs.run-tests-for || 'all' }}]
 
 on:
@@ -14,9 +15,14 @@ on:
         default: 'main'
         type: string
       test-branch:
-        description: 'Branch to look for in core services & test repositories. If branch not found in specific repo, checkout will fallback to main'
+        description: 'Branch of the core services and of the test repositories. A repository that has no such branch stays on main. Empty leaves the core services to the bootstrap, which uses main'
         required: false
-        default: 'main'
+        default: ''
+        type: string
+      aux-bootstrap-args:
+        description: 'Extra KEY=VALUE variables for the cloud-core bootstrap, space separated, applied last. Anything not above goes here: the tag of a core service (CONFIG_SERVER_TAG=my-tag), the branch or tag of a dependency (DBAAS_REPO_BRANCH=main, MAAS_BRANCH=main, ISTIO_REPO_BRANCH=main, CORE_MESH_CONFIG_REPO_BRANCH=main), M2M_AUTH_MODE=hybrid'
+        required: false
+        default: ''
         type: string
       install-maas:
         description: 'Install MaaS'
@@ -28,66 +34,11 @@ on:
         required: false
         default: false
         type: boolean
-      istio-repo-branch:
-        description: 'Branch of the Istio repo'
-        required: false
-        default: 'main'
-        type: string
-      core-mesh-config-repo-branch:
-        description: 'Branch of the Core Mesh Config repo'
-        required: false
-        default: 'main'
-        type: string
       do-resources-workaround:
         description: 'Do resources workaround'
         required: false
         default: false
         type: boolean
-      dummy-separator-0:
-        description: '--------------------------------'
-        required: false
-        default: 'Docker image tags for core components'
-        type: string      
-      facade-operator-tag:
-        description: 'Docker image tag for Facade Operator'
-        required: false
-        default: 'latest'
-        type: string
-      ingress-gateway-tag:
-        description: 'Docker image tag for Ingress Gateway'
-        required: false
-        default: 'latest'
-        type: string
-      control-plane-tag:
-        description: 'Docker image tag for Control Plane'
-        required: false
-        default: 'latest'
-        type: string
-      paas-mediation-tag:
-        description: 'Docker image tag for PaaS Mediation'
-        required: false
-        default: 'latest'
-        type: string
-      dbaas-agent-tag:
-        description: 'Docker image tag for DBaaS Agent'
-        required: false
-        default: 'latest'
-        type: string
-      core-operator-tag:
-        description: 'Docker image tag for Core Operator'
-        required: false
-        default: 'latest'
-        type: string
-      config-server-tag:
-        description: 'Docker image tag for Config Server'
-        required: false
-        default: 'latest'
-        type: string
-      site-management-tag:
-        description: 'Docker image tag for Site Management'
-        required: false
-        default: 'latest'
-        type: string
       dummy-separator:
         description: '--------------------------------'
         required: false
@@ -112,6 +63,11 @@ on:
         description: '--------------------------------'
         required: false
         default: 'Run integration tests'
+        type: string
+      m2m-auth-mode:
+        description: 'M2M_AUTH_MODE of Cloud Core: legacy, hybrid, or k8s'
+        required: false
+        default: 'legacy'
         type: string
       mesh-type:
         description: 'Mesh type for test services — Core or Istio'
@@ -137,11 +93,6 @@ on:
         required: false
         default: ''
         type: string
-      aux-bootstrap-args:
-        description: 'Extra KEY=VALUE bootstrap variables, space separated'
-        required: false
-        default: ''
-        type: string
       collect-logs-for:
         description: 'Labels of services which logs are required to collect for debugging. Comma-separated label_name=value pairs (name=mesh-test-service-spring-v1,app=control-plane, app.kubernetes.io/name=public-gateway)'
         required: false
@@ -156,10 +107,15 @@ on:
         default: 'main'
         type: string
       test-branch:
-        description: 'Branch to use in core services & test repositories. If branch not found in specific repo, checkout will fallback to main'
+        description: 'Branch of the core services and of the test repositories. A repository that has no such branch stays on main. Empty leaves the core services to the bootstrap, which uses main'
         required: false
-        default: 'main'
-        type: string        
+        default: ''
+        type: string
+      aux-bootstrap-args:
+        description: 'Extra KEY=VALUE variables for the cloud-core bootstrap, space separated, applied last. Anything not above goes here: the tag of a core service (CONFIG_SERVER_TAG=my-tag), the branch or tag of a dependency (DBAAS_REPO_BRANCH=main, MAAS_BRANCH=main, ISTIO_REPO_BRANCH=main, CORE_MESH_CONFIG_REPO_BRANCH=main), M2M_AUTH_MODE=hybrid'
+        required: false
+        default: ''
+        type: string
       install-maas:
         description: 'Install MaaS'
         required: false
@@ -170,66 +126,11 @@ on:
         required: false
         default: false
         type: boolean
-      istio-repo-branch:
-        description: 'Branch of the Istio repo'
-        required: false
-        default: 'main'
-        type: string
-      core-mesh-config-repo-branch:
-        description: 'Branch of the Core Mesh Config repo'
-        required: false
-        default: 'main'
-        type: string
       do-resources-workaround:
         description: 'Do resources workaround'
         required: false
         default: false
         type: boolean        
-      dummy-separator-0:
-        description: '--------------------------------'
-        required: false
-        default: 'Docker image tags for core components'
-        type: string      
-      facade-operator-tag:
-        description: 'Docker image tag for Facade Operator'
-        required: false
-        default: 'latest'
-        type: string
-      ingress-gateway-tag:
-        description: 'Docker image tag for Ingress Gateway'
-        required: false
-        default: 'latest'
-        type: string
-      control-plane-tag:
-        description: 'Docker image tag for Control Plane'
-        required: false
-        default: 'latest'
-        type: string
-      paas-mediation-tag:
-        description: 'Docker image tag for PaaS Mediation'
-        required: false
-        default: 'latest'
-        type: string
-      dbaas-agent-tag:
-        description: 'Docker image tag for DBaaS Agent'
-        required: false
-        default: 'latest'
-        type: string
-      core-operator-tag:
-        description: 'Docker image tag for Core Operator'
-        required: false
-        default: 'latest'
-        type: string
-      config-server-tag:
-        description: 'Docker image tag for Config Server'
-        required: false
-        default: 'latest'
-        type: string
-      site-management-tag:
-        description: 'Docker image tag for Site Management'
-        required: false
-        default: 'latest'
-        type: string
       dummy-separator:
         description: '--------------------------------'
         required: false
@@ -255,6 +156,15 @@ on:
         required: false
         default: 'Run integration tests'
         type: string
+      m2m-auth-mode:
+        description: 'M2M_AUTH_MODE of Cloud Core: legacy, hybrid, or k8s'
+        required: false
+        default: 'legacy'
+        type: choice
+        options:
+          - legacy
+          - hybrid
+          - k8s
       mesh-type:
         description: 'Mesh type for test services — Core or Istio'
         required: false
@@ -292,56 +202,38 @@ jobs:
             echo "| Input | Value |"
             echo "| --- | --- |"
             echo "| core-bootstrap-branch | \`${{ inputs.core-bootstrap-branch || 'main' }}\` |"
-            echo "| test-branch | \`${{ inputs.test-branch || 'main' }}\` |"
+            echo "| test-branch | \`${{ inputs.test-branch || '(left to the bootstrap)' }}\` |"
+            echo "| aux-bootstrap-args | \`${{ inputs.aux-bootstrap-args || '' }}\` |"
             echo "| install-maas | \`${{ (inputs.install-maas && 'true') || 'false' }}\` |"
             echo "| install-istio | \`${{ (inputs.install-istio && 'true') || 'false' }}\` |"
-            echo "| istio-repo-branch | \`${{ inputs.istio-repo-branch || 'main' }}\` |"
-            echo "| core-mesh-config-repo-branch | \`${{ inputs.core-mesh-config-repo-branch || 'main' }}\` |"
             echo "| do-resources-workaround | \`${{ (inputs.do-resources-workaround && 'true') || 'false' }}\` |"
-            echo "| facade-operator-tag | \`${{ inputs.facade-operator-tag || 'latest' }}\` |"
-            echo "| ingress-gateway-tag | \`${{ inputs.ingress-gateway-tag || 'latest' }}\` |"
-            echo "| control-plane-tag | \`${{ inputs.control-plane-tag || 'latest' }}\` |"
-            echo "| paas-mediation-tag | \`${{ inputs.paas-mediation-tag || 'latest' }}\` |"
-            echo "| dbaas-agent-tag | \`${{ inputs.dbaas-agent-tag || 'latest' }}\` |"
-            echo "| core-operator-tag | \`${{ inputs.core-operator-tag || 'latest' }}\` |"
-            echo "| config-server-tag | \`${{ inputs.config-server-tag || 'latest' }}\` |"
-            echo "| site-management-tag | \`${{ inputs.site-management-tag || 'latest' }}\` |"
             echo "| mesh-test-spring-tag | \`${{ inputs.mesh-test-spring-tag || 'latest' }}\` |"
             echo "| mesh-test-quarkus-tag | \`${{ inputs.mesh-test-quarkus-tag || 'latest' }}\` |"
             echo "| mesh-test-go-tag | \`${{ inputs.mesh-test-go-tag || 'latest' }}\` |"
             echo "| mesh-type | \`${{ inputs.mesh-type || 'Core' }}\` |"
+            echo "| m2m-auth-mode | \`${{ inputs.m2m-auth-mode || 'legacy' }}\` |"
             echo "| test-usecase | \`${{ inputs.test-usecase || '' }}\` |"
             echo "| run-tests-for | \`${{ inputs.run-tests-for || 'all' }}\` |"
             echo "| java-libs-artifact | \`${{ inputs.java-libs-artifact || '' }}\` |"
             echo "| images-artifact-pattern | \`${{ inputs.images-artifact-pattern || '' }}\` |"
-            echo "| aux-bootstrap-args | \`${{ inputs.aux-bootstrap-args || '' }}\` |"
           } >> "$GITHUB_STEP_SUMMARY"
 
           echo "::group::Workflow input values"
           echo "core-bootstrap-branch=${{ inputs.core-bootstrap-branch || 'main' }}"
-          echo "test-branch=${{ inputs.test-branch || 'main' }}"
+          echo "test-branch=${{ inputs.test-branch || '' }}"
+          echo "aux-bootstrap-args=${{ inputs.aux-bootstrap-args || '' }}"
           echo "install-maas=${{ (inputs.install-maas && 'true') || 'false' }}"
           echo "install-istio=${{ (inputs.install-istio && 'true') || 'false' }}"
-          echo "istio-repo-branch=${{ inputs.istio-repo-branch || 'main' }}"
-          echo "core-mesh-config-repo-branch=${{ inputs.core-mesh-config-repo-branch || 'main' }}"
           echo "do-resources-workaround=${{ (inputs.do-resources-workaround && 'true') || 'false' }}"
-          echo "facade-operator-tag=${{ inputs.facade-operator-tag || 'latest' }}"
-          echo "ingress-gateway-tag=${{ inputs.ingress-gateway-tag || 'latest' }}"
-          echo "control-plane-tag=${{ inputs.control-plane-tag || 'latest' }}"
-          echo "paas-mediation-tag=${{ inputs.paas-mediation-tag || 'latest' }}"
-          echo "dbaas-agent-tag=${{ inputs.dbaas-agent-tag || 'latest' }}"
-          echo "core-operator-tag=${{ inputs.core-operator-tag || 'latest' }}"
-          echo "config-server-tag=${{ inputs.config-server-tag || 'latest' }}"
-          echo "site-management-tag=${{ inputs.site-management-tag || 'latest' }}"
           echo "mesh-test-spring-tag=${{ inputs.mesh-test-spring-tag || 'latest' }}"
           echo "mesh-test-quarkus-tag=${{ inputs.mesh-test-quarkus-tag || 'latest' }}"
           echo "mesh-test-go-tag=${{ inputs.mesh-test-go-tag || 'latest' }}"
           echo "mesh-type=${{ inputs.mesh-type || 'Core' }}"
+          echo "m2m-auth-mode=${{ inputs.m2m-auth-mode || 'legacy' }}"
           echo "test-usecase=${{ inputs.test-usecase || '' }}"
           echo "run-tests-for=${{ inputs.run-tests-for || 'all' }}"
           echo "java-libs-artifact=${{ inputs.java-libs-artifact || '' }}"
           echo "images-artifact-pattern=${{ inputs.images-artifact-pattern || '' }}"
-          echo "aux-bootstrap-args=${{ inputs.aux-bootstrap-args || '' }}"
           echo "::endgroup::"
 
       - name: Point the integration tests at the java-libs build
@@ -351,42 +243,12 @@ jobs:
         with:
           artifact: ${{ inputs.java-libs-artifact }}
 
-      - name: Setup Kind cluster and deploy Cloud Core
-        uses: ./.github/actions/setup-kind-with-cloud-core
-        with:
-          core-bootstrap-branch: ${{ inputs.core-bootstrap-branch }}
-          images-artifact-pattern: ${{ inputs.images-artifact-pattern || '' }}
-          install-maas: ${{ inputs.install-maas || 'false' }}
-          install-istio: ${{ inputs.install-istio || 'false' }}
-          istio-repo-branch: ${{ inputs.istio-repo-branch }}
-          core-mesh-config-repo-branch: ${{ inputs.core-mesh-config-repo-branch }}
-          facade-operator-tag: ${{ inputs.facade-operator-tag || 'latest' }}
-          ingress-gateway-tag: ${{ inputs.ingress-gateway-tag || 'latest' }}
-          control-plane-tag: ${{ inputs.control-plane-tag || 'latest' }}
-          paas-mediation-tag: ${{ inputs.paas-mediation-tag || 'latest' }}
-          dbaas-agent-tag: ${{ inputs.dbaas-agent-tag || 'latest' }}
-          core-operator-tag: ${{ inputs.core-operator-tag || 'latest' }}
-          config-server-tag: ${{ inputs.config-server-tag || 'latest' }}
-          site-management-tag: ${{ inputs.site-management-tag || 'latest' }}
-          test-branch: ${{ inputs.test-branch || 'main' }}
-          mesh-type: ${{ inputs.mesh-type || 'Core' }}
-          # the action no longer sets a Patroni replica count of its own, and these suites were
-          # running against one node
-          aux-bootstrap-args: >-
-            PATRONI_REPLICAS_NUMBER=1
-            ${{ inputs.aux-bootstrap-args || '' }}
-
-      - name: preserve-cpu-resources-workaround
-        if: ${{ inputs.do-resources-workaround }}
-        run: |
-          # to preserve some resources for tests
-          kubectl scale deployment site-management -n core --replicas=0
-
       - name: Resolve integration tests to run
         id: integrations_tests_selection
         shell: bash
         env:
           RUN_TESTS_FOR: ${{ inputs.run-tests-for || 'all' }}
+          INSTALL_MAAS: ${{ (inputs.install-maas && 'true') || 'false' }}
         run: |
           selected="$RUN_TESTS_FOR"
           normalized="$(echo "$selected" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
@@ -404,7 +266,8 @@ jobs:
             paas_mediation=true
             control_plane=true
             site_management=true
-            maas_agent=true
+            # bootstrap installs maas-agent only together with MaaS
+            maas_agent="$INSTALL_MAAS"
           else
             IFS=',' read -ra services <<< "$normalized"
             for service in "${services[@]}"; do
@@ -422,6 +285,10 @@ jobs:
                   site_management=true
                   ;;
                 maas-agent|maas_agent)
+                  if [[ "$INSTALL_MAAS" != "true" ]]; then
+                    echo "::error::maas-agent tests need install-maas: bootstrap installs maas-agent only together with MaaS"
+                    exit 1
+                  fi
                   maas_agent=true
                   ;;
                 "")
@@ -440,6 +307,25 @@ jobs:
           echo "control_plane=$control_plane" >> "$GITHUB_OUTPUT"
           echo "site_management=$site_management" >> "$GITHUB_OUTPUT"
           echo "maas_agent=$maas_agent" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Kind cluster and deploy Cloud Core
+        id: setup_cluster
+        uses: ./.github/actions/setup-kind-with-cloud-core
+        with:
+          core-bootstrap-branch: ${{ inputs.core-bootstrap-branch }}
+          test-branch: ${{ inputs.test-branch }}
+          images-artifact-pattern: ${{ inputs.images-artifact-pattern || '' }}
+          install-maas: ${{ inputs.install-maas || 'false' }}
+          install-istio: ${{ inputs.install-istio || 'false' }}
+          mesh-type: ${{ inputs.mesh-type || 'Core' }}
+          # the caller's arguments come last, so that they can override the mode
+          aux-bootstrap-args: M2M_AUTH_MODE=${{ inputs.m2m-auth-mode || 'legacy' }} ${{ inputs.aux-bootstrap-args }}
+
+      - name: preserve-cpu-resources-workaround
+        if: ${{ inputs.do-resources-workaround }}
+        run: |
+          # to preserve some resources for tests
+          kubectl scale deployment site-management -n core --replicas=0
 
       - name: Run mesh integration tests (test apps in ${{ inputs.mesh-type || 'Core' }} mesh mode)
         id: mesh_tests
@@ -538,19 +424,20 @@ jobs:
           done
 
       - name: Upload Surefire reports
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: surefire-reports${{ inputs.test-usecase != '' && format('-{0}', inputs.test-usecase) || '' }}
           path: artifacts/*
 
       - name: Collect Istio debug info
-        if: ${{ inputs.install-istio && (failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure') }}
+        if: ${{ inputs.install-istio && steps.setup_cluster.outcome != 'skipped' && (failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure') }}
         uses: ./.github/actions/collect-istio-debug-info
         with:
           artifact-suffix: ${{ inputs.test-usecase != '' && format('-{0}', inputs.test-usecase) || '' }}
 
       - name: Collect Kubernetes diagnostics
-        if: ${{ failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure' }}
+        # no cluster to inspect when the job failed before the setup
+        if: ${{ steps.setup_cluster.outcome != 'skipped' && (failure() || steps.mesh_tests.outcome == 'failure' || steps.paas_tests.outcome == 'failure' || steps.control_plane_tests.outcome == 'failure' || steps.site_management_tests.outcome == 'failure' || steps.maas_agent_tests.outcome == 'failure') }}
         uses: ./.github/actions/collect-k8s-diagnostics
         with:
           collect-logs-for: ${{ inputs.collect-logs-for || '' }}

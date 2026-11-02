@@ -17,24 +17,23 @@
     </licenses>
 
     <properties>
-        <!-- The Quarkus platform, as the other Quarkus services import it (the core-operator and
-             dbaas services, consul-login/test-service-quarkus): one version for the BOM and the
-             plugin, which a build against a java-libs ref aligns with the platform java-libs uses. -->
-        <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
-        <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
-        <quarkus.platform.version>3.33.3.1</quarkus.platform.version>
-        <compiler-plugin.version>3.15.0</compiler-plugin.version>
+        <quarkus.version>3.33.4.1</quarkus.version>
+        <quarkus-plugin.version>${quarkus.version}</quarkus-plugin.version>
+        <quarkus.platform.version>${quarkus.version}</quarkus.platform.version>
+        <compiler-plugin.version>3.16.0</compiler-plugin.version>
         <maven.compiler.parameters>true</maven.compiler.parameters>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <quarkus.core.version>10.3.0</quarkus.core.version>
-        <surefire-plugin.version>3.5.6</surefire-plugin.version>
-        <lombok.version>1.18.46</lombok.version>
-        <jacoco.plugin.version>0.8.15</jacoco.plugin.version>
+        <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
+        <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
+        <quarkus.core.version>10.3.4</quarkus.core.version>
+        <surefire-plugin.version>3.6.1</surefire-plugin.version>
+        <lombok.version>1.18.48</lombok.version>
+        <jacoco.plugin.version>0.8.16</jacoco.plugin.version>
         <sonar.coverage.exclusions>src/main/java/com/netcracker/quarkus/Main.java</sonar.coverage.exclusions>
-        <mockito.core.version>5.21.0</mockito.core.version>
+        <mockito.core.version>5.23.0</mockito.core.version>
     </properties>
 
     <dependencyManagement>
@@ -118,9 +117,9 @@
     <build>
         <plugins>
             <plugin>
-                <groupId>${quarkus.platform.group-id}</groupId>
+                <groupId>io.quarkus</groupId>
                 <artifactId>quarkus-maven-plugin</artifactId>
-                <version>${quarkus.platform.version}</version>
+                <version>${quarkus-plugin.version}</version>
                 <executions>
                     <execution>
                         <goals>

@@ -92,7 +92,7 @@ class SpringServiceMigrationIT {
     void serviceMovesToTheKubernetesWay() {
         JsonNode status = TestService.awaitLoginStatus(servicePortForward);
 
-        assertEquals("kubernetes-with-m2m-fallback", status.path("loginMode").asText(), "login mode");
+        assertEquals("hybrid", status.path("loginMode").asText(), "login mode");
         assertEquals(MARKER_VALUE, status.path("consulMarker").asText(), "property read over the m2m way");
         assertTrue(ConsulAcl.issuedTokenCount(consul, NAMESPACE) > 0, "the m2m way carried the pod");
         assertEquals(0, ConsulAcl.issuedTokenCount(consul, KUBERNETES_AUTH_METHOD),
@@ -140,7 +140,7 @@ class SpringServiceMigrationIT {
         environment.put("NAMESPACE", NAMESPACE);
         environment.put("MICROSERVICE_NAME", SERVICE.serviceName());
         environment.put("CONSUL_HOST", "consul-consul-server.consul");
-        environment.put("CONSUL_AUTH_MODE", "kubernetes-with-m2m-fallback");
+        environment.put("CONSUL_AUTH_MODE", "hybrid");
         environment.put("CONSUL_AUTH_METHOD", KUBERNETES_AUTH_METHOD);
         environment.put("CONSUL_AUTH_AUDIENCE", ProjectedToken.AUDIENCE);
         environment.put("CONSUL_AUTH_FALLBACK_RECHECK_INTERVAL", RECHECK_INTERVAL);

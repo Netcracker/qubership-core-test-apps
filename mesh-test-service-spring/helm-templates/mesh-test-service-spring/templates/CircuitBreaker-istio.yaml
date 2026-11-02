@@ -1,0 +1,34 @@
+{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
+# Istio counterpart of the Core connection-limited route: only /connection-limit/sleep targets this host.
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: '{{ .Values.DEPLOYMENT_RESOURCE_NAME }}-cb'
+  labels:
+    app.kubernetes.io/part-of: 'mesh-test-app'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+spec:
+  ports:
+    - name: web
+      port: 8080
+      targetPort: 8080
+  selector:
+    name: '{{ .Values.DEPLOYMENT_RESOURCE_NAME }}'
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: '{{ .Values.DEPLOYMENT_RESOURCE_NAME }}-cb'
+  labels:
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE }}'
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  host: '{{ .Values.DEPLOYMENT_RESOURCE_NAME }}-cb'
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        # excess HTTP/1.1 requests wait as pending, as in Core; http2MaxRequests would reject them with 503
+        maxConnections: 2
+{{- end }}

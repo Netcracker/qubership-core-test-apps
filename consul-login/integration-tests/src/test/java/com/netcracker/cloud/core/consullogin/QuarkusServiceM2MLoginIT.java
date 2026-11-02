@@ -93,7 +93,7 @@ class QuarkusServiceM2MLoginIT {
     void serviceLogsInWithItsOwnJwt() {
         JsonNode status = TestService.awaitLoginStatus(servicePortForward);
 
-        assertEquals("m2m", status.path("loginMode").asText(), "login mode");
+        assertEquals("legacy", status.path("loginMode").asText(), "login mode");
         assertTrue(status.path("tokenPresent").asBoolean(), "the service holds a Consul token");
         assertEquals(MARKER_VALUE, status.path("consulMarker").asText(), "property read from Consul");
         assertTrue(ConsulAcl.issuedTokenCount(consul, NAMESPACE) > 0,
@@ -105,7 +105,7 @@ class QuarkusServiceM2MLoginIT {
                 "CLOUD_NAMESPACE", NAMESPACE,
                 "MICROSERVICE_NAME", SERVICE.serviceName(),
                 "CONSUL_URL", Cluster.CONSUL_IN_CLUSTER_URL + "/",
-                "CONSUL_AUTH_MODE", "m2m",
+                "CONSUL_AUTH_MODE", "legacy",
                 "CONSUL_LOGIN_M2M_PRIVATE_KEY", signingKey.privateKeyBase64(),
                 "CONSUL_LOGIN_M2M_ISSUER", SigningKey.ISSUER,
                 "CONSUL_LOGIN_M2M_AUDIENCE", SigningKey.AUDIENCE,

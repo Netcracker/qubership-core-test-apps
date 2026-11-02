@@ -91,7 +91,7 @@ class GoServiceKubernetesLoginIT {
     void serviceLogsInAndReadsItsProperties() {
         JsonNode status = TestService.awaitLoginStatus(servicePortForward);
 
-        assertEquals("kubernetes", status.path("loginMode").asText(), "login mode");
+        assertEquals("k8s", status.path("loginMode").asText(), "login mode");
         assertEquals(AUTH_METHOD, status.path("authMethod").asText(), "auth method the settings named");
         assertEquals(ProjectedToken.AUDIENCE, status.path("audience").asText(), "audience the settings named");
         assertEquals(MARKER_VALUE, status.path("consulMarker").asText(), "property read from Consul");
@@ -104,7 +104,7 @@ class GoServiceKubernetesLoginIT {
                 "MICROSERVICE_NAMESPACE", NAMESPACE,
                 "MICROSERVICE_NAME", SERVICE.serviceName(),
                 "CONSUL_URL", Cluster.CONSUL_IN_CLUSTER_URL,
-                "CONSUL_AUTH_MODE", "kubernetes",
+                "CONSUL_AUTH_MODE", "k8s",
                 "CONSUL_AUTH_METHOD", AUTH_METHOD,
                 "CONSUL_AUTH_AUDIENCE", ProjectedToken.AUDIENCE);
     }

@@ -35,18 +35,21 @@ public class ProxyService {
                     .block();
 
             log.info("Proxied response status: {}", response != null ? response.getStatusCode() : "empty");
-            //exclude x-request-id, as ingress gateway will add it second time and header will have value like [id, id]
-            return response != null ? removeXRequestId(response) : ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+            return response != null ? withRelayableHeaders(response) : ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
         } catch (Exception e) {
             log.warn("Proxy request to '{}' did not receive an upstream response", messageUrl, e);
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
         }
     }
 
-    private ResponseEntity<byte[]> removeXRequestId(ResponseEntity<byte[]> response) {
+    private ResponseEntity<byte[]> withRelayableHeaders(ResponseEntity<byte[]> response) {
         HttpHeaders headers = new HttpHeaders();
         headers.putAll(response.getHeaders());
+        //exclude x-request-id, as ingress gateway will add it second time and header will have value like [id, id]
         headers.remove(X_REQUEST_ID);
+        // hop-by-hop: the body is re-sent as a whole, a relayed "chunked" breaks the response framing
+        headers.remove(HttpHeaders.TRANSFER_ENCODING);
+        headers.remove(HttpHeaders.CONNECTION);
         return new ResponseEntity<>(response.getBody(), headers, response.getStatusCode());
     }
 }

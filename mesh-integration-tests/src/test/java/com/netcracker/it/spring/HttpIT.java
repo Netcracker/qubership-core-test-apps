@@ -35,9 +35,6 @@ public class HttpIT {
     @PortForward(serviceName = @Value(INTERNAL_GW_SERVICE_NAME))
     private static URL internalGWServerUrl;
 
-    @PortForward(serviceName = @Value(SERVICE_NAME))
-    private static URL compositeGWServerUrl;
-
     @PortForward(serviceName = @Value(EGRESS_GW_SERVICE_NAME))
     private static URL egressGWServerUrl;
 
@@ -84,15 +81,9 @@ public class HttpIT {
 
 	@Test
 	public void testRouteRegisteredInCompositeGWWIthRoutingByHost() throws IOException {
-		Request request = new Request.Builder()
-				.url(compositeGWServerUrl+ "api/v1/mesh-test-service-spring/declarative_hello")
-				.get()
-				.build();
-		try (Response response = okHttpClient.newCall(request).execute()) {
-			assertEquals(200, response.code());
-			String stringResponse = response.body().string();
-			assertEquals("Declarative hello from spring mesh test service", stringResponse);
-		}
+		// via the spring proxy: on Istio host routing is done by the waypoint, which port-forward bypasses
+		String stringResponse = getViaSpringProxy(SERVICE_NAME + ":8080/api/v1/mesh-test-service-spring/declarative_hello");
+		assertEquals("Declarative hello from spring mesh test service", stringResponse);
 	}
 
 	@Test
@@ -146,14 +137,18 @@ public class HttpIT {
 
 	private void testCheckTrace(String url) throws Exception {
 		log.info("testCheckTrace, url: {}", url);
+		String jsonResponse = getViaSpringProxy(url);
+		log.info("traceResponse: {}", jsonResponse);
+	}
+
+	private String getViaSpringProxy(String url) throws IOException {
 		Request request = new Request.Builder()
 				.url(publicGWServerUrl + "api/v1/mesh-test-service-spring/spring/proxy?url=" + url)
 				.get()
 				.build();
 		try (Response response = okHttpClient.newCall(request).execute()) {
 			assertEquals(200, response.code());
-			String jsonResponse = response.body().string();
-			log.info("traceResponse: {}", jsonResponse);
+			return response.body().string();
 		}
 	}
 }
