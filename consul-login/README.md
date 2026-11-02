@@ -45,8 +45,9 @@ tag `it`; none of them is published. To run the scenarios by hand, build each se
 `mvn package`) and load it with `kind load docker-image`, or point the set at another image with
 `-Dconsul.login.test.service.<stack>.image`.
 
-The stand itself comes from `.github/actions/setup-kind-with-consul`, which installs Consul with
-`global.acls.manageSystemACLs=true` through the `deploy-consul` target of `cloud-core-local-dev` in
+The stand itself comes from `.github/actions/setup-kind-with-consul`, which installs the chart of a
+[qubership-consul](https://github.com/Netcracker/qubership-consul) release with its ACL system and the Consul ACL
+Configurator operator turned on (`CONSUL_ACLS=true`), through the `deploy-consul` target of `cloud-core-local-dev` in
 [qubership-core-bootstrap](https://github.com/Netcracker/qubership-core-bootstrap).
 
 ## When these tests can be removed

@@ -139,7 +139,7 @@ class SpringServiceMigrationIT {
         environment.put("CLOUD_NAMESPACE", NAMESPACE);
         environment.put("NAMESPACE", NAMESPACE);
         environment.put("MICROSERVICE_NAME", SERVICE.serviceName());
-        environment.put("CONSUL_HOST", "consul-consul-server.consul");
+        environment.put("CONSUL_HOST", Cluster.CONSUL_IN_CLUSTER_HOST);
         environment.put("CONSUL_AUTH_MODE", "hybrid");
         environment.put("CONSUL_AUTH_METHOD", KUBERNETES_AUTH_METHOD);
         environment.put("CONSUL_AUTH_AUDIENCE", ProjectedToken.AUDIENCE);

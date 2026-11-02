@@ -140,7 +140,7 @@ class SpringServiceKubernetesLoginIT {
         return Map.of(
                 "CLOUD_NAMESPACE", NAMESPACE,
                 "MICROSERVICE_NAME", SERVICE.serviceName(),
-                "CONSUL_HOST", "consul-consul-server.consul",
+                "CONSUL_HOST", Cluster.CONSUL_IN_CLUSTER_HOST,
                 "CONSUL_AUTH_MODE", "k8s",
                 "CONSUL_AUTH_METHOD", AUTH_METHOD,
                 "CONSUL_AUTH_AUDIENCE", ProjectedToken.AUDIENCE);

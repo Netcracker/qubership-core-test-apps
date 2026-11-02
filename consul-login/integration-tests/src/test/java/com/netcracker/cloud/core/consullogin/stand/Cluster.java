@@ -22,11 +22,12 @@ import java.util.function.Predicate;
  */
 public final class Cluster {
 
-    /** The address of Consul as a pod sees it, for the scripts and services that talk to Consul from inside. */
-    public static final String CONSUL_IN_CLUSTER_URL = "http://consul-consul-server.consul.svc:8500";
+    /** The host of Consul as a pod sees it, for the scripts and services that talk to Consul from inside. */
+    public static final String CONSUL_IN_CLUSTER_HOST = "consul-server.consul.svc";
+    public static final String CONSUL_IN_CLUSTER_URL = "http://" + CONSUL_IN_CLUSTER_HOST + ":8500";
 
     private static final String CONSUL_NAMESPACE = "consul";
-    private static final String CONSUL_SERVER_POD_PREFIX = "consul-consul-server";
+    private static final String CONSUL_SERVER_POD_PREFIX = "consul-server";
 
     private Cluster() {
     }

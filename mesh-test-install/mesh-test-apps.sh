@@ -200,7 +200,7 @@ install_helm_package() {
         --set SERVICE_MESH_TYPE="$MESH_TYPE" \
         --set TAG="$tag" \
         --set CONSUL_ENABLED="true" \
-        --set CONSUL_URL="http://consul-consul-server.consul.svc.cluster.local:8500" \
+        --set CONSUL_URL="http://consul-server.consul.svc.cluster.local:8500" \
         --wait \
         --timeout=300s
 
