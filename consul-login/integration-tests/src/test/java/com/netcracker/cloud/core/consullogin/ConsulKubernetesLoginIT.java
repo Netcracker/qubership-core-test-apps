@@ -1,12 +1,10 @@
 package com.netcracker.cloud.core.consullogin;
 
 import com.netcracker.cloud.core.consullogin.stand.Cluster;
-import com.netcracker.cloud.core.consullogin.stand.ConsulAcl;
+import com.netcracker.cloud.core.consullogin.stand.ConsulAclResource;
 import com.netcracker.cloud.core.consullogin.stand.ConsulClient;
 import com.netcracker.cloud.core.consullogin.stand.ProjectedToken;
 import com.netcracker.cloud.core.consullogin.stand.StandDump;
-import io.fabric8.kubernetes.api.model.Namespace;
-import io.fabric8.kubernetes.api.model.NamespaceBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.api.model.ServiceAccount;
@@ -28,11 +26,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Checks that the stand itself supports a Kubernetes login: a pod carrying a projected service account token can
- * exchange it for a Consul token, that token grants the key access its role was given, and the same key stays
- * unreadable without a token.
+ * exchange it for a Consul token through the auth method of the operator, that token grants the key access the
+ * {@code ConsulACL} resource of the namespace declared, and the same key stays unreadable without a token.
  *
  * <p>The login is done with plain curl from inside the pod, so nothing here goes through the library under test and a
- * failure tells a broken stand from a broken library.
+ * failure tells a broken stand, the operator included, from a broken library.
  */
 @DisplayName("Consul issues a token to a pod that presents its projected token")
 class ConsulKubernetesLoginIT {
@@ -42,9 +40,6 @@ class ConsulKubernetesLoginIT {
     private static final String PROBE_POD = "consul-login-probe";
     private static final String PROBE_IMAGE = "curlimages/curl:8.11.0";
 
-    private static final String AUTH_METHOD = "consul-login-probe";
-    private static final String POLICY = "consul-login-probe-read";
-    private static final String ROLE = "consul-login-probe-reader";
     private static final String KV_PREFIX = "config/consul-login-itest/";
     private static final String KV_KEY = KV_PREFIX + "probe";
     private static final String KV_VALUE = "consul-kubernetes-login-works";
@@ -52,7 +47,6 @@ class ConsulKubernetesLoginIT {
     private static KubernetesClient kubernetes;
     private static LocalPortForward consulPortForward;
     private static ConsulClient consul;
-    private static String bindingRuleId;
 
     @RegisterExtension
     static final StandDump standDump = StandDump.onFailure(() -> consul, () -> kubernetes, PROBE_NAMESPACE);
@@ -65,12 +59,8 @@ class ConsulKubernetesLoginIT {
                 Cluster.readBootstrapToken(kubernetes));
 
         consul.put("/v1/kv/" + KV_KEY, KV_VALUE).requireSuccess("seeding the probe key");
-        ConsulAcl.createReadPolicy(consul, POLICY, KV_PREFIX);
-        ConsulAcl.createRole(consul, ROLE, POLICY);
-        ConsulAcl.createKubernetesAuthMethod(consul, kubernetes, AUTH_METHOD);
-        bindingRuleId = ConsulAcl.createBindingRule(consul, AUTH_METHOD,
-                "value.namespace==\"" + PROBE_NAMESPACE + "\"", ROLE);
         createProbePod();
+        ConsulAclResource.apply(kubernetes, PROBE_NAMESPACE, PROBE_SERVICE_ACCOUNT, KV_PREFIX);
     }
 
     @Test
@@ -82,7 +72,7 @@ class ConsulKubernetesLoginIT {
                 secret=$(curl -sS -X POST -d '{"AuthMethod":"%s","BearerToken":"'"$bearer"'"}' %s/v1/acl/login | tr ',' '\\n' | grep '"SecretID"' | cut -d'"' -f4)
                 if [ -z "$secret" ]; then echo LOGIN_FAILED; exit 1; fi
                 curl -sS -H "X-Consul-Token: $secret" %s/v1/kv/%s?raw
-                """.formatted(ProjectedToken.MOUNT_PATH, AUTH_METHOD,
+                """.formatted(ProjectedToken.MOUNT_PATH, ConsulAclResource.AUTH_METHOD,
                 Cluster.CONSUL_IN_CLUSTER_URL, Cluster.CONSUL_IN_CLUSTER_URL, KV_KEY);
 
         assertEquals(KV_VALUE, execInProbePod(script));
@@ -101,13 +91,6 @@ class ConsulKubernetesLoginIT {
     @AfterAll
     static void cleanUpStand() {
         if (consul != null) {
-            ConsulAcl.deleteIssuedTokens(consul, AUTH_METHOD);
-            if (bindingRuleId != null) {
-                consul.delete("/v1/acl/binding-rule/" + bindingRuleId);
-            }
-            consul.delete("/v1/acl/auth-method/" + AUTH_METHOD);
-            ConsulAcl.deleteRole(consul, ROLE);
-            ConsulAcl.deletePolicy(consul, POLICY);
             consul.delete("/v1/kv/" + KV_KEY);
         }
         if (kubernetes != null) {
@@ -117,10 +100,7 @@ class ConsulKubernetesLoginIT {
     }
 
     private static void createProbePod() {
-        Namespace namespace = new NamespaceBuilder()
-                .withNewMetadata().withName(PROBE_NAMESPACE).endMetadata()
-                .build();
-        kubernetes.namespaces().resource(namespace).create();
+        Cluster.ensureNamespace(kubernetes, PROBE_NAMESPACE);
 
         ServiceAccount serviceAccount = new ServiceAccountBuilder()
                 .withNewMetadata().withName(PROBE_SERVICE_ACCOUNT).withNamespace(PROBE_NAMESPACE).endMetadata()

@@ -1,5 +1,6 @@
 package com.netcracker.cloud.core.consullogin.stand;
 
+import io.fabric8.kubernetes.api.model.NamespaceBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.client.Config;
@@ -26,7 +27,7 @@ public final class Cluster {
     public static final String CONSUL_IN_CLUSTER_HOST = "consul-server.consul.svc";
     public static final String CONSUL_IN_CLUSTER_URL = "http://" + CONSUL_IN_CLUSTER_HOST + ":8500";
 
-    private static final String CONSUL_NAMESPACE = "consul";
+    static final String CONSUL_NAMESPACE = "consul";
     private static final String CONSUL_SERVER_POD_PREFIX = "consul-server";
 
     private Cluster() {
@@ -65,6 +66,15 @@ public final class Cluster {
                 candidate -> candidate.getMetadata().getName().endsWith("bootstrap-acl-token"),
                 "no bootstrap ACL token secret in namespace " + CONSUL_NAMESPACE);
         return decode(secret, "token");
+    }
+
+    /** Creates the namespace of a scenario unless an earlier step of the scenario has created it. */
+    public static void ensureNamespace(KubernetesClient kubernetes, String namespace) {
+        if (kubernetes.namespaces().withName(namespace).get() == null) {
+            kubernetes.namespaces()
+                    .resource(new NamespaceBuilder().withNewMetadata().withName(namespace).endMetadata().build())
+                    .create();
+        }
     }
 
     /** Removes what a scenario left in the cluster and closes what it opened, in an order that survives failures. */

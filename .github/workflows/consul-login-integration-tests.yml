@@ -143,6 +143,10 @@ jobs:
             kubectl logs -n consul --selector=app=consul,component=server --tail=200 || true
 
             echo
+            echo "==== CONSUL ACL CONFIGURATOR OPERATOR LOGS ===="
+            kubectl logs -n consul deployment/consul-acl-configurator-operator --all-containers --tail=300 || true
+
+            echo
             echo "==== SERVICES UNDER TEST ===="
             for ns in $(kubectl get namespaces -o name | grep consul-login | cut -d/ -f2); do
               for pod in $(kubectl get pods -n "$ns" -o name); do

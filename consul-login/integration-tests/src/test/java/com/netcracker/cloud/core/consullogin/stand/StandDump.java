@@ -59,6 +59,7 @@ public final class StandDump implements TestWatcher, LifecycleMethodExecutionExc
         System.out.println();
         System.out.println("==== Consul login stand dump: " + title + " ====");
         printConsulState(consul.get());
+        printConsulAclResource(kubernetes.get(), namespace);
         printPods(kubernetes.get(), namespace);
         System.out.println("==== end of dump ====");
         System.out.println();
@@ -79,6 +80,17 @@ public final class StandDump implements TestWatcher, LifecycleMethodExecutionExc
                 + " authMethod=" + node.path("AuthMethod").asText()
                 + " roles=" + names(node.path("Roles"))
                 + " policies=" + names(node.path("Policies")));
+    }
+
+    private static void printConsulAclResource(KubernetesClient kubernetes, String namespace) {
+        if (kubernetes == null || namespace == null) {
+            return;
+        }
+        try {
+            System.out.println("-- ConsulACL in " + namespace + ": " + ConsulAclResource.status(kubernetes, namespace));
+        } catch (RuntimeException e) {
+            System.out.println("-- ConsulACL in " + namespace + ": unavailable, " + e.getMessage());
+        }
     }
 
     private static void printPods(KubernetesClient kubernetes, String namespace) {

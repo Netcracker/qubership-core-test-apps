@@ -2,15 +2,16 @@ package com.netcracker.cloud.core.consullogin.stand;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import io.fabric8.kubernetes.client.KubernetesClient;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * The ACL objects every scenario builds around itself: a policy over its own prefix, a role that grants it, an auth
- * method of the way under test, and a binding rule. Kept in one place so that a scenario reads as what differs.
+ * The ACL objects a scenario of the m2m way builds around itself through the Consul API: a policy over its own prefix,
+ * a role that grants it, the auth method of the m2m way, and a binding rule. Also the reads of the tokens Consul
+ * issued, which tell the way a pod took. The kubernetes way gets its objects from {@link ConsulAclResource} instead.
  *
  * <p>A scenario creates them while it runs and removes them after, so that scenarios can share one Consul without
  * seeing each other's tokens.
@@ -42,32 +43,8 @@ public final class ConsulAcl {
         consul.put("/v1/acl/role", body.toString()).requireSuccess("creating the role " + name);
     }
 
-    public static void createKubernetesAuthMethod(ConsulClient consul, KubernetesClient kubernetes, String name) {
-        createKubernetesAuthMethod(consul, kubernetes, name, null);
-    }
-
     /**
-     * The auth method of the kubernetes way. Its type is {@code jwt}: Consul checks the signature of a projected token
-     * against the published keys of the cluster instead of reviewing the token at the API server. A scenario therefore
-     * needs neither a reviewer account nor the audience of its pods in {@code --api-audiences} of the API server.
-     *
-     * <p>The namespace of the pod comes from the nested claim Kubernetes puts it in, which a binding rule then reads as
-     * {@code value.namespace}. {@code maxTokenTtl} may be null; Consul refuses anything below a minute.
-     */
-    public static void createKubernetesAuthMethod(ConsulClient consul, KubernetesClient kubernetes, String name,
-                                                  String maxTokenTtl) {
-        ClusterSigningKey signingKey = ClusterSigningKey.read(kubernetes);
-        ObjectNode config = JSON.createObjectNode().put("BoundIssuer", signingKey.issuer());
-        ArrayNode validationKeys = config.putArray("JWTValidationPubKeys");
-        signingKey.publicKeysPem().forEach(validationKeys::add);
-        config.putArray("BoundAudiences").add(ProjectedToken.AUDIENCE);
-        config.putObject("ClaimMappings").put("/kubernetes.io/namespace", "namespace");
-
-        createAuthMethod(consul, name, "Consul login tests: auth method of the kubernetes way", config, maxTokenTtl);
-    }
-
-    /**
-     * The auth method of the m2m way, also of type {@code jwt}: the stand-in signs its own tokens, and Consul validates
+     * The auth method of the m2m way, of type {@code jwt}: the stand-in signs its own tokens, and Consul validates
      * them against the public half of the key generated for the run. {@code maxTokenTtl} may be null; Consul refuses
      * anything below a minute.
      */
@@ -78,15 +55,10 @@ public final class ConsulAcl {
         config.putArray("BoundAudiences").add(audience);
         config.putObject("ClaimMappings").put("sub", "sub");
 
-        createAuthMethod(consul, name, "Consul login tests: auth method of the m2m way", config, maxTokenTtl);
-    }
-
-    private static void createAuthMethod(ConsulClient consul, String name, String description, ObjectNode config,
-                                         String maxTokenTtl) {
         ObjectNode body = JSON.createObjectNode()
                 .put("Name", name)
                 .put("Type", "jwt")
-                .put("Description", description);
+                .put("Description", "Consul login tests: auth method of the m2m way");
         if (maxTokenTtl != null) {
             body.put("MaxTokenTTL", maxTokenTtl);
         }
@@ -110,29 +82,25 @@ public final class ConsulAcl {
 
     /** How many tokens an auth method has issued. The way a pod took is read from here, not from its log. */
     public static int issuedTokenCount(ConsulClient consul, String authMethod) {
-        ConsulClient.Response response = consul.get("/v1/acl/tokens?authmethod=" + authMethod);
-        if (!response.isSuccessful()) {
-            return 0;
-        }
-        int count = 0;
-        for (JsonNode ignored : response.json()) {
-            count++;
-        }
-        return count;
+        return issuedTokens(consul, authMethod, null).size();
     }
 
     /**
-     * When an auth method issued its newest token, by the clock of Consul itself. A scenario that waits for a relogin
-     * compares against this rather than against a count: the two logins a pod makes while it starts would satisfy a
-     * count on their own.
+     * How many tokens an auth method has issued with a role. An auth method that several scenarios share is told apart
+     * by the role, which belongs to one namespace; a role that does not exist yet counts no tokens.
      */
-    public static Instant latestIssuedAt(ConsulClient consul, String authMethod) {
-        ConsulClient.Response response = consul.get("/v1/acl/tokens?authmethod=" + authMethod);
-        if (!response.isSuccessful()) {
-            return Instant.EPOCH;
-        }
+    public static int issuedTokenCount(ConsulClient consul, String authMethod, String role) {
+        return issuedTokens(consul, authMethod, role).size();
+    }
+
+    /**
+     * When an auth method issued its newest token with a role, by the clock of Consul itself. A scenario that waits
+     * for a relogin compares against this rather than against a count: the two logins a pod makes while it starts
+     * would satisfy a count on their own.
+     */
+    public static Instant latestIssuedAt(ConsulClient consul, String authMethod, String role) {
         Instant latest = Instant.EPOCH;
-        for (JsonNode token : response.json()) {
+        for (JsonNode token : issuedTokens(consul, authMethod, role)) {
             String createdAt = token.path("CreateTime").asText();
             if (createdAt.isEmpty()) {
                 continue;
@@ -143,6 +111,30 @@ public final class ConsulAcl {
             }
         }
         return latest;
+    }
+
+    /** The tokens an auth method has issued, only those with the role when one is given. */
+    private static List<JsonNode> issuedTokens(ConsulClient consul, String authMethod, String role) {
+        ConsulClient.Response response = consul.get("/v1/acl/tokens?authmethod=" + authMethod);
+        List<JsonNode> tokens = new ArrayList<>();
+        if (!response.isSuccessful()) {
+            return tokens;
+        }
+        for (JsonNode token : response.json()) {
+            if (role == null || hasRole(token, role)) {
+                tokens.add(token);
+            }
+        }
+        return tokens;
+    }
+
+    private static boolean hasRole(JsonNode token, String role) {
+        for (JsonNode link : token.path("Roles")) {
+            if (role.equals(link.path("Name").asText())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static void deleteIssuedTokens(ConsulClient consul, String authMethod) {

@@ -11,15 +11,15 @@ real Consul with ACLs on.
 | Scenario | What it establishes |
 | --- | --- |
 | `ConsulKubernetesLoginIT` | Consul issues a token to a pod that presents its projected token, and the probe prefix stays unreadable without one |
-| `SpringServiceKubernetesLoginIT` | The Spring service logs in with its projected token, and logs in again when the token expires |
+| `SpringServiceKubernetesLoginIT` | The Spring service logs in with its projected token. The check that it logs in again when the token expires is disabled while the auth method of the operator sets no token lifetime |
 | `QuarkusServiceKubernetesLoginIT` | The Quarkus service logs in with its projected token |
 | `GoServiceKubernetesLoginIT` | The Go service logs in with its projected token |
 | `SpringServiceM2MLoginIT` | The Spring service logs in the m2m way |
 | `QuarkusServiceM2MLoginIT` | The Quarkus service logs in the m2m way |
 | `GoServiceM2MLoginIT` | The Go service logs in the m2m way |
-| `SpringServiceMigrationIT` | A Spring pod started before its kubernetes auth method exists serves properties over m2m and moves to the kubernetes way without a restart |
-| `QuarkusServiceMigrationIT` | A Quarkus pod started before its kubernetes auth method exists serves properties over m2m and moves to the kubernetes way without a restart, which also covers the relogin on this stack |
-| `GoServiceMigrationIT` | A Go pod started before its kubernetes auth method exists serves properties over m2m and moves to the kubernetes way without a restart |
+| `SpringServiceMigrationIT` | A Spring pod started before its namespace has a binding rule of the kubernetes way serves properties over m2m and moves to the kubernetes way without a restart |
+| `QuarkusServiceMigrationIT` | A Quarkus pod started before its namespace has a binding rule of the kubernetes way serves properties over m2m and moves to the kubernetes way without a restart, which also covers the relogin on this stack |
+| `GoServiceMigrationIT` | A Go pod started before its namespace has a binding rule of the kubernetes way serves properties over m2m and moves to the kubernetes way without a restart |
 
 ## Layout
 
@@ -48,7 +48,9 @@ tag `it`; none of them is published. To run the scenarios by hand, build each se
 The stand itself comes from `.github/actions/setup-kind-with-consul`, which installs the chart of a
 [qubership-consul](https://github.com/Netcracker/qubership-consul) release with its ACL system and the Consul ACL
 Configurator operator turned on (`CONSUL_ACLS=true`), through the `deploy-consul` target of `cloud-core-local-dev` in
-[qubership-core-bootstrap](https://github.com/Netcracker/qubership-core-bootstrap).
+[qubership-core-bootstrap](https://github.com/Netcracker/qubership-core-bootstrap). The kubernetes way logs in through
+`applications-k8s-m2m`, the auth method the operator creates, and gets its policy, role and binding rule from a
+`ConsulACL` resource in the namespace of the scenario, as a service does in production.
 
 ## When these tests can be removed
 
