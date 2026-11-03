@@ -33,9 +33,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * the pod started.
  *
  * <p>A second check covers the relogin: the service has to log in again when its token expires and keep serving the
- * property afterwards, including a value changed in the meantime. It is disabled while the auth method of the operator
- * sets no token lifetime: a token that never expires is never renewed. Both checks share one pod: the configuration
- * is the same, and a second deployment would cost a pod start without proving anything.
+ * property afterwards, including a value changed in the meantime. Both checks share one pod: the configuration is the
+ * same, and a second deployment would cost a pod start without proving anything.
  */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @DisplayName("The Spring service logs in to Consul with its projected token and reads its properties")

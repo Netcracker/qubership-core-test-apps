@@ -87,7 +87,7 @@ public final class ConsulAcl {
 
     /**
      * How many tokens an auth method has issued with a role. An auth method that several scenarios share is told apart
-     * by the role, which belongs to one namespace; a role that does not exist yet counts no tokens.
+     * by the role, which belongs to one namespace.
      */
     public static int issuedTokenCount(ConsulClient consul, String authMethod, String role) {
         return issuedTokens(consul, authMethod, role).size();
@@ -113,7 +113,6 @@ public final class ConsulAcl {
         return latest;
     }
 
-    /** The tokens an auth method has issued, only those with the role when one is given. */
     private static List<JsonNode> issuedTokens(ConsulClient consul, String authMethod, String role) {
         ConsulClient.Response response = consul.get("/v1/acl/tokens?authmethod=" + authMethod);
         List<JsonNode> tokens = new ArrayList<>();

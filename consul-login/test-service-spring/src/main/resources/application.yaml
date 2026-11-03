@@ -19,7 +19,6 @@ spring:
 consul:
   auth:
     mode: k8s
-    audience: netcracker
     fallback-recheck-interval: 5h
 
 cloud:
