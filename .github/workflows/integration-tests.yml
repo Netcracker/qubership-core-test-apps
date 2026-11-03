@@ -83,6 +83,16 @@ on:
         required: false
         default: 'all'
         type: string
+      java-libs-artifact:
+        description: 'Build java-libs artifact of this run to build the test modules against'
+        required: false
+        default: ''
+        type: string
+      images-artifact-pattern:
+        description: 'Artifacts of this run with images to load into kind; point the *-tag inputs at them'
+        required: false
+        default: ''
+        type: string
       collect-logs-for:
         description: 'Labels of services which logs are required to collect for debugging. Comma-separated label_name=value pairs (name=mesh-test-service-spring-v1,app=control-plane, app.kubernetes.io/name=public-gateway)'
         required: false
@@ -204,6 +214,8 @@ jobs:
             echo "| m2m-auth-mode | \`${{ inputs.m2m-auth-mode || 'legacy' }}\` |"
             echo "| test-usecase | \`${{ inputs.test-usecase || '' }}\` |"
             echo "| run-tests-for | \`${{ inputs.run-tests-for || 'all' }}\` |"
+            echo "| java-libs-artifact | \`${{ inputs.java-libs-artifact || '' }}\` |"
+            echo "| images-artifact-pattern | \`${{ inputs.images-artifact-pattern || '' }}\` |"
           } >> "$GITHUB_STEP_SUMMARY"
 
           echo "::group::Workflow input values"
@@ -220,7 +232,16 @@ jobs:
           echo "m2m-auth-mode=${{ inputs.m2m-auth-mode || 'legacy' }}"
           echo "test-usecase=${{ inputs.test-usecase || '' }}"
           echo "run-tests-for=${{ inputs.run-tests-for || 'all' }}"
+          echo "java-libs-artifact=${{ inputs.java-libs-artifact || '' }}"
+          echo "images-artifact-pattern=${{ inputs.images-artifact-pattern || '' }}"
           echo "::endgroup::"
+
+      - name: Point the integration tests at the java-libs build
+        id: java_libs
+        if: ${{ inputs.java-libs-artifact != '' }}
+        uses: ./.github/actions/use-java-libs
+        with:
+          artifact: ${{ inputs.java-libs-artifact }}
 
       - name: Resolve integration tests to run
         id: integrations_tests_selection
@@ -293,6 +314,7 @@ jobs:
         with:
           core-bootstrap-branch: ${{ inputs.core-bootstrap-branch }}
           test-branch: ${{ inputs.test-branch }}
+          images-artifact-pattern: ${{ inputs.images-artifact-pattern || '' }}
           install-maas: ${{ inputs.install-maas || 'false' }}
           install-istio: ${{ inputs.install-istio || 'false' }}
           mesh-type: ${{ inputs.mesh-type || 'Core' }}
@@ -335,6 +357,7 @@ jobs:
           test-service-name: paas-mediation-tests
           mesh-type: ${{ inputs.mesh-type || 'Core' }}
           exec-mode: ${{ inputs.install-istio && 'EXEC_IN_POD' || 'PORT_FORWARD' }}
+          java-libs-versions: ${{ steps.java_libs.outputs.versions-file }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run control-plane integration tests
@@ -349,6 +372,7 @@ jobs:
           test-folder: integration-tests
           test-service-name: control-plane-tests
           mesh-type: ${{ inputs.mesh-type || 'Core' }}
+          java-libs-versions: ${{ steps.java_libs.outputs.versions-file }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run site-management integration tests
@@ -363,6 +387,7 @@ jobs:
           test-folder: integration-tests
           test-service-name: site-management-tests
           mesh-type: ${{ inputs.mesh-type || 'Core' }}
+          java-libs-versions: ${{ steps.java_libs.outputs.versions-file }}
           github-token: ${{ secrets.GITHUB_TOKEN }}  
 
       - name: Run maas-agent integration tests
@@ -377,6 +402,7 @@ jobs:
           test-folder: integration-tests
           test-service-name: maas-agent-tests
           mesh-type: ${{ inputs.mesh-type || 'Core' }}
+          java-libs-versions: ${{ steps.java_libs.outputs.versions-file }}
           github-token: ${{ secrets.GITHUB_TOKEN }}  
 
       - name: Aggregate Surefire reports
