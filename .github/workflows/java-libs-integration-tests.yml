@@ -21,6 +21,16 @@ on:
         required: false
         default: 'main'
         type: string
+      dbaas-ref:
+        description: 'qubership-dbaas tag or branch to build dbaas-aggregator from and deploy (DBAAS_REPO_BRANCH); empty takes the pin of the core bootstrap'
+        required: false
+        default: ''
+        type: string
+      maas-ref:
+        description: 'qubership-maas tag or branch to deploy (MAAS_BRANCH); empty takes the pin of the core bootstrap'
+        required: false
+        default: ''
+        type: string
       run-tests-for:
         description: 'Suites of integration-tests.yml: mesh-tests by default, or all, or comma-separated names (mesh-tests,paas-mediation,control-plane,site-management,maas-agent)'
         required: false
@@ -56,7 +66,8 @@ jobs:
       fail-fast: false
       matrix:
         # repository: empty for this repository; retag: published image re-tagged as is;
-        # bootstrap-ref: pin in the bootstrap's dependencies.mk to build the repository at
+        # bootstrap-ref: pin in the bootstrap's dependencies.mk to build the repository at;
+        # ref: explicit ref, ahead of services-branch and bootstrap-ref
         include:
           - name: config-server
             repository: Netcracker/qubership-core-config-server
@@ -76,6 +87,7 @@ jobs:
           - name: dbaas-aggregator
             repository: Netcracker/qubership-dbaas
             bootstrap-ref: DBAAS_REPO_BRANCH
+            ref: ${{ inputs.dbaas-ref }}
             maven-dir: .
             java-version: '25'
             dockerfile: dbaas/Dockerfile
@@ -103,12 +115,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      # same resolution as the bootstrap: its pin unless services-branch exists there
+      # explicit ref first, then the same resolution as the bootstrap: its pin unless services-branch exists there
       - name: Resolve the ref of ${{ matrix.repository }}
         id: branch
         if: ${{ matrix.repository != '' }}
         env:
           REPOSITORY: ${{ matrix.repository }}
+          REF: ${{ matrix.ref }}
           BRANCH: ${{ inputs.services-branch }}
           BOOTSTRAP_REF: ${{ matrix.bootstrap-ref }}
           BOOTSTRAP_BRANCH: ${{ inputs.core-bootstrap-branch }}
@@ -116,7 +129,10 @@ jobs:
           set -e
           url="https://github.com/$REPOSITORY.git"
           has_branch() { git ls-remote --exit-code --heads "$url" "$1" > /dev/null; }
-          if [ -n "$BOOTSTRAP_REF" ] && ! { [ "$BRANCH" != main ] && has_branch "$BRANCH"; }; then
+          if [ -n "$REF" ]; then
+            ref="$REF"
+            echo "::notice::$REPOSITORY is built at $ref, set explicitly"
+          elif [ -n "$BOOTSTRAP_REF" ] && ! { [ "$BRANCH" != main ] && has_branch "$BRANCH"; }; then
             ref="$(curl -fsSL "https://raw.githubusercontent.com/Netcracker/qubership-core-bootstrap/$BOOTSTRAP_BRANCH/cloud-core-local-dev/dependencies.mk" \
               | sed -n "s/^$BOOTSTRAP_REF[[:space:]]*?=[[:space:]]*\([^[:space:]#]*\).*/\1/p" | head -n1)"
             if [ -z "$ref" ]; then
@@ -218,6 +234,8 @@ jobs:
         CORE_OPERATOR_TAG=${{ needs.java-libs.outputs.image-tag }}
         DBAAS_TAG=${{ needs.java-libs.outputs.image-tag }}
         CHECK_IMAGES=false
+        ${{ inputs.dbaas-ref && format('DBAAS_REPO_BRANCH={0}', inputs.dbaas-ref) || '' }}
+        ${{ inputs.maas-ref && format('MAAS_BRANCH={0}', inputs.maas-ref) || '' }}
       test-branch: ${{ inputs.services-branch }}
       core-bootstrap-branch: ${{ inputs.core-bootstrap-branch }}
       install-istio: false
