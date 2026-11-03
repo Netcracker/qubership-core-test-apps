@@ -56,8 +56,8 @@ public final class ConsulAclResource {
      * Grants a service account of a namespace read access to a key prefix, and waits until the operator has created
      * every object of the grant. The namespace is created when it does not exist yet.
      *
-     * @throws IllegalStateException when the operator reports an object it could not create, or does not finish within
-     *                               {@link #RECONCILE_TIMEOUT}; the message carries the status of the resource
+     * @throws IllegalStateException when the operator reports an object it could not create
+     * @throws ConditionTimeoutException when the operator does not finish within {@link #RECONCILE_TIMEOUT}
      */
     public static void apply(KubernetesClient kubernetes, String namespace, String serviceAccount, String keyPrefix) {
         Cluster.ensureNamespace(kubernetes, namespace);
@@ -72,15 +72,10 @@ public final class ConsulAclResource {
                 "json", aclJson(serviceAccount, keyPrefix))));
         resources(kubernetes).inNamespace(namespace).resource(resource).create();
 
-        try {
-            Awaitility.await("the operator reconciles " + KIND + " " + namespace + "/" + NAME)
-                    .atMost(RECONCILE_TIMEOUT)
-                    .pollInterval(Duration.ofSeconds(2))
-                    .until(() -> reconciled(read(kubernetes, namespace)));
-        } catch (ConditionTimeoutException e) {
-            throw new IllegalStateException("the operator did not reconcile " + KIND + " " + namespace + "/" + NAME
-                    + " within " + RECONCILE_TIMEOUT.toSeconds() + "s: " + status(kubernetes, namespace), e);
-        }
+        Awaitility.await("the operator reconciles " + KIND + " " + namespace + "/" + NAME)
+                .atMost(RECONCILE_TIMEOUT)
+                .pollInterval(Duration.ofSeconds(2))
+                .until(() -> reconciled(read(kubernetes, namespace)));
         String status = status(kubernetes, namespace);
         if (status.contains("error:")) {
             throw new IllegalStateException("the operator could not create every object of " + KIND + " "
@@ -88,7 +83,7 @@ public final class ConsulAclResource {
         }
     }
 
-    /** The status of the resource of a namespace as one line, for a failure message and for the stand dump. */
+    /** The status of the resource of a namespace, as one line. */
     static String status(KubernetesClient kubernetes, String namespace) {
         GenericKubernetesResource resource = read(kubernetes, namespace);
         if (resource == null) {

@@ -58,8 +58,8 @@ public final class StandDump implements TestWatcher, LifecycleMethodExecutionExc
     private void print(String title) {
         System.out.println();
         System.out.println("==== Consul login stand dump: " + title + " ====");
-        printConsulState(consul.get());
         printConsulAclResource(kubernetes.get(), namespace);
+        printConsulState(consul.get());
         printPods(kubernetes.get(), namespace);
         System.out.println("==== end of dump ====");
         System.out.println();

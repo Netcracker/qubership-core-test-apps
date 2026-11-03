@@ -68,7 +68,6 @@ public final class Cluster {
         return decode(secret, "token");
     }
 
-    /** Creates the namespace of a scenario unless an earlier step of the scenario has created it. */
     public static void ensureNamespace(KubernetesClient kubernetes, String namespace) {
         if (kubernetes.namespaces().withName(namespace).get() == null) {
             kubernetes.namespaces()

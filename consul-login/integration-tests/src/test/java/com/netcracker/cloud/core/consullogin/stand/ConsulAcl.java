@@ -11,7 +11,7 @@ import java.util.List;
 /**
  * The ACL objects a scenario of the m2m way builds around itself through the Consul API: a policy over its own prefix,
  * a role that grants it, the auth method of the m2m way, and a binding rule. Also the reads of the tokens Consul
- * issued, which tell the way a pod took. The kubernetes way gets its objects from {@link ConsulAclResource} instead.
+ * issued, which tell the way a pod took. The objects of the kubernetes way come from {@link ConsulAclResource}.
  *
  * <p>A scenario creates them while it runs and removes them after, so that scenarios can share one Consul without
  * seeing each other's tokens.
