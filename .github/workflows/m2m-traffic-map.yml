@@ -1,0 +1,240 @@
+name: M2M traffic map
+run-name: "[bootstrap=${{ inputs.core-bootstrap-branch || 'feat/early-mesh' }}] [dbaas=${{ inputs.dbaas-repo-branch || 'main' }}] [maas=${{ inputs.maas-branch || 'main' }}]"
+
+# Maps the interactions of the core services with each other, with DBaaS and MaaS and with their
+# agents, in each M2M mode.
+#
+# The capture is in place before Cloud Core is installed: the bootstrap puts DBaaS and MaaS behind a
+# waypoint of their own (MESH_DEPENDENCY_NAMESPACES) and gives the core namespace the waypoint of
+# core-mesh-config before any core pod exists (CORE_MESH_EARLY). Then Cloud Core is installed in the
+# Istio ambient mesh, and every request to a service passes a waypoint, which writes:
+#
+#   access log  a JSON line per request: the caller, the destination, the request, the answer, and
+#               the credential: the user of a Basic credential, or the header and the claims of a
+#               bearer token (a Kubernetes token, or the legacy token)
+#
+# The log of every waypoint pod is followed from its start. So what the services and the hooks do
+# while Cloud Core installs is seen, with no restart, and the traffic until settle-seconds after the
+# install is mapped.
+#
+# The hybrid core with DBaaS and MaaS in legacy mode shows the fallback: the Kubernetes token is
+# refused by dbaas-aggregator, and the same request is made to dbaas-agent with the legacy token.
+#
+# Each case checks credentials against the modes (traffic_map.py --core-mode --dependency-mode), not
+# who calls whom:
+#
+#   - the core services send the token of the core's mode, and a hybrid core a legacy token only in a
+#     fallback;
+#   - the agents call DBaaS and MaaS with Basic;
+#   - only a hybrid core against a legacy dependency falls back;
+#   - at least one core service sent a token of the core's mode, so a capture that saw nothing fails;
+#   - every Kubernetes token belongs to its sender's service account (where the sender's namespace is
+#     known) and carries the audience of DBaaS or MaaS where it goes to one of them.
+#
+# So the same checks hold with and without the DBaaS Operator. To run the cases with the operator,
+# set core-bootstrap-branch and test-branch to the branch of the operator work
+# (feat/dbaas-mounted-secret-migration, Netcracker/qubership-core-bootstrap#208, until it is merged)
+# and aux-bootstrap-args to:
+#   DBAAS_OPERATOR_ENABLED=true CORE_BOOTSTRAP_BRANCH=<that branch> CORETPL_CHART_DIR=../coretpl
+
+on:
+  workflow_dispatch:
+    inputs:
+      # feat/early-mesh until Netcracker/qubership-core-bootstrap#229, which brings CORE_MESH_EARLY,
+      # MESH_DEPENDENCY_NAMESPACES and install-dependencies, is merged; then main again
+      core-bootstrap-branch:
+        description: 'Branch of core-bootstrap repo'
+        required: false
+        default: 'feat/early-mesh'
+        type: string
+      test-branch:
+        description: 'Branch of the core services. A repository that has no such branch stays on main. Empty leaves the core services to the bootstrap, which uses main'
+        required: false
+        default: ''
+        type: string
+      dbaas-repo-branch:
+        description: 'Branch or tag of qubership-dbaas. The pinned release does not know the M2M modes yet'
+        required: false
+        default: 'main'
+        type: string
+      maas-branch:
+        description: 'Branch or tag of qubership-maas. The pinned release does not know the M2M modes yet'
+        required: false
+        default: 'main'
+        type: string
+      settle-seconds:
+        description: 'How long to let the services run after the install before the traffic is collected'
+        required: false
+        default: '120'
+        type: string
+      aux-bootstrap-args:
+        description: 'Extra KEY=VALUE variables for the cloud-core bootstrap, space separated, applied last'
+        required: false
+        default: ''
+        type: string
+
+  workflow_call:
+    inputs:
+      core-bootstrap-branch:
+        description: 'Branch of core-bootstrap repo'
+        required: false
+        default: 'feat/early-mesh'
+        type: string
+      test-branch:
+        description: 'Branch of the core services'
+        required: false
+        default: ''
+        type: string
+      dbaas-repo-branch:
+        description: 'Branch or tag of qubership-dbaas'
+        required: false
+        default: 'main'
+        type: string
+      maas-branch:
+        description: 'Branch or tag of qubership-maas'
+        required: false
+        default: 'main'
+        type: string
+      settle-seconds:
+        description: 'How long to let the services run after the install before the traffic is collected'
+        required: false
+        default: '120'
+        type: string
+      aux-bootstrap-args:
+        description: 'Extra KEY=VALUE variables for the cloud-core bootstrap, space separated, applied last'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  traffic-map:
+    name: "core=${{ matrix.core }} dbaas and maas=${{ matrix.servers }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        core: [legacy, hybrid, k8s]
+        servers: [legacy, hybrid, k8s]
+    env:
+      # the bootstrap variables of both runs of make, install-dependencies and deploy-core; both also get
+      # TEST_BRANCH where it is set: the action from test-branch, the deploy-core step from its env
+      BOOTSTRAP_ARGS: >-
+        INSTALL_MAAS=true
+        CORE_CONFIG_MAAS_ENABLED=true
+        INSTALL_ISTIO=true
+        SERVICE_MESH_TYPE=Istio
+        M2M_AUTH_MODE=${{ matrix.core }}
+        DBAAS_M2M_AUTH_MODE=${{ matrix.servers }}
+        MAAS_M2M_AUTH_MODE=${{ matrix.servers }}
+        DBAAS_REPO_BRANCH=${{ inputs.dbaas-repo-branch || 'main' }}
+        MAAS_BRANCH=${{ inputs.maas-branch || 'main' }}
+        CORE_MESH_EARLY=true
+        MESH_DEPENDENCY_NAMESPACES=dbaas,maas
+        ${{ inputs.aux-bootstrap-args }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # The capture has to be in place before Cloud Core is deployed, to see what the services and the
+      # hooks do while it installs: the dependencies, the capture, then Cloud Core, in two runs of make.
+      # The bootstrap puts the namespaces in the mesh: MESH_DEPENDENCY_NAMESPACES gives DBaaS and MaaS
+      # a waypoint at the end of the dependencies, and CORE_MESH_EARLY gives the core namespace the
+      # waypoint of core-mesh-config first thing in deploy-core.
+      - name: Setup Kind cluster and deploy Istio, DBaaS and MaaS
+        uses: ./.github/actions/setup-kind-with-cloud-core
+        with:
+          core-bootstrap-branch: ${{ inputs.core-bootstrap-branch || 'feat/early-mesh' }}
+          test-branch: ${{ inputs.test-branch }}
+          install-maas: 'true'
+          install-istio: 'true'
+          mesh-type: 'Istio'
+          make-targets: install-dependencies
+          aux-bootstrap-args: ${{ env.BOOTSTRAP_ARGS }}
+
+      # the addresses of the pods, and the log of every waypoint pod from its start, until "Collect
+      # the traffic" stops it
+      - name: Start recording
+        run: |
+          nohup setsid bash m2m-traffic-map/record-traffic.sh "$RUNNER_TEMP/traffic" core dbaas maas > /dev/null 2>&1 &
+          echo $! > "$RUNNER_TEMP/record-traffic.pid"
+
+      - name: Put the capture in place
+        run: bash m2m-traffic-map/apply-capture.sh
+
+      # make -k goes on with what does not depend on a service that failed to install: a k8s core
+      # against a DBaaS in legacy mode fails at core-operator, and the services after it would
+      # otherwise never exist
+      - name: Deploy Cloud Core
+        id: install
+        continue-on-error: true
+        env:
+          TEST_BRANCH: ${{ inputs.test-branch }}
+        run: >-
+          make -k -C core-bootstrap-repo/cloud-core-local-dev/ deploy-core
+          ${TEST_BRANCH:+TEST_BRANCH=$TEST_BRANCH}
+          $BOOTSTRAP_ARGS
+
+      - name: Let the services run
+        env:
+          SETTLE_SECONDS: ${{ inputs.settle-seconds || '120' }}
+        run: sleep "$SETTLE_SECONDS"
+
+      - name: Collect the traffic
+        run: |
+          pid="$(cat "$RUNNER_TEMP/record-traffic.pid")"
+          kill "$pid" || true
+          for _ in $(seq 20); do
+            kill -0 "$pid" 2>/dev/null || break
+            sleep 1
+          done
+          ls -l "$RUNNER_TEMP/traffic/waypoint"
+          for ns in core dbaas maas; do
+            cat "$RUNNER_TEMP/traffic/waypoint/$ns".* > "waypoint-$ns.log" 2>/dev/null || true
+          done
+          cp "$RUNNER_TEMP/traffic/pod-ips.txt" pod-ips.txt || true
+          kubectl get pods -A -o json > pods.json
+          kubectl get httproute.gateway.networking.k8s.io,envoyfilter.networking.istio.io,gateway.gateway.networking.k8s.io,svc -A -o yaml > mesh-config.yaml || true
+          echo "access log lines: $(cat waypoint-*.log | grep -c '"kind":"capture"' || true)"
+
+      - name: Map the interactions
+        env:
+          CASE: core=${{ matrix.core }} dbaas and maas=${{ matrix.servers }}
+          INSTALL_OUTCOME: ${{ steps.install.outcome }}
+          CORE_MODE: ${{ matrix.core }}
+          DEPENDENCY_MODE: ${{ matrix.servers }}
+        run: |
+          {
+            echo "## $CASE"
+            echo ""
+            echo "The install of Cloud Core finished with: \`$INSTALL_OUTCOME\`."
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+          status=0
+          python m2m-traffic-map/traffic_map.py --access-log waypoint-core.log waypoint-dbaas.log waypoint-maas.log \
+            --pods pods.json --pod-ips pod-ips.txt \
+            --out-md map.md --out-json map.json \
+            --core-mode "$CORE_MODE" --dependency-mode "$DEPENDENCY_MODE" || status=$?
+          cat map.md >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+      - name: Upload the traffic
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: m2m-traffic-map-${{ matrix.core }}-${{ matrix.servers }}
+          path: |
+            waypoint-*.log
+            pods.json
+            pod-ips.txt
+            mesh-config.yaml
+            map.md
+            map.json
+          if-no-files-found: warn
+
+      - name: Collect Kubernetes diagnostics
+        if: always()
+        uses: ./.github/actions/collect-k8s-diagnostics
+        with:
+          artifact-suffix: -m2m-traffic-${{ matrix.core }}-${{ matrix.servers }}
