@@ -100,7 +100,8 @@ class SpringServiceKubernetesLoginIT {
 
     @Test
     @Order(2)
-    @Disabled("applications-k8s-m2m sets no MaxTokenTTL, so the token never expires; open question to qubership-consul")
+    @Disabled("applications-k8s-m2m issues tokens for 30 minutes, longer than this test waits, and no setting lowers"
+            + " it; open question to qubership-consul")
     @DisplayName("The service relogs in when its token expires and reads a value changed since")
     void serviceRelogsInAndReadsTheChangedValue() {
         Instant issuedBefore = latestIssuedAt();

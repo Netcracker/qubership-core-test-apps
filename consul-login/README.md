@@ -11,7 +11,7 @@ real Consul with ACLs on.
 | Scenario | What it establishes |
 | --- | --- |
 | `ConsulKubernetesLoginIT` | Consul issues a token to a pod that presents its projected token, and the probe prefix stays unreadable without one |
-| `SpringServiceKubernetesLoginIT` | The Spring service logs in with its projected token. The check that it logs in again when the token expires is disabled while the auth method of the operator sets no token lifetime |
+| `SpringServiceKubernetesLoginIT` | The Spring service logs in with its projected token. The check that it logs in again when the token expires is disabled: the auth method of the operator issues tokens for 30 minutes, longer than the test waits |
 | `QuarkusServiceKubernetesLoginIT` | The Quarkus service logs in with its projected token |
 | `GoServiceKubernetesLoginIT` | The Go service logs in with its projected token |
 | `SpringServiceM2MLoginIT` | The Spring service logs in the m2m way |

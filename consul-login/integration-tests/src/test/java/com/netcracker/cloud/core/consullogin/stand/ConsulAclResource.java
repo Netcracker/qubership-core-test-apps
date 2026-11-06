@@ -32,7 +32,7 @@ public final class ConsulAclResource {
 
     private static final ObjectMapper JSON = new ObjectMapper();
 
-    private static final String API_VERSION = "netcracker.com/v1alpha1";
+    private static final String API_VERSION = "netcracker.com/v1";
     private static final String KIND = "ConsulACL";
     private static final String NAME = "consul-login-test";
     private static final String POLICY = "read";
@@ -66,10 +66,11 @@ public final class ConsulAclResource {
         resource.setApiVersion(API_VERSION);
         resource.setKind(KIND);
         resource.setMetadata(new ObjectMetaBuilder().withName(NAME).withNamespace(namespace).build());
-        resource.setAdditionalProperty("spec", Map.of("acl", Map.of(
-                "name", NAME,
+        resource.setAdditionalProperty("spec", Map.of(
                 "operatorNamespace", Cluster.CONSUL_NAMESPACE,
-                "json", aclJson(serviceAccount, keyPrefix))));
+                "acl", Map.of(
+                        "name", NAME,
+                        "json", aclJson(serviceAccount, keyPrefix))));
         resources(kubernetes).inNamespace(namespace).resource(resource).create();
 
         Awaitility.await("the operator reconciles " + KIND + " " + namespace + "/" + NAME)
