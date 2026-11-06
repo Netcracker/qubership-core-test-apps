@@ -92,7 +92,7 @@ spec:
             - name: CONSUL_ENABLED
               value: 'true'
             - name: CONSUL_URL
-              value: 'http://consul-consul-server.consul.svc.cluster.local:8500'
+              value: 'http://consul-server.consul.svc.cluster.local:8500'
           readinessProbe:
             httpGet:
               path: '${READINESS_PATH}'

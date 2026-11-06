@@ -3,8 +3,8 @@ package com.netcracker.cloud.core.consullogin;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.netcracker.cloud.core.consullogin.stand.Cluster;
 import com.netcracker.cloud.core.consullogin.stand.ConsulAcl;
+import com.netcracker.cloud.core.consullogin.stand.ConsulAclResource;
 import com.netcracker.cloud.core.consullogin.stand.ConsulClient;
-import com.netcracker.cloud.core.consullogin.stand.ProjectedToken;
 import com.netcracker.cloud.core.consullogin.stand.StandDump;
 import com.netcracker.cloud.core.consullogin.stand.TestService;
 import io.fabric8.kubernetes.client.KubernetesClient;
@@ -35,9 +35,7 @@ class QuarkusServiceKubernetesLoginIT {
 
     private static final String NAMESPACE = "consul-login-test-quarkus";
 
-    private static final String AUTH_METHOD = "consul-login-test-service-quarkus";
-    private static final String POLICY = "consul-login-test-quarkus-read";
-    private static final String ROLE = "consul-login-test-quarkus-reader";
+    private static final String ROLE = ConsulAclResource.roleName(NAMESPACE);
     private static final String KV_PREFIX = "config/" + NAMESPACE + "/";
     private static final String MARKER_KEY = KV_PREFIX + "application/service.marker";
     private static final String MARKER_VALUE = "marker-read-by-quarkus";
@@ -46,7 +44,6 @@ class QuarkusServiceKubernetesLoginIT {
     private static LocalPortForward consulPortForward;
     private static LocalPortForward servicePortForward;
     private static ConsulClient consul;
-    private static String bindingRuleId;
 
     @RegisterExtension
     static final StandDump standDump = StandDump.onFailure(() -> consul, () -> kubernetes, NAMESPACE);
@@ -59,11 +56,7 @@ class QuarkusServiceKubernetesLoginIT {
                 Cluster.readBootstrapToken(kubernetes));
 
         consul.put("/v1/kv/" + MARKER_KEY, MARKER_VALUE).requireSuccess("seeding the marker key");
-        ConsulAcl.createReadPolicy(consul, POLICY, KV_PREFIX);
-        ConsulAcl.createRole(consul, ROLE, POLICY);
-        ConsulAcl.createKubernetesAuthMethod(consul, kubernetes, AUTH_METHOD);
-        bindingRuleId = ConsulAcl.createBindingRule(consul, AUTH_METHOD,
-                "value.namespace==\"" + NAMESPACE + "\"", ROLE);
+        ConsulAclResource.apply(kubernetes, NAMESPACE, SERVICE.serviceName(), KV_PREFIX);
 
         SERVICE.deploy(kubernetes, NAMESPACE, serviceEnvironment(), true);
         servicePortForward = SERVICE.forwardPort(kubernetes, NAMESPACE);
@@ -72,13 +65,6 @@ class QuarkusServiceKubernetesLoginIT {
     @AfterAll
     static void cleanUpStand() {
         if (consul != null) {
-            ConsulAcl.deleteIssuedTokens(consul, AUTH_METHOD);
-            if (bindingRuleId != null) {
-                consul.delete("/v1/acl/binding-rule/" + bindingRuleId);
-            }
-            consul.delete("/v1/acl/auth-method/" + AUTH_METHOD);
-            ConsulAcl.deleteRole(consul, ROLE);
-            ConsulAcl.deletePolicy(consul, POLICY);
             consul.delete("/v1/kv/" + KV_PREFIX + "?recurse=true");
         }
         Cluster.tearDown(kubernetes, NAMESPACE, servicePortForward, consulPortForward);
@@ -92,8 +78,8 @@ class QuarkusServiceKubernetesLoginIT {
         assertEquals("k8s", status.path("loginMode").asText(), "login mode");
         assertTrue(status.path("tokenPresent").asBoolean(), "the service holds a Consul token");
         assertEquals(MARKER_VALUE, status.path("consulMarker").asText(), "property read from Consul");
-        assertTrue(ConsulAcl.issuedTokenCount(consul, AUTH_METHOD) > 0,
-                "Consul issued a token through the auth method of the service");
+        assertTrue(ConsulAcl.issuedTokenCount(consul, ConsulAclResource.AUTH_METHOD, ROLE) > 0,
+                "Consul issued a token with the role of the namespace through the auth method of the operator");
     }
 
     private static Map<String, String> serviceEnvironment() {
@@ -101,8 +87,6 @@ class QuarkusServiceKubernetesLoginIT {
                 "CLOUD_NAMESPACE", NAMESPACE,
                 "MICROSERVICE_NAME", SERVICE.serviceName(),
                 "CONSUL_URL", Cluster.CONSUL_IN_CLUSTER_URL + "/",
-                "CONSUL_AUTH_MODE", "k8s",
-                "CONSUL_AUTH_METHOD", AUTH_METHOD,
-                "CONSUL_AUTH_AUDIENCE", ProjectedToken.AUDIENCE);
+                "CONSUL_AUTH_MODE", "k8s");
     }
 }

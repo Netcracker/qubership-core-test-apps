@@ -1,8 +1,6 @@
 package com.netcracker.cloud.core.consullogin.stand;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import io.fabric8.kubernetes.api.model.Namespace;
-import io.fabric8.kubernetes.api.model.NamespaceBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.ServiceAccount;
 import io.fabric8.kubernetes.api.model.ServiceAccountBuilder;
@@ -64,10 +62,7 @@ public enum TestService {
      */
     public void deploy(KubernetesClient kubernetes, String namespace, Map<String, String> environment,
                        boolean withProjectedToken) {
-        Namespace target = new NamespaceBuilder()
-                .withNewMetadata().withName(namespace).endMetadata()
-                .build();
-        kubernetes.namespaces().resource(target).create();
+        Cluster.ensureNamespace(kubernetes, namespace);
 
         ServiceAccount serviceAccount = new ServiceAccountBuilder()
                 .withNewMetadata().withName(name).withNamespace(namespace).endMetadata()

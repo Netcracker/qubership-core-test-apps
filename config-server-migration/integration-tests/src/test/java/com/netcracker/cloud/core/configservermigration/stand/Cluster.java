@@ -17,7 +17,7 @@ public final class Cluster {
     public static final String CORE_NAMESPACE = "core";
     public static final String CONSUL_NAMESPACE = "consul";
     public static final String CONFIG_SERVER = "config-server";
-    public static final String CONSUL_SERVER = "consul-consul-server";
+    public static final String CONSUL_SERVER = "consul-server";
 
     private static final String CORE_LEGACY_API = "core-legacy-api";
     private static final String BASELINE_CONFIG_MAP = "config-server-migration-baseline";

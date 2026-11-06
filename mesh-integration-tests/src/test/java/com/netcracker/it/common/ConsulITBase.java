@@ -21,7 +21,7 @@ import static org.awaitility.Awaitility.await;
 public abstract class ConsulITBase {
     protected static ConsulClient consulClient;
 
-    @PortForward(serviceName = @Value("consul-consul-server"), port = @IntValue(8500), cloud = @Cloud(namespace = @Value(value = "consul")))
+    @PortForward(serviceName = @Value("consul-server"), port = @IntValue(8500), cloud = @Cloud(namespace = @Value(value = "consul")))
     private static URL consulUrl;
 
     private static final String CONSUL_TEST_PROPERTY_PATH = "config/core/application/consul/test/property";

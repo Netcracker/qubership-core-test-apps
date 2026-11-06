@@ -109,7 +109,7 @@ class SpringServiceM2MLoginIT {
                 "CLOUD_NAMESPACE", NAMESPACE,
                 "NAMESPACE", NAMESPACE,
                 "MICROSERVICE_NAME", SERVICE.serviceName(),
-                "CONSUL_HOST", "consul-consul-server.consul",
+                "CONSUL_HOST", Cluster.CONSUL_IN_CLUSTER_HOST,
                 "CONSUL_AUTH_MODE", "legacy",
                 "CONSUL_LOGIN_M2M_PRIVATE_KEY", signingKey.privateKeyBase64(),
                 "CONSUL_LOGIN_M2M_ISSUER", SigningKey.ISSUER,

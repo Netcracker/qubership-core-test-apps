@@ -3,8 +3,8 @@ package com.netcracker.cloud.core.consullogin;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.netcracker.cloud.core.consullogin.stand.Cluster;
 import com.netcracker.cloud.core.consullogin.stand.ConsulAcl;
+import com.netcracker.cloud.core.consullogin.stand.ConsulAclResource;
 import com.netcracker.cloud.core.consullogin.stand.ConsulClient;
-import com.netcracker.cloud.core.consullogin.stand.ProjectedToken;
 import com.netcracker.cloud.core.consullogin.stand.SigningKey;
 import com.netcracker.cloud.core.consullogin.stand.StandDump;
 import com.netcracker.cloud.core.consullogin.stand.TestService;
@@ -26,12 +26,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Checks the migration between the two ways, in the order a service will meet it: a Spring service that already
- * carries the new library starts while the auth method of the kubernetes way does not exist yet. It has to serve its
- * properties anyway, over the old way, and to move to the kubernetes way on its own once the test creates that method,
- * on the next login it schedules and without a restart.
+ * carries the new library starts before its namespace has a binding rule of the kubernetes way. It has to serve its
+ * properties anyway, over the old way, and to move to the kubernetes way on its own once the test applies the
+ * {@code ConsulACL} resource that declares the rule, on the next login it schedules and without a restart.
  *
- * <p>The way a pod took is read from Consul, which records the auth method every token came from, rather than from
- * the log of the service: the log line is written for a human, and parsing it in a test is brittle.
+ * <p>The way a pod took is read from Consul, which records the auth method and the roles of every token, rather than
+ * from the log of the service: the log line is written for a human, and parsing it in a test is brittle.
  */
 @DisplayName("The Spring service migrates from the m2m way to the kubernetes way without a restart")
 class SpringServiceMigrationIT {
@@ -39,7 +39,7 @@ class SpringServiceMigrationIT {
     private static final TestService SERVICE = TestService.SPRING;
 
     private static final String NAMESPACE = "consul-login-test-migration";
-    private static final String KUBERNETES_AUTH_METHOD = "consul-login-test-migration-kubernetes";
+    private static final String KUBERNETES_ROLE = ConsulAclResource.roleName(NAMESPACE);
 
     private static final String POLICY = "consul-login-test-migration-read";
     private static final String ROLE = "consul-login-test-migration-reader";
@@ -49,7 +49,7 @@ class SpringServiceMigrationIT {
 
     /**
      * A minute is the shortest lifetime Consul accepts, and the relogin it schedules is what carries the recheck of
-     * the kubernetes way. The recheck interval is shorter still, so the first relogin after the auth method appears
+     * the kubernetes way. The recheck interval is shorter still, so the first relogin after the binding rule appears
      * already probes.
      */
     private static final String M2M_TOKEN_TTL = "1m";
@@ -61,7 +61,6 @@ class SpringServiceMigrationIT {
     private static LocalPortForward servicePortForward;
     private static ConsulClient consul;
     private static String m2mBindingRuleId;
-    private static String kubernetesBindingRuleId;
 
     @RegisterExtension
     static final StandDump standDump = StandDump.onFailure(() -> consul, () -> kubernetes, NAMESPACE);
@@ -88,25 +87,21 @@ class SpringServiceMigrationIT {
     }
 
     @Test
-    @DisplayName("It serves properties over m2m first and moves to the kubernetes way when its auth method appears")
+    @DisplayName("It serves properties over m2m first and moves to the kubernetes way when its binding rule appears")
     void serviceMovesToTheKubernetesWay() {
         JsonNode status = TestService.awaitLoginStatus(servicePortForward);
 
         assertEquals("hybrid", status.path("loginMode").asText(), "login mode");
         assertEquals(MARKER_VALUE, status.path("consulMarker").asText(), "property read over the m2m way");
         assertTrue(ConsulAcl.issuedTokenCount(consul, NAMESPACE) > 0, "the m2m way carried the pod");
-        assertEquals(0, ConsulAcl.issuedTokenCount(consul, KUBERNETES_AUTH_METHOD),
-                "the kubernetes way has issued nothing while its auth method was missing");
 
-        ConsulAcl.createKubernetesAuthMethod(consul, kubernetes, KUBERNETES_AUTH_METHOD);
-        kubernetesBindingRuleId = ConsulAcl.createBindingRule(consul, KUBERNETES_AUTH_METHOD,
-                "value.namespace==\"" + NAMESPACE + "\"", ROLE);
+        ConsulAclResource.apply(kubernetes, NAMESPACE, SERVICE.serviceName(), KV_PREFIX);
 
         Awaitility.await("the pod relogs in through the kubernetes auth method")
                 .atMost(MIGRATION_BUDGET)
                 .pollInterval(Duration.ofSeconds(5))
                 .ignoreExceptions()
-                .until(() -> ConsulAcl.issuedTokenCount(consul, KUBERNETES_AUTH_METHOD) > 0);
+                .until(() -> ConsulAcl.issuedTokenCount(consul, ConsulAclResource.AUTH_METHOD, KUBERNETES_ROLE) > 0);
 
         assertEquals(MARKER_VALUE, TestService.awaitLoginStatus(servicePortForward).path("consulMarker").asText(),
                 "the property still arrives after the migration");
@@ -116,10 +111,7 @@ class SpringServiceMigrationIT {
     static void cleanUpStand() {
         if (consul != null) {
             ConsulAcl.deleteIssuedTokens(consul, NAMESPACE);
-            ConsulAcl.deleteIssuedTokens(consul, KUBERNETES_AUTH_METHOD);
-            deleteBindingRule(kubernetesBindingRuleId);
             deleteBindingRule(m2mBindingRuleId);
-            consul.delete("/v1/acl/auth-method/" + KUBERNETES_AUTH_METHOD);
             consul.delete("/v1/acl/auth-method/" + NAMESPACE);
             ConsulAcl.deleteRole(consul, ROLE);
             ConsulAcl.deletePolicy(consul, POLICY);
@@ -139,10 +131,8 @@ class SpringServiceMigrationIT {
         environment.put("CLOUD_NAMESPACE", NAMESPACE);
         environment.put("NAMESPACE", NAMESPACE);
         environment.put("MICROSERVICE_NAME", SERVICE.serviceName());
-        environment.put("CONSUL_HOST", "consul-consul-server.consul");
+        environment.put("CONSUL_HOST", Cluster.CONSUL_IN_CLUSTER_HOST);
         environment.put("CONSUL_AUTH_MODE", "hybrid");
-        environment.put("CONSUL_AUTH_METHOD", KUBERNETES_AUTH_METHOD);
-        environment.put("CONSUL_AUTH_AUDIENCE", ProjectedToken.AUDIENCE);
         environment.put("CONSUL_AUTH_FALLBACK_RECHECK_INTERVAL", RECHECK_INTERVAL);
         environment.put("CONSUL_LOGIN_M2M_PRIVATE_KEY", signingKey.privateKeyBase64());
         environment.put("CONSUL_LOGIN_M2M_ISSUER", SigningKey.ISSUER);
