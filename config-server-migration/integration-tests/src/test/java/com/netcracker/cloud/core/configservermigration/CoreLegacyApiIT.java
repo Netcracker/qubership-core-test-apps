@@ -63,7 +63,7 @@ class CoreLegacyApiIT {
     void connect() {
         Cluster.requireCoreLegacyApiInPlaceOfConfigServer(kubernetes);
         coreLegacyApi = new Http(coreLegacyApiUrl);
-        consul = new Http(consulUrl);
+        consul = new Http(consulUrl, Cluster.consulToken(kubernetes));
         coreLegacyApi.awaitOk("core-legacy-api", "/applications");
     }
 
