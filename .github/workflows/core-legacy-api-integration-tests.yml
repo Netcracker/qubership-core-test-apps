@@ -62,9 +62,9 @@ jobs:
           - suite: core-legacy-api
             consul-args: ''
           - suite: core-legacy-api-consul-acl-k8s
-            consul-args: CONSUL_ACLS=true CORE_CONFIG_CONSUL_ENABLED=true CONSUL_AUTH_MODE=k8s
+            consul-args: CONSUL_ACLS=true CORE_CONFIG_CONSUL_ENABLED=true M2M_AUTH_MODE=k8s
           - suite: core-legacy-api-consul-acl-hybrid
-            consul-args: CONSUL_ACLS=true CORE_CONFIG_CONSUL_ENABLED=true CONSUL_AUTH_MODE=hybrid
+            consul-args: CONSUL_ACLS=true CORE_CONFIG_CONSUL_ENABLED=true M2M_AUTH_MODE=hybrid
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -114,7 +114,7 @@ jobs:
         if: ${{ failure() || steps.core_legacy_api_tests.outcome == 'failure' }}
         uses: ./.github/actions/collect-k8s-diagnostics
         with:
-          collect-logs-for: 'name=core-legacy-api'
+          collect-logs-for: 'name=core-legacy-api,name=core-operator'
           artifact-suffix: -${{ matrix.suite }}
 
       - name: Report the test outcome
