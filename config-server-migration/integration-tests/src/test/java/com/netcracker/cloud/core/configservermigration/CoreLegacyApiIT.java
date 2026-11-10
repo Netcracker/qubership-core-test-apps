@@ -26,6 +26,8 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Checks that hold wherever core-legacy-api serves the Service config-server, installed from the start or migrated to.
@@ -44,6 +46,8 @@ class CoreLegacyApiIT {
     private static final String OVERRIDDEN_GLOBAL_DEFAULT = "error.page.customerSpecifier";
     /** The Consul name of global. */
     private static final String GLOBAL_KV_APPLICATION = "application";
+    /** The secret with the static Consul token core-bootstrap issues for core-legacy-api in legacy. */
+    private static final String STATIC_CONSUL_TOKEN_SECRET = "config-server-consul-token";
 
     @Cloud(namespace = @Value(Cluster.CORE_NAMESPACE))
     private KubernetesClient kubernetes;
@@ -58,12 +62,14 @@ class CoreLegacyApiIT {
 
     private Http coreLegacyApi;
     private Http consul;
+    private String consulToken;
 
     @BeforeAll
     void connect() {
         Cluster.requireCoreLegacyApiInPlaceOfConfigServer(kubernetes);
         coreLegacyApi = new Http(coreLegacyApiUrl);
-        consul = new Http(consulUrl, Cluster.consulToken(kubernetes));
+        consulToken = Cluster.consulToken(kubernetes);
+        consul = new Http(consulUrl, consulToken);
         coreLegacyApi.awaitOk("core-legacy-api", "/applications");
     }
 
@@ -73,6 +79,18 @@ class CoreLegacyApiIT {
 
         assertNotNull(served, GLOBAL_DEFAULT + " in GET /global/default");
         assertEquals(served, storedValue(GLOBAL_KV_APPLICATION, GLOBAL_DEFAULT), GLOBAL_DEFAULT + " in Consul");
+    }
+
+    /**
+     * The stands with Consul ACLs run in hybrid and k8s, where core-legacy-api logs in with its ServiceAccount. In
+     * hybrid core-bootstrap makes that choice, and a static token it issued instead would also pass the other tests.
+     */
+    @Test
+    void onConsulWithAclsCoreBootstrapIssuesNoStaticToken() {
+        assumeTrue(consulToken != null, "Consul runs without ACLs");
+
+        assertNull(kubernetes.secrets().inNamespace(Cluster.CORE_NAMESPACE).withName(STATIC_CONSUL_TOKEN_SECRET).get(),
+                "secret " + STATIC_CONSUL_TOKEN_SECRET + " in namespace " + Cluster.CORE_NAMESPACE);
     }
 
     /** The Go and Quarkus config clients read only the first property source of {@code GET /{app}/default}. */

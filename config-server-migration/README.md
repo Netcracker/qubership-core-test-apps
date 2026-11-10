@@ -42,7 +42,7 @@ The workflow `core-legacy-api-integration-tests.yml` installs Cloud Core with co
 config-server and runs the `core-legacy-api` tests. The nightly report includes it. It runs them on three stands: Consul
 without ACLs in the M2M mode `legacy`, and Consul with ACLs in the modes `k8s` and `hybrid`, where core-legacy-api logs
 in to Consul with its ServiceAccount and the core-bootstrap job decides on its static token. With ACLs the tests read
-Consul with its bootstrap ACL token.
+Consul with its bootstrap ACL token, and check that the core-bootstrap job issued no static token.
 
 The workflow `config-server-migration-integration-tests.yml` runs both migration phases on a Kind cluster, then the
 `core-legacy-api` tests on the migrated stand, after the after-migration phase has read the answers it compares. It is
