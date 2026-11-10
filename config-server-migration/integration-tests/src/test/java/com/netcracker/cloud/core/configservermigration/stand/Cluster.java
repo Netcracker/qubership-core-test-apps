@@ -57,7 +57,7 @@ public final class Cluster {
      */
     public static String consulToken(KubernetesClient kubernetes) {
         Secret secret = kubernetes.secrets().inNamespace(CONSUL_NAMESPACE).withName(CONSUL_BOOTSTRAP_TOKEN_SECRET).get();
-        if (secret == null || secret.getData() == null || secret.getData().get("token") == null) {
+        if (secret == null) {
             return null;
         }
         return new String(Base64.getDecoder().decode(secret.getData().get("token")), StandardCharsets.UTF_8);

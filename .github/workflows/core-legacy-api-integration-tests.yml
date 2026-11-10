@@ -53,14 +53,12 @@ on:
 jobs:
   core-legacy-api-integration-tests:
     runs-on: ubuntu-latest
-    # The suite names the reports. With Consul ACLs the core-bootstrap job runs its configserver task, which
-    # issues or deletes the static Consul token by CONSUL_AUTH_MODE.
     strategy:
       fail-fast: false
       matrix:
         include:
-          - suite: core-legacy-api
-            consul-args: ''
+          - suite: core-legacy-api-legacy
+            consul-args: M2M_AUTH_MODE=legacy
           - suite: core-legacy-api-consul-acl-k8s
             consul-args: CONSUL_ACLS=true M2M_AUTH_MODE=k8s
           - suite: core-legacy-api-consul-acl-hybrid
