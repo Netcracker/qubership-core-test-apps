@@ -20,6 +20,11 @@ on:
         required: false
         default: 'main'
         type: string
+      aux-bootstrap-args:
+        description: 'Extra KEY=VALUE variables for the cloud-core bootstrap, space separated, applied last to the install and to the replacement with core-legacy-api: an unreleased coretpl (CORETPL_CHART_DIR=../coretpl)'
+        required: false
+        default: ''
+        type: string
 
 jobs:
   config-server-migration-integration-tests:
@@ -38,6 +43,7 @@ jobs:
             CONFIG_SERVER_CONSUL_ENABLED=true
             CONFIG_SERVER_BRANCH=${{ inputs.config-server-branch }}
             CORE_LEGACY_API_BRANCH=${{ inputs.core-legacy-api-branch }}
+            ${{ inputs.aux-bootstrap-args }}
 
       # The stand installs config-server without waiting for it to become ready.
       - name: Wait for config-server
@@ -58,9 +64,12 @@ jobs:
       - name: Replace config-server with core-legacy-api
         env:
           CORE_LEGACY_API_BRANCH: ${{ inputs.core-legacy-api-branch }}
+          AUX_BOOTSTRAP_ARGS: ${{ inputs.aux-bootstrap-args }}
+        # AUX_BOOTSTRAP_ARGS is left unquoted, so each KEY=VALUE becomes its own make argument.
         run: |
           make -C core-bootstrap-repo/cloud-core-local-dev/ uninstall-config-server deploy-core-legacy-api \
-            INSTALL_CONFIG_SERVER=false INSTALL_CORE_LEGACY_API=true CORE_LEGACY_API_BRANCH="$CORE_LEGACY_API_BRANCH"
+            INSTALL_CONFIG_SERVER=false INSTALL_CORE_LEGACY_API=true CORE_LEGACY_API_BRANCH="$CORE_LEGACY_API_BRANCH" \
+            $AUX_BOOTSTRAP_ARGS
 
       - name: Run the after-migration phase
         id: after_migration
