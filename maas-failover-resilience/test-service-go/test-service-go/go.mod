@@ -5,12 +5,12 @@ go 1.26.9
 require (
 	github.com/go-resty/resty/v2 v2.17.2
 	github.com/gofiber/fiber/v2 v2.52.16
-	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.12.4
-	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.11.4
-	github.com/netcracker/qubership-core-lib-go-maas-client/v3 v3.7.4
-	github.com/netcracker/qubership-core-lib-go-maas-core/v3 v3.7.3
-	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.11.0
-	github.com/netcracker/qubership-core-lib-go/v3 v3.15.3
+	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.12.5
+	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.11.5
+	github.com/netcracker/qubership-core-lib-go-maas-client/v3 v3.7.5
+	github.com/netcracker/qubership-core-lib-go-maas-core/v3 v3.7.4
+	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.11.1
+	github.com/netcracker/qubership-core-lib-go/v3 v3.15.4
 )
 
 require (
@@ -54,8 +54,8 @@ require (
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/molecule-man/go-brrr v1.3.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.7.5 // indirect
-	github.com/netcracker/qubership-core-lib-go-stomp-websocket/v3 v3.6.5 // indirect
+	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.7.6 // indirect
+	github.com/netcracker/qubership-core-lib-go-stomp-websocket/v3 v3.6.6 // indirect
 	github.com/openzipkin/zipkin-go v0.4.3 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.25.0 // indirect
