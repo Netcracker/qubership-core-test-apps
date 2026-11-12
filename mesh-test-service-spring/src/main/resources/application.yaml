@@ -14,8 +14,6 @@ spring:
       config:
         prefixes: config/${CLOUD_NAMESPACE:unknown}
         enabled: ${CONSUL_ENABLED:false}
-        m2m:
-          enabled: false
   config:
     import: optional:consul:${CONSUL_URL:}
 policy:
