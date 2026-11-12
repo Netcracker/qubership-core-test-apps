@@ -93,7 +93,9 @@ jobs:
           git diff --stat | tail -1
 
       - name: Read the java-libs versions
-        run: python3 .github/scripts/java-libs-versions.py collect java-libs > java-libs-versions.json
+        uses: Netcracker/qubership-core-infra/.github/actions/use-java-libs@feature/dependency-pins-check
+        with:
+          collect: java-libs
 
       - name: Install java-libs into the local Maven repository
         uses: netcracker/qubership-workflow-hub/actions/maven-snapshot-deploy@6b356d28e46b2d4683cccb1d91f92643d7f0c513 # v2.0.11

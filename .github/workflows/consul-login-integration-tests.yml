@@ -45,7 +45,7 @@ jobs:
 
       - name: Point the service at the java-libs build
         if: ${{ inputs.java-libs-artifact != '' && matrix.service != 'go' }}
-        uses: ./.github/actions/use-java-libs
+        uses: Netcracker/qubership-core-infra/.github/actions/use-java-libs@feature/dependency-pins-check
         with:
           artifact: ${{ inputs.java-libs-artifact }}
 

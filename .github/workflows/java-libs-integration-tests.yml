@@ -164,7 +164,7 @@ jobs:
           persist-credentials: false
 
       - name: Point ${{ matrix.name }} at the java-libs build
-        uses: ./.github/actions/use-java-libs
+        uses: Netcracker/qubership-core-infra/.github/actions/use-java-libs@feature/dependency-pins-check
         with:
           artifact: ${{ needs.java-libs.outputs.artifact }}
           path: ${{ env.SOURCES }}

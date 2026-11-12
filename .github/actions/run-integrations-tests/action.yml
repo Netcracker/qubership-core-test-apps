@@ -58,13 +58,11 @@ runs:
 
     - name: Point the tests at the java-libs versions under test
       if: ${{ inputs.java-libs-versions != '' }}
-      shell: bash
-      env:
-        VERSIONS: ${{ inputs.java-libs-versions }}
-        TESTS_DIR: ${{ inputs.path }}/${{ inputs.test-folder }}
-      run: |
-        find "$TESTS_DIR" -name pom.xml -not -path '*/target/*' -print0 \
-          | xargs -0 --no-run-if-empty python3 "$GITHUB_ACTION_PATH/../../scripts/java-libs-versions.py" apply "$VERSIONS"
+      uses: Netcracker/qubership-core-infra/.github/actions/use-java-libs@feature/dependency-pins-check
+      with:
+        versions-file: ${{ inputs.java-libs-versions }}
+        path: ${{ inputs.path }}/${{ inputs.test-folder }}
+        poms: all
 
     - name: Run integration tests
       shell: bash

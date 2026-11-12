@@ -239,7 +239,7 @@ jobs:
       - name: Point the integration tests at the java-libs build
         id: java_libs
         if: ${{ inputs.java-libs-artifact != '' }}
-        uses: ./.github/actions/use-java-libs
+        uses: Netcracker/qubership-core-infra/.github/actions/use-java-libs@feature/dependency-pins-check
         with:
           artifact: ${{ inputs.java-libs-artifact }}
 
