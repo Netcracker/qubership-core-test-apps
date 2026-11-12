@@ -41,7 +41,6 @@ jobs:
           install-istio: 'false'
           aux-bootstrap-args: >-
             INSTALL_CONFIG_SERVER=true
-            INSTALL_CORE_LEGACY_API=false
             CONFIG_SERVER_CONSUL_ENABLED=true
             CONFIG_SERVER_BRANCH=${{ inputs.config-server-branch }}
             CORE_LEGACY_API_BRANCH=${{ inputs.core-legacy-api-branch }}

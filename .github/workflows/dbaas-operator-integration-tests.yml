@@ -85,7 +85,6 @@ jobs:
         run: >-
           make -C core-bootstrap-repo/cloud-core-local-dev/ deploy-core
           INSTALL_ISTIO=true SERVICE_MESH_TYPE=Istio
-          INSTALL_CONFIG_SERVER=false INSTALL_CORE_LEGACY_API=true
           DBAAS_OPERATOR_ENABLED=true
           CORE_MESH_EARLY=true
           ${{ inputs.test-branch && format('TEST_BRANCH={0}', inputs.test-branch) || '' }}
@@ -158,7 +157,6 @@ jobs:
         run: >-
           make -C core-bootstrap-repo/cloud-core-local-dev/ clone-repos template-values-files deploy-core
           INSTALL_ISTIO=true SERVICE_MESH_TYPE=Istio
-          INSTALL_CONFIG_SERVER=false INSTALL_CORE_LEGACY_API=true
           DBAAS_OPERATOR_ENABLED=true
           ${{ inputs.test-branch && format('TEST_BRANCH={0}', inputs.test-branch) || '' }}
           ${{ inputs.aux-bootstrap-args }}
