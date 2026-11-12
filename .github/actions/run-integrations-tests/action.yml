@@ -28,6 +28,10 @@ inputs:
     description: 'Executor mode for tests — EXEC_IN_POD or PORT_FORWARD'
     required: false
     default: 'PORT_FORWARD'
+  java-libs-versions:
+    description: java-libs versions file from use-java-libs to point the test poms at
+    required: false
+    default: ''
   github-token:
     description: GitHub token for Maven/GitHub Packages access
     required: true
@@ -51,6 +55,14 @@ runs:
         repository: ${{ inputs.repository }}
         ref: main
         path: ${{ inputs.path }}
+
+    - name: Point the tests at the java-libs versions under test
+      if: ${{ inputs.java-libs-versions != '' }}
+      uses: Netcracker/qubership-core-infra/.github/actions/use-java-libs@feature/dependency-pins-check
+      with:
+        versions-file: ${{ inputs.java-libs-versions }}
+        path: ${{ inputs.path }}/${{ inputs.test-folder }}
+        poms: all
 
     - name: Run integration tests
       shell: bash
