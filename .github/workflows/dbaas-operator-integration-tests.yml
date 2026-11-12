@@ -8,8 +8,16 @@ name: DBaaS Operator integration tests
 on:
   workflow_dispatch:
     inputs:
+      core-bootstrap-branch:
+        description: Branch of the qubership-core-bootstrap repo
+        required: false
+        default: main
       test-branch:
         description: Branch of the Core service repositories; empty, or a repository without it, means main
+        required: false
+        default: ''
+      aux-bootstrap-args:
+        description: Extra KEY=VALUE variables for the cloud-core bootstrap, space separated, applied last to every install
         required: false
         default: ''
       scenarios:
@@ -18,7 +26,15 @@ on:
         default: clean-install,upgrade
   workflow_call:
     inputs:
+      core-bootstrap-branch:
+        type: string
+        required: false
+        default: main
       test-branch:
+        type: string
+        required: false
+        default: ''
+      aux-bootstrap-args:
         type: string
         required: false
         default: ''
@@ -52,6 +68,7 @@ jobs:
       - name: Setup Kind cluster and deploy Istio and DBaaS with the DBaaS Operator
         uses: ./.github/actions/setup-kind-with-cloud-core
         with:
+          core-bootstrap-branch: ${{ inputs.core-bootstrap-branch || 'main' }}
           test-branch: ${{ inputs.test-branch }}
           mesh-type: Istio
           make-targets: install-dependencies ensure-core-namespace enable-early-core-mesh
@@ -59,6 +76,7 @@ jobs:
             DBAAS_OPERATOR_ENABLED=true
             CORE_MESH_EARLY=true
             MESH_DEPENDENCY_NAMESPACES=dbaas
+            ${{ inputs.aux-bootstrap-args }}
 
       - name: Deny the DBaaS REST API to Cloud Core
         run: ./dbaas-operator-tests/checks.sh arm
@@ -71,6 +89,7 @@ jobs:
           DBAAS_OPERATOR_ENABLED=true
           CORE_MESH_EARLY=true
           ${{ inputs.test-branch && format('TEST_BRANCH={0}', inputs.test-branch) || '' }}
+          ${{ inputs.aux-bootstrap-args }}
 
       - name: Check databases come from the DBaaS Operator
         run: ./dbaas-operator-tests/checks.sh assert --expect-no-legacy-secret
@@ -108,7 +127,9 @@ jobs:
       - name: Setup Kind cluster and deploy Cloud Core without the DBaaS Operator
         uses: ./.github/actions/setup-kind-with-cloud-core
         with:
+          core-bootstrap-branch: ${{ inputs.core-bootstrap-branch || 'main' }}
           mesh-type: Istio
+          aux-bootstrap-args: ${{ inputs.aux-bootstrap-args }}
 
       # Taken before the trap is armed: the lookup asks dbaas-aggregator from the Cloud Core namespace.
       - name: Record each service's database
@@ -140,6 +161,7 @@ jobs:
           INSTALL_CONFIG_SERVER=false INSTALL_CORE_LEGACY_API=true
           DBAAS_OPERATOR_ENABLED=true
           ${{ inputs.test-branch && format('TEST_BRANCH={0}', inputs.test-branch) || '' }}
+          ${{ inputs.aux-bootstrap-args }}
 
       - name: Check the existing databases were adopted
         run: ./dbaas-operator-tests/checks.sh assert --snapshot "$RUNNER_TEMP/databases-before.json"
