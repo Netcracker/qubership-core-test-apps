@@ -75,8 +75,6 @@ jobs:
           test-branch: ${{ inputs.test-branch }}
           install-istio: 'false'
           aux-bootstrap-args: >-
-            INSTALL_CONFIG_SERVER=false
-            INSTALL_CORE_LEGACY_API=true
             ${{ matrix.consul-args }}
             ${{ inputs.aux-bootstrap-args }}
 

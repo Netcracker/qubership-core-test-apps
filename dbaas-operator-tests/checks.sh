@@ -36,12 +36,12 @@ ASSETS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/assets"
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../test-utils/surefire-report.sh"
 
 # Every Cloud Core service that owns a database. Keep in sync with the charts.
-SERVICES=(control-plane config-server site-management)
+SERVICES=(control-plane site-management)
 # Every Cloud Core workload that could fall back to the REST API: the services, and dbaas-agent,
 # which forwards their calls.
 REST_CLIENTS=("${SERVICES[@]}" dbaas-agent)
 # Services whose chart converts a legacy DbPolicy into a DatabaseAccessPolicy.
-POLICY_SERVICES=(config-server site-management)
+POLICY_SERVICES=(site-management)
 
 # The classifier each service sends at runtime, without the namespace.
 classifier() {
@@ -96,8 +96,8 @@ aggregator_database() {
 cmd_snapshot() {
   local file="$1" snapshot='{}' name
   for service in "${SERVICES[@]}"; do
-    # config-server and site-management create their database over REST when they start, which can be
-    # after the install returns, so wait for each service before asking the aggregator.
+    # site-management creates its database over REST when it starts, which can be after the install
+    # returns, so wait for each service before asking the aggregator.
     if ! kube rollout status "deployment/$service" --timeout="$WAIT_TIMEOUT" >/dev/null; then
       fail "$service did not become ready, so its database cannot be recorded"
       exit 1

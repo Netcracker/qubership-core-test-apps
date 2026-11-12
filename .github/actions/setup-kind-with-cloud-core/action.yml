@@ -2,7 +2,7 @@ name: Setup Kind cluster and run the Cloud Core bootstrap
 description: >
   Spins up a Kind cluster, installs required tooling, checks out the
   qubership-core-bootstrap repo, and runs its make-targets: by default the dependencies and
-  Cloud Core with Core or Istio service mesh.
+  Cloud Core with Core or Istio service mesh, with core-legacy-api in place of config-server.
   The branches, tags and images of the core services and of the dependencies are resolved by the
   bootstrap and printed at the top of its log, so this action only passes on what a suite has to
   change: everything but the inputs below goes in aux-bootstrap-args.
@@ -34,7 +34,7 @@ inputs:
     description: >
       Extra variables passed to the cloud-core local-dev make target, space separated, as
       KEY=VALUE, and applied last, so they override everything above. This is where anything else
-      goes: the tag of a core service (CONFIG_SERVER_TAG=my-tag), the branch or tag of a dependency
+      goes: the tag of a core service (CORE_LEGACY_API_TAG=my-tag), the branch or tag of a dependency
       (DBAAS_REPO_BRANCH=main, MAAS_BRANCH=main, ISTIO_REPO_BRANCH=main,
       CORE_MESH_CONFIG_REPO_BRANCH=main), M2M_AUTH_MODE=hybrid, or a setting only one suite needs
       (PATRONI_REPLICAS_NUMBER=2 RABBIT_INSTANCES=rabbitmq-1).
@@ -68,6 +68,7 @@ runs:
       run: |
         MAKE_ARGS="INSTALL_MAAS=$INSTALL_MAAS CORE_CONFIG_MAAS_ENABLED=$INSTALL_MAAS"
         MAKE_ARGS="$MAKE_ARGS INSTALL_ISTIO=$INSTALL_ISTIO SERVICE_MESH_TYPE=$MESH_TYPE"
+        MAKE_ARGS="$MAKE_ARGS INSTALL_CONFIG_SERVER=false INSTALL_CORE_LEGACY_API=true"
         # left out when empty: the bootstrap has no default for it, and an empty assignment would
         # still count as a TEST_BRANCH that no repository has
         if [ -n "$TEST_BRANCH" ]; then

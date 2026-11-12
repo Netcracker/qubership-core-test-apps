@@ -20,7 +20,7 @@ on:
         default: ''
         type: string
       aux-bootstrap-args:
-        description: 'Extra KEY=VALUE variables for the cloud-core bootstrap, space separated, applied last. Anything not above goes here: the tag of a core service (CONFIG_SERVER_TAG=my-tag), the branch or tag of a dependency (DBAAS_REPO_BRANCH=main, MAAS_BRANCH=main, ISTIO_REPO_BRANCH=main, CORE_MESH_CONFIG_REPO_BRANCH=main), M2M_AUTH_MODE=hybrid'
+        description: 'Extra KEY=VALUE variables for the cloud-core bootstrap, space separated, applied last. Anything not above goes here: the tag of a core service (CORE_LEGACY_API_TAG=my-tag), the branch or tag of a dependency (DBAAS_REPO_BRANCH=main, MAAS_BRANCH=main, ISTIO_REPO_BRANCH=main, CORE_MESH_CONFIG_REPO_BRANCH=main), M2M_AUTH_MODE=hybrid'
         required: false
         default: ''
         type: string
@@ -102,7 +102,7 @@ on:
         default: ''
         type: string
       aux-bootstrap-args:
-        description: 'Extra KEY=VALUE variables for the cloud-core bootstrap, space separated, applied last. Anything not above goes here: the tag of a core service (CONFIG_SERVER_TAG=my-tag), the branch or tag of a dependency (DBAAS_REPO_BRANCH=main, MAAS_BRANCH=main, ISTIO_REPO_BRANCH=main, CORE_MESH_CONFIG_REPO_BRANCH=main), M2M_AUTH_MODE=hybrid'
+        description: 'Extra KEY=VALUE variables for the cloud-core bootstrap, space separated, applied last. Anything not above goes here: the tag of a core service (CORE_LEGACY_API_TAG=my-tag), the branch or tag of a dependency (DBAAS_REPO_BRANCH=main, MAAS_BRANCH=main, ISTIO_REPO_BRANCH=main, CORE_MESH_CONFIG_REPO_BRANCH=main), M2M_AUTH_MODE=hybrid'
         required: false
         default: ''
         type: string
