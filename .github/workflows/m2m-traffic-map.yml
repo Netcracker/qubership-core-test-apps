@@ -1,5 +1,5 @@
 name: M2M traffic map
-run-name: "[bootstrap=${{ inputs.core-bootstrap-branch || 'main' }}] [dbaas=${{ inputs.dbaas-repo-branch || 'main' }}] [maas=${{ inputs.maas-branch || 'main' }}]"
+run-name: "[bootstrap=${{ inputs.core-bootstrap-branch || 'main' }}] [aux=${{ inputs.aux-bootstrap-args }}]"
 
 # Maps the interactions of the core services with each other, with DBaaS and MaaS and with their
 # agents, in each M2M mode.
@@ -47,23 +47,13 @@ on:
         required: false
         default: ''
         type: string
-      dbaas-repo-branch:
-        description: 'Branch or tag of qubership-dbaas. The pinned release does not know the M2M modes yet'
-        required: false
-        default: 'main'
-        type: string
-      maas-branch:
-        description: 'Branch or tag of qubership-maas. The pinned release does not know the M2M modes yet'
-        required: false
-        default: 'main'
-        type: string
       settle-seconds:
         description: 'How long to let the services run after the install before the traffic is collected'
         required: false
         default: '120'
         type: string
       aux-bootstrap-args:
-        description: 'Extra KEY=VALUE variables for the cloud-core bootstrap, space separated, applied last'
+        description: 'Extra KEY=VALUE variables for the cloud-core bootstrap, space separated, applied last. The branch or tag of a dependency goes here (DBAAS_REPO_BRANCH=main, MAAS_BRANCH=main); without it the bootstrap uses its pinned releases'
         required: false
         default: ''
         type: string
@@ -80,23 +70,13 @@ on:
         required: false
         default: ''
         type: string
-      dbaas-repo-branch:
-        description: 'Branch or tag of qubership-dbaas'
-        required: false
-        default: 'main'
-        type: string
-      maas-branch:
-        description: 'Branch or tag of qubership-maas'
-        required: false
-        default: 'main'
-        type: string
       settle-seconds:
         description: 'How long to let the services run after the install before the traffic is collected'
         required: false
         default: '120'
         type: string
       aux-bootstrap-args:
-        description: 'Extra KEY=VALUE variables for the cloud-core bootstrap, space separated, applied last'
+        description: 'Extra KEY=VALUE variables for the cloud-core bootstrap, space separated, applied last. The branch or tag of a dependency goes here (DBAAS_REPO_BRANCH=main, MAAS_BRANCH=main); without it the bootstrap uses its pinned releases'
         required: false
         default: ''
         type: string
@@ -122,8 +102,6 @@ jobs:
         M2M_AUTH_MODE=${{ matrix.core }}
         DBAAS_M2M_AUTH_MODE=${{ matrix.servers }}
         MAAS_M2M_AUTH_MODE=${{ matrix.servers }}
-        DBAAS_REPO_BRANCH=${{ inputs.dbaas-repo-branch || 'main' }}
-        MAAS_BRANCH=${{ inputs.maas-branch || 'main' }}
         CORE_MESH_EARLY=true
         MESH_DEPENDENCY_NAMESPACES=dbaas,maas
         ${{ inputs.aux-bootstrap-args }}
