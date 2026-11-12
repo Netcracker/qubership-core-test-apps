@@ -1,5 +1,5 @@
 name: M2M traffic map
-run-name: "[bootstrap=${{ inputs.core-bootstrap-branch || 'feat/early-mesh' }}] [dbaas=${{ inputs.dbaas-repo-branch || 'main' }}] [maas=${{ inputs.maas-branch || 'main' }}]"
+run-name: "[bootstrap=${{ inputs.core-bootstrap-branch || 'main' }}] [dbaas=${{ inputs.dbaas-repo-branch || 'main' }}] [maas=${{ inputs.maas-branch || 'main' }}]"
 
 # Maps the interactions of the core services with each other, with DBaaS and MaaS and with their
 # agents, in each M2M mode.
@@ -32,20 +32,15 @@ run-name: "[bootstrap=${{ inputs.core-bootstrap-branch || 'feat/early-mesh' }}] 
 #     known) and carries the audience of DBaaS or MaaS where it goes to one of them.
 #
 # So the same checks hold with and without the DBaaS Operator. To run the cases with the operator,
-# set core-bootstrap-branch and test-branch to the branch of the operator work
-# (feat/dbaas-mounted-secret-migration, Netcracker/qubership-core-bootstrap#208, until it is merged)
-# and aux-bootstrap-args to:
-#   DBAAS_OPERATOR_ENABLED=true CORE_BOOTSTRAP_BRANCH=<that branch> CORETPL_CHART_DIR=../coretpl
+# set aux-bootstrap-args to DBAAS_OPERATOR_ENABLED=true.
 
 on:
   workflow_dispatch:
     inputs:
-      # feat/early-mesh until Netcracker/qubership-core-bootstrap#229, which brings CORE_MESH_EARLY,
-      # MESH_DEPENDENCY_NAMESPACES and install-dependencies, is merged; then main again
       core-bootstrap-branch:
         description: 'Branch of core-bootstrap repo'
         required: false
-        default: 'feat/early-mesh'
+        default: 'main'
         type: string
       test-branch:
         description: 'Branch of the core services. A repository that has no such branch stays on main. Empty leaves the core services to the bootstrap, which uses main'
@@ -78,7 +73,7 @@ on:
       core-bootstrap-branch:
         description: 'Branch of core-bootstrap repo'
         required: false
-        default: 'feat/early-mesh'
+        default: 'main'
         type: string
       test-branch:
         description: 'Branch of the core services'
@@ -145,7 +140,7 @@ jobs:
       - name: Setup Kind cluster and deploy Istio, DBaaS and MaaS
         uses: ./.github/actions/setup-kind-with-cloud-core
         with:
-          core-bootstrap-branch: ${{ inputs.core-bootstrap-branch || 'feat/early-mesh' }}
+          core-bootstrap-branch: ${{ inputs.core-bootstrap-branch || 'main' }}
           test-branch: ${{ inputs.test-branch }}
           install-maas: 'true'
           install-istio: 'true'
