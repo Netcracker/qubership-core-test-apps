@@ -2,14 +2,14 @@
 
 # Mesh test applications management script
 # Manages mesh test services in order: spring, quarkus, go
-# Usage: ./mesh-test-apps.sh <operation> <namespace> <mesh-type> [--spring-tag TAG] [--quarkus-tag TAG] [--go-tag TAG]
+# Usage: ./mesh-test-apps.sh <operation> <namespace> <mesh-type> [--spring-tag TAG] [--quarkus-tag TAG] [--go-tag TAG] [--consul-auth-mode MODE]
 # Operation: install/uninstall, Namespace is required, Mesh type is required, Tags are optional (defaults to 'latest' for install)
 
 set -e  # Exit on any error
 
 # Function to show usage
 show_usage() {
-    echo "Usage: $0 <operation> <namespace> <mesh-type> [--spring-tag TAG] [--quarkus-tag TAG] [--go-tag TAG]"
+    echo "Usage: $0 <operation> <namespace> <mesh-type> [--spring-tag TAG] [--quarkus-tag TAG] [--go-tag TAG] [--consul-auth-mode MODE]"
     echo ""
     echo "Arguments:"
     echo "  operation       Operation to perform: 'install' or 'uninstall' (required)"
@@ -18,6 +18,7 @@ show_usage() {
     echo "  --spring-tag     Docker image tag for Spring service (optional, defaults to 'latest')"
     echo "  --quarkus-tag    Docker image tag for Quarkus service (optional, defaults to 'latest')"
     echo "  --go-tag         Docker image tag for Go service (optional, defaults to 'latest')"
+    echo "  --consul-auth-mode  How the services get their Consul ACL token: legacy, hybrid, or k8s (optional; each service keeps its own default without it)"
     echo ""
     echo "Examples:"
     echo "  $0 install mesh-test                                    # Install all services with 'latest' tag"
@@ -80,6 +81,7 @@ fi
 SPRING_TAG="latest"
 QUARKUS_TAG="latest"
 GO_TAG="latest"
+CONSUL_AUTH_MODE=""
 
 # Parse remaining arguments (skip operation, namespace and mesh type)
 shift 3
@@ -117,9 +119,19 @@ while [[ $# -gt 0 ]]; do
             GO_TAG="$2"
             shift 2
             ;;
+        --consul-auth-mode)
+            if [[ -z "$2" ]]; then
+                echo "Error: --consul-auth-mode requires a value"
+                echo ""
+                show_usage
+                exit 1
+            fi
+            CONSUL_AUTH_MODE="$2"
+            shift 2
+            ;;
         *)
             echo "Error: Unknown option: $1"
-            echo "Only --spring-tag, --quarkus-tag, and --go-tag flags are supported."
+            echo "Only --spring-tag, --quarkus-tag, --go-tag, and --consul-auth-mode flags are supported."
             echo ""
             show_usage
             exit 1
@@ -201,6 +213,7 @@ install_helm_package() {
         --set TAG="$tag" \
         --set CONSUL_ENABLED="true" \
         --set CONSUL_URL="http://consul-server.consul.svc.cluster.local:8500" \
+        --set CONSUL_AUTH_MODE="$CONSUL_AUTH_MODE" \
         --wait \
         --timeout=300s
 

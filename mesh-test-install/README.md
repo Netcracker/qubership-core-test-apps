@@ -64,6 +64,9 @@ This value is passed to Helm as `SERVICE_MESH_TYPE` and affects how routes and s
 - **Namespace**: Required second argument — Kubernetes namespace to operate on
 - **Mesh type**: Required third argument — `Istio` or `Core` (see [Mesh type](#mesh-type) above)
 - **Tags**: Optional named flags for install: `--spring-tag`, `--quarkus-tag`, `--go-tag` (each defaults to `latest`)
+- **Consul auth mode**: Optional named flag for install: `--consul-auth-mode` with `legacy`, `hybrid`, or `k8s`.
+  The services log in to Consul in that mode, and the pods get the projected ServiceAccount token that `hybrid` and
+  `k8s` log in with. Without the flag the services log in in `legacy`, with the m2m token
 - **Timeout**: Each operation has a 300-second timeout
 
 ## Troubleshooting

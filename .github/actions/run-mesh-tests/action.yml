@@ -23,6 +23,10 @@ inputs:
     description: Docker image tag for mesh-test-service-go
     required: false
     default: latest
+  consul-auth-mode:
+    description: 'How the mesh test services get their Consul ACL token: legacy, hybrid, or k8s. Empty keeps the default of each service'
+    required: false
+    default: ''
   github-token:
     description: GitHub token for pulling images
     required: true
@@ -40,6 +44,7 @@ runs:
         SPRING_TAG="${{ inputs.spring-tag }}"
         QUARKUS_TAG="${{ inputs.quarkus-tag }}"
         GO_TAG="${{ inputs.go-tag }}"
+        CONSUL_AUTH_MODE="${{ inputs.consul-auth-mode }}"
         if [ "$SPRING_TAG" != "latest" ] && [ -n "$SPRING_TAG" ]; then
           INSTALL_CMD="$INSTALL_CMD --spring-tag $SPRING_TAG"
         fi
@@ -48,6 +53,9 @@ runs:
         fi
         if [ "$GO_TAG" != "latest" ] && [ -n "$GO_TAG" ]; then
           INSTALL_CMD="$INSTALL_CMD --go-tag $GO_TAG"
+        fi
+        if [ -n "$CONSUL_AUTH_MODE" ]; then
+          INSTALL_CMD="$INSTALL_CMD --consul-auth-mode $CONSUL_AUTH_MODE"
         fi
         $INSTALL_CMD
         ./run-it/run-integration-tests.sh kind-kind ${{ inputs.namespace }} kind-control-plane:10.244.0.1 mesh-integration-tests:mesh-integration-tests
