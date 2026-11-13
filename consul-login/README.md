@@ -50,7 +50,7 @@ The stand itself comes from `.github/actions/setup-kind-with-consul`, which inst
 Configurator operator turned on (`CONSUL_ACLS=true`), through the `deploy-consul` target of `cloud-core-local-dev` in
 [qubership-core-bootstrap](https://github.com/Netcracker/qubership-core-bootstrap). The kubernetes way logs in through
 `applications-k8s-m2m`, the auth method the operator creates, and gets its policy, role and binding rule from a
-`ConsulACL` resource in the namespace of the scenario, as a service does in production.
+`ConsulACL` resource in the namespace of the scenario.
 
 ## When these tests can be removed
 
