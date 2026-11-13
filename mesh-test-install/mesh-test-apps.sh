@@ -2,14 +2,14 @@
 
 # Mesh test applications management script
 # Manages mesh test services in order: spring, quarkus, go
-# Usage: ./mesh-test-apps.sh <operation> <namespace> <mesh-type> [--spring-tag TAG] [--quarkus-tag TAG] [--go-tag TAG] [--consul-auth-mode MODE]
+# Usage: ./mesh-test-apps.sh <operation> <namespace> <mesh-type> [--spring-tag TAG] [--quarkus-tag TAG] [--go-tag TAG] [--consul-auth-mode MODE] [--coretpl-chart-dir DIR]
 # Operation: install/uninstall, Namespace is required, Mesh type is required, Tags are optional (defaults to 'latest' for install)
 
 set -e  # Exit on any error
 
 # Function to show usage
 show_usage() {
-    echo "Usage: $0 <operation> <namespace> <mesh-type> [--spring-tag TAG] [--quarkus-tag TAG] [--go-tag TAG] [--consul-auth-mode MODE]"
+    echo "Usage: $0 <operation> <namespace> <mesh-type> [--spring-tag TAG] [--quarkus-tag TAG] [--go-tag TAG] [--consul-auth-mode MODE] [--coretpl-chart-dir DIR]"
     echo ""
     echo "Arguments:"
     echo "  operation       Operation to perform: 'install' or 'uninstall' (required)"
@@ -19,6 +19,7 @@ show_usage() {
     echo "  --quarkus-tag    Docker image tag for Quarkus service (optional, defaults to 'latest')"
     echo "  --go-tag         Docker image tag for Go service (optional, defaults to 'latest')"
     echo "  --consul-auth-mode  How the services get their Consul ACL token: legacy, hybrid, or k8s (optional; each service keeps its own default without it)"
+    echo "  --coretpl-chart-dir  Directory of an unpublished coretpl chart to package into the services instead of the published one (optional)"
     echo ""
     echo "Examples:"
     echo "  $0 install mesh-test                                    # Install all services with 'latest' tag"
@@ -82,6 +83,7 @@ SPRING_TAG="latest"
 QUARKUS_TAG="latest"
 GO_TAG="latest"
 CONSUL_AUTH_MODE=""
+CORETPL_CHART_DIR=""
 
 # Parse remaining arguments (skip operation, namespace and mesh type)
 shift 3
@@ -129,9 +131,19 @@ while [[ $# -gt 0 ]]; do
             CONSUL_AUTH_MODE="$2"
             shift 2
             ;;
+        --coretpl-chart-dir)
+            if [[ -z "$2" ]]; then
+                echo "Error: --coretpl-chart-dir requires a value"
+                echo ""
+                show_usage
+                exit 1
+            fi
+            CORETPL_CHART_DIR="$(cd "$2" && pwd)"
+            shift 2
+            ;;
         *)
             echo "Error: Unknown option: $1"
-            echo "Only --spring-tag, --quarkus-tag, --go-tag, and --consul-auth-mode flags are supported."
+            echo "Only --spring-tag, --quarkus-tag, --go-tag, --consul-auth-mode, and --coretpl-chart-dir flags are supported."
             echo ""
             show_usage
             exit 1
@@ -201,14 +213,22 @@ install_helm_package() {
         exit 1
     fi
     
-    # Update helm dependencies
-    echo "Updating helm dependencies for $service_name..."
-    helm dependency update "$chart_path"
+    if [[ -n "$CORETPL_CHART_DIR" ]]; then
+        echo "Packaging coretpl from $CORETPL_CHART_DIR into $service_name..."
+        mkdir -p "$chart_path/charts"
+        rm -f "$chart_path"/charts/coretpl-*.tgz
+        helm package "$CORETPL_CHART_DIR" --destination "$chart_path/charts"
+    else
+        echo "Updating helm dependencies for $service_name..."
+        helm dependency update "$chart_path"
+    fi
     
     # Install or upgrade the helm chart
     echo "Installing/upgrading $service_name with tag: $tag..."
     helm upgrade --install "$service_name" "$chart_path" \
         --namespace "$namespace" \
+        --set NAMESPACE="$namespace" \
+        --set ORIGIN_NAMESPACE="$namespace" \
         --set SERVICE_MESH_TYPE="$MESH_TYPE" \
         --set TAG="$tag" \
         --set CONSUL_ENABLED="true" \

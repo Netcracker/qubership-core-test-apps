@@ -51,7 +51,6 @@ SERVICE_MESH_TYPE: "Core"
 CONSUL_ENABLED: false
 CONSUL_URL: ''
 CONSUL_AUTH_MODE: ''
-CORE_TPL_MS_CONSULACL_ENABLED: false
 
 # Egress Blue/Green tests: header-based routing on the egress gateway between a
 # production endpoint and its stub, selected by x-version-name. Deploys the two

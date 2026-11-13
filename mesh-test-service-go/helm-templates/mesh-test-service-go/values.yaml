@@ -1,4 +1,6 @@
 SERVICE: "mesh-test-service-go"
+SERVICE_NAME: "mesh-test-service-go"
+APPLICATION_NAME: "mesh-test-app"
 DEPLOYMENT_RESOURCE_NAME: "mesh-test-service-go-v1"
 DEPLOYMENT_VERSION: "v1"
 PAAS_PLATFORM: "KUBERNETES"
@@ -20,3 +22,6 @@ CONSUL_ENABLED: false
 CONSUL_URL: ''
 CONSUL_AUTH_MODE: ''
 SERVICE_MESH_TYPE: "Core"
+CR_SYNCHRONIZER_IMAGE: "ghcr.io/netcracker/cr-synchronizer:latest@sha256:c52a5d879acaacc009b74f39c54e5ceb69ff016fe03ed964f744ae912e7c9329"
+DEPLOYMENT_SESSION_ID:
+RESOURCE_POLLING_TIMEOUT: 60
