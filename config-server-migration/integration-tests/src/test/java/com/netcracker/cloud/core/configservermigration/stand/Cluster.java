@@ -12,7 +12,8 @@ import java.util.Base64;
 
 /**
  * The names both phases address on the stand, the check that core-legacy-api stands behind the Service
- * {@code config-server}, and the ConfigMap that carries the baseline from one phase to the other.
+ * {@code config-server}, the bootstrap ACL token of Consul, and the ConfigMap that carries the baseline from one phase
+ * to the other.
  *
  * <p>The baseline lives in the cluster because the phases run as separate Maven runs.
  */
