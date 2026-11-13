@@ -64,6 +64,12 @@ This value is passed to Helm as `SERVICE_MESH_TYPE` and affects how routes and s
 - **Namespace**: Required second argument — Kubernetes namespace to operate on
 - **Mesh type**: Required third argument — `Istio` or `Core` (see [Mesh type](#mesh-type) above)
 - **Tags**: Optional named flags for install: `--spring-tag`, `--quarkus-tag`, `--go-tag` (each defaults to `latest`)
+- **Consul auth mode**: Optional named flag for install: `--consul-auth-mode` with `legacy`, `hybrid`, or `k8s`.
+  The services log in to Consul in that mode, and the pods get the projected ServiceAccount token that `hybrid` and
+  `k8s` log in with. Without the flag the services log in in `legacy`, with the m2m token
+- **coretpl**: Optional named flag for install: `--coretpl-chart-dir` with the directory of a coretpl chart, such as
+  `qubership-core-bootstrap/coretpl`. The script packages that chart into each service instead of fetching the
+  published coretpl, so the services get their Consul role from an unreleased coretpl
 - **Timeout**: Each operation has a 300-second timeout
 
 ## Troubleshooting

@@ -1,7 +1,5 @@
 package com.netcracker.it.common;
 
-import com.netcracker.cloud.junit.cloudcore.extension.annotations.Cloud;
-import com.netcracker.cloud.junit.cloudcore.extension.annotations.IntValue;
 import com.netcracker.cloud.junit.cloudcore.extension.annotations.PortForward;
 import com.netcracker.cloud.junit.cloudcore.extension.annotations.Value;
 import okhttp3.Request;
@@ -19,28 +17,28 @@ import static com.netcracker.it.common.HttpClient.okHttpClient;
 import static org.awaitility.Awaitility.await;
 
 public abstract class ConsulITBase {
-    protected static ConsulClient consulClient;
+    protected static ConfigServerClient configServerClient;
 
-    @PortForward(serviceName = @Value("consul-server"), port = @IntValue(8500), cloud = @Cloud(namespace = @Value(value = "consul")))
-    private static URL consulUrl;
+    @PortForward(serviceName = @Value("config-server"))
+    private static URL configServerUrl;
 
-    private static final String CONSUL_TEST_PROPERTY_PATH = "config/core/application/consul/test/property";
+    private static final String TEST_PROPERTY = "consul.test.property";
     private static final String SERVICE_TEST_PROPERTY_PATH = "api/v1/consul/test/property";
 
     @BeforeAll
     static void beforeAll() {
-        consulClient = new ConsulClient(consulUrl.toString());
+        configServerClient = new ConfigServerClient(configServerUrl.toString());
     }
 
     @AfterEach
     void cleanup() throws Exception {
-        consulClient.deleteProperty(CONSUL_TEST_PROPERTY_PATH);
+        configServerClient.deleteGlobalProperty(TEST_PROPERTY);
     }
 
     @Test
     void testConsulIntegrationReadValue() throws Exception {
         String consulPropertyValue = "test-property-" + new Random().nextInt(0, 1000);
-        consulClient.writeProperty(CONSUL_TEST_PROPERTY_PATH, consulPropertyValue);
+        configServerClient.writeGlobalProperty(TEST_PROPERTY, consulPropertyValue);
 
         Request request = new Request.Builder()
                 .url(URI.create(getServiceUrl() + SERVICE_TEST_PROPERTY_PATH).toURL())

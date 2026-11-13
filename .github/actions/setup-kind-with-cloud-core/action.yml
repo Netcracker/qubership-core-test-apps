@@ -34,7 +34,7 @@ inputs:
     description: >
       Extra variables passed to the cloud-core local-dev make target, space separated, as
       KEY=VALUE, and applied last, so they override everything above. This is where anything else
-      goes: the tag of a core service (CONFIG_SERVER_TAG=my-tag), the branch or tag of a dependency
+      goes: the tag of a core service (CORE_LEGACY_API_TAG=my-tag), the branch or tag of a dependency
       (DBAAS_REPO_BRANCH=main, MAAS_BRANCH=main, ISTIO_REPO_BRANCH=main,
       CORE_MESH_CONFIG_REPO_BRANCH=main), M2M_AUTH_MODE=hybrid, or a setting only one suite needs
       (PATRONI_REPLICAS_NUMBER=2 RABBIT_INSTANCES=rabbitmq-1).

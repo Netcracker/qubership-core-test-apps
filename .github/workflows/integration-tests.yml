@@ -20,7 +20,7 @@ on:
         default: ''
         type: string
       aux-bootstrap-args:
-        description: 'Extra KEY=VALUE variables for the cloud-core bootstrap, space separated, applied last. Anything not above goes here: the tag of a core service (CONFIG_SERVER_TAG=my-tag), the branch or tag of a dependency (DBAAS_REPO_BRANCH=main, MAAS_BRANCH=main, ISTIO_REPO_BRANCH=main, CORE_MESH_CONFIG_REPO_BRANCH=main), M2M_AUTH_MODE=hybrid'
+        description: 'Extra KEY=VALUE variables for the cloud-core bootstrap, space separated, applied last. Anything not above goes here: the tag of a core service (CORE_LEGACY_API_TAG=my-tag), the branch or tag of a dependency (DBAAS_REPO_BRANCH=main, MAAS_BRANCH=main, ISTIO_REPO_BRANCH=main, CORE_MESH_CONFIG_REPO_BRANCH=main), M2M_AUTH_MODE=hybrid'
         required: false
         default: ''
         type: string
@@ -69,6 +69,16 @@ on:
         required: false
         default: 'legacy'
         type: string
+      consul-acls:
+        description: 'Install Consul with ACLs and its ACL operator; the mesh test services then log in to Consul in the mode of m2m-auth-mode'
+        required: false
+        default: false
+        type: boolean
+      local-coretpl:
+        description: 'Package coretpl from the core-bootstrap-branch checkout into the Cloud Core charts and the mesh test services instead of the published coretpl'
+        required: false
+        default: false
+        type: boolean
       mesh-type:
         description: 'Mesh type for test services — Core or Istio'
         required: false
@@ -102,7 +112,7 @@ on:
         default: ''
         type: string
       aux-bootstrap-args:
-        description: 'Extra KEY=VALUE variables for the cloud-core bootstrap, space separated, applied last. Anything not above goes here: the tag of a core service (CONFIG_SERVER_TAG=my-tag), the branch or tag of a dependency (DBAAS_REPO_BRANCH=main, MAAS_BRANCH=main, ISTIO_REPO_BRANCH=main, CORE_MESH_CONFIG_REPO_BRANCH=main), M2M_AUTH_MODE=hybrid'
+        description: 'Extra KEY=VALUE variables for the cloud-core bootstrap, space separated, applied last. Anything not above goes here: the tag of a core service (CORE_LEGACY_API_TAG=my-tag), the branch or tag of a dependency (DBAAS_REPO_BRANCH=main, MAAS_BRANCH=main, ISTIO_REPO_BRANCH=main, CORE_MESH_CONFIG_REPO_BRANCH=main), M2M_AUTH_MODE=hybrid'
         required: false
         default: ''
         type: string
@@ -155,6 +165,16 @@ on:
           - legacy
           - hybrid
           - k8s
+      consul-acls:
+        description: 'Install Consul with ACLs and its ACL operator; the mesh test services then log in to Consul in the mode of m2m-auth-mode'
+        required: false
+        default: false
+        type: boolean
+      local-coretpl:
+        description: 'Package coretpl from the core-bootstrap-branch checkout into the Cloud Core charts and the mesh test services instead of the published coretpl'
+        required: false
+        default: false
+        type: boolean
       mesh-type:
         description: 'Mesh type for test services — Core or Istio'
         required: false
@@ -202,6 +222,8 @@ jobs:
             echo "| mesh-test-go-tag | \`${{ inputs.mesh-test-go-tag || 'latest' }}\` |"
             echo "| mesh-type | \`${{ inputs.mesh-type || 'Core' }}\` |"
             echo "| m2m-auth-mode | \`${{ inputs.m2m-auth-mode || 'legacy' }}\` |"
+            echo "| consul-acls | \`${{ (inputs.consul-acls && 'true') || 'false' }}\` |"
+            echo "| local-coretpl | \`${{ (inputs.local-coretpl && 'true') || 'false' }}\` |"
             echo "| test-usecase | \`${{ inputs.test-usecase || '' }}\` |"
             echo "| run-tests-for | \`${{ inputs.run-tests-for || 'all' }}\` |"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -218,6 +240,8 @@ jobs:
           echo "mesh-test-go-tag=${{ inputs.mesh-test-go-tag || 'latest' }}"
           echo "mesh-type=${{ inputs.mesh-type || 'Core' }}"
           echo "m2m-auth-mode=${{ inputs.m2m-auth-mode || 'legacy' }}"
+          echo "consul-acls=${{ (inputs.consul-acls && 'true') || 'false' }}"
+          echo "local-coretpl=${{ (inputs.local-coretpl && 'true') || 'false' }}"
           echo "test-usecase=${{ inputs.test-usecase || '' }}"
           echo "run-tests-for=${{ inputs.run-tests-for || 'all' }}"
           echo "::endgroup::"
@@ -297,7 +321,7 @@ jobs:
           install-istio: ${{ inputs.install-istio || 'false' }}
           mesh-type: ${{ inputs.mesh-type || 'Core' }}
           # the caller's arguments come last, so that they can override the mode
-          aux-bootstrap-args: M2M_AUTH_MODE=${{ inputs.m2m-auth-mode || 'legacy' }} ${{ inputs.aux-bootstrap-args }}
+          aux-bootstrap-args: M2M_AUTH_MODE=${{ inputs.m2m-auth-mode || 'legacy' }} ${{ inputs.consul-acls && 'CONSUL_ACLS=true' || '' }} ${{ inputs.local-coretpl && 'CORETPL_CHART_DIR=../coretpl' || '' }} ${{ inputs.aux-bootstrap-args }}
 
       - name: preserve-cpu-resources-workaround
         if: ${{ inputs.do-resources-workaround }}
@@ -315,6 +339,8 @@ jobs:
           spring-tag: ${{ inputs.mesh-test-spring-tag || 'latest' }}
           quarkus-tag: ${{ inputs.mesh-test-quarkus-tag || 'latest' }}
           go-tag: ${{ inputs.mesh-test-go-tag || 'latest' }}
+          consul-auth-mode: ${{ inputs.consul-acls && (inputs.m2m-auth-mode || 'legacy') || '' }}
+          coretpl-chart-dir: ${{ inputs.local-coretpl && 'core-bootstrap-repo/coretpl' || '' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Name mesh tests result with inputs.test-usecase

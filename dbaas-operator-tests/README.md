@@ -1,8 +1,7 @@
 # DBaaS Operator integration tests
 
 These tests check that Cloud Core services get their databases from the DBaaS Operator, through the Secrets it
-mounts, and never fall back to provisioning over REST. The services covered are control-plane, config-server, and
-site-management.
+mounts, and never fall back to provisioning over REST. The services covered are control-plane and site-management.
 
 ## How a fallback is caught
 
@@ -18,7 +17,7 @@ Operator and the database adapters are not affected: they call from their own na
 %%{init: {"flowchart": {"wrappingWidth": 320}}}%%
 flowchart LR
     subgraph core["Cloud Core namespace (ambient mesh)"]
-        services["control-plane<br/>config-server<br/>site-management"]
+        services["control-plane<br/>site-management"]
         agent["dbaas-agent"]
         operatorCo["core-operator"]
         probe["probe pod<br/>(checks.sh arm)"]
