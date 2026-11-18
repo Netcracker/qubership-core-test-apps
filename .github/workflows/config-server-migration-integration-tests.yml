@@ -58,9 +58,13 @@ jobs:
       - name: Replace config-server with core-legacy-api
         env:
           CORE_LEGACY_API_BRANCH: ${{ inputs.core-legacy-api-branch }}
+          CORE_BOOTSTRAP_BRANCH: ${{ inputs.core-bootstrap-branch }}
         run: |
-          make -C core-bootstrap-repo/cloud-core-local-dev/ uninstall-config-server deploy-core-legacy-api \
-            INSTALL_CONFIG_SERVER=false INSTALL_CORE_LEGACY_API=true CORE_LEGACY_API_BRANCH="$CORE_LEGACY_API_BRANCH"
+          args=(INSTALL_CONFIG_SERVER=false INSTALL_CORE_LEGACY_API=true CORE_LEGACY_API_BRANCH="$CORE_LEGACY_API_BRANCH")
+          if [ -n "$CORE_BOOTSTRAP_BRANCH" ] && [ "$CORE_BOOTSTRAP_BRANCH" != "main" ]; then
+            args+=(CORETPL_CHART_DIR=../coretpl)
+          fi
+          make -C core-bootstrap-repo/cloud-core-local-dev/ uninstall-config-server deploy-core-legacy-api "${args[@]}"
 
       - name: Run the after-migration phase
         id: after_migration

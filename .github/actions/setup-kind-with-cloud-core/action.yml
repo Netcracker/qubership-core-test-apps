@@ -91,6 +91,7 @@ runs:
         INSTALL_ISTIO: ${{ inputs.install-istio }}
         MESH_TYPE: ${{ inputs.mesh-type }}
         TEST_BRANCH: ${{ inputs.test-branch }}
+        CORE_BOOTSTRAP_BRANCH: ${{ inputs.core-bootstrap-branch }}
         AUX_BOOTSTRAP_ARGS: ${{ inputs.aux-bootstrap-args }}
         MAKE_TARGETS: ${{ inputs.make-targets }}
       run: |
@@ -100,6 +101,11 @@ runs:
         # still count as a TEST_BRANCH that no repository has
         if [ -n "$TEST_BRANCH" ]; then
           MAKE_ARGS="$MAKE_ARGS TEST_BRANCH=$TEST_BRANCH"
+        fi
+        # main uses the published coretpl. Another branch can carry a version that is not in the
+        # helm repository yet, so package the coretpl from that checkout.
+        if [ -n "$CORE_BOOTSTRAP_BRANCH" ] && [ "$CORE_BOOTSTRAP_BRANCH" != "main" ]; then
+          MAKE_ARGS="$MAKE_ARGS CORETPL_CHART_DIR=../coretpl"
         fi
         # the bootstrap appends a table of the branches and image tags it resolved, and where each
         # came from, to this file: it lands in the summary of the run
