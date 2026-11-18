@@ -8,15 +8,17 @@ run-name: "[go-lib=${{ inputs.go-lib-repository }}@${{ inputs.go-lib-ref }}] [te
 # suites load those images into their cluster and point the tags of these components at them.
 #
 # Unlike java-libs-integration-tests.yml there is no separate "build the library" job and no
-# artifact of its build: Go modules resolve directly from the git history of the library's own
-# repository (see the use-go-lib action), so nothing needs to be pre-built or installed anywhere
-# for the ref to be usable.
+# artifact of its build. The library is checked out at the resolved commit and wired in with
+# the same local replace the dependency gate uses to build a consumer. The checkout sits inside
+# the module directory the service Dockerfile copies, so the image build does not ask the module
+# proxy for that commit.
 #
 # The library repositories are independent of each other (unlike java-libs, which is one monorepo
 # for every Java core library), so not every service in the matrix below necessarily depends on
 # the one under test, and some depend on it only transitively through another
-# qubership-core-lib-go-* module. Each is checked (go list -m all, not a grep of its go.mod) before
-# it is rebuilt; a service that does not depend on it at all is left alone and keeps the image that
+# qubership-core-lib-go-* module. Each is checked the way the gate checks a consumer
+# (go.sum, then go list -deps) before it is rebuilt; a service that does not depend on
+# it at all is left alone and keeps the image that
 # the bootstrap resolves for it.
 #
 # The replace directive in a service's go.mod only proves that one service still builds against the
@@ -174,13 +176,34 @@ jobs:
           path: lib
           persist-credentials: false
 
-      - name: Pin ${{ inputs.go-lib-repository }} in ${{ matrix.repository }}
-        id: use_go_lib
-        uses: ./.github/actions/use-go-lib
+      - name: Look for a module at the repository root
+        id: root
+        env:
+          REPOSITORY: Netcracker/${{ matrix.repository }}
+        run: |
+          if [ -f lib/go.mod ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::$REPOSITORY has no go.mod at the repository root, skipping"
+          fi
+
+      - name: Check out ${{ inputs.go-lib-repository }}
+        if: steps.root.outputs.present == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ inputs.go-lib-repository }}
           ref: ${{ needs.resolve.outputs.sha }}
+          path: lib/_go-lib
+          persist-credentials: false
+
+      - name: Pin ${{ inputs.go-lib-repository }} in ${{ matrix.repository }}
+        id: use_go_lib
+        if: steps.root.outputs.present == 'true'
+        uses: ./.github/actions/use-go-lib
+        with:
           path: lib
+          lib-dir: lib/_go-lib
 
       - name: Build ${{ matrix.repository }}
         if: ${{ steps.use_go_lib.outputs.in-graph == 'true' }}
@@ -276,13 +299,20 @@ jobs:
           path: service
           persist-credentials: false
 
+      - name: Check out ${{ inputs.go-lib-repository }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ${{ inputs.go-lib-repository }}
+          ref: ${{ needs.resolve.outputs.sha }}
+          path: ${{ env.SOURCES }}/${{ matrix.go-module-dir }}/_go-lib
+          persist-credentials: false
+
       - name: Pin ${{ inputs.go-lib-repository }} in ${{ matrix.name }}
         id: use_go_lib
         uses: ./.github/actions/use-go-lib
         with:
-          repository: ${{ inputs.go-lib-repository }}
-          ref: ${{ needs.resolve.outputs.sha }}
           path: ${{ env.SOURCES }}/${{ matrix.go-module-dir }}
+          lib-dir: ${{ env.SOURCES }}/${{ matrix.go-module-dir }}/_go-lib
 
       # The builder qubership-workflow-hub's docker-action uses, loading the image into the local
       # docker instead of pushing it: the image travels to the test cluster as an artifact. Only
