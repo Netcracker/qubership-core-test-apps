@@ -3,11 +3,11 @@ package main
 import (
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/health"
-	fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2"
-	fibersecurity "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/security"
-	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/server"
+	fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3"
+	fibersecurity "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/security"
+	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/server"
 	consul "github.com/netcracker/qubership-core-lib-go-rest-utils/v2/consul-propertysource"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
@@ -37,7 +37,7 @@ func main() {
 		return
 	}
 
-	app, err := fiberserver.New(fiber.Config{Network: fiber.NetworkTCP, IdleTimeout: 30 * time.Second}).
+	app, err := fiberserver.New(fiber.Config{IdleTimeout: 30 * time.Second}).
 		WithPrometheus("/prometheus").
 		WithHealth("/health", healthService).
 		Process()
@@ -50,5 +50,5 @@ func main() {
 		probe.NewMaasWatch())
 	controller.New(runner).Register(app.Group("/api/v1"))
 
-	server.StartServer(app, "http.server.bind")
+	server.StartServer(app, "http.server.bind", fiber.ListenConfig{ListenerNetwork: fiber.NetworkTCP})
 }

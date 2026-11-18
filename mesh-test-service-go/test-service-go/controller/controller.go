@@ -14,7 +14,7 @@ import (
 	"github.com/netcracker/qubership-mesh-test-service-go/domain"
 	"github.com/netcracker/qubership-mesh-test-service-go/utils"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/ctxhelper"
@@ -45,7 +45,7 @@ func init() {
 	logger = logging.GetLogger("controller")
 }
 
-func (c *Controller) ProxyTCP(fiberCtx *fiber.Ctx) error {
+func (c *Controller) ProxyTCP(fiberCtx fiber.Ctx) error {
 	requestURL := string(fiberCtx.Body())
 	logger.Infof("Received proxy tcp request to: %s", requestURL)
 
@@ -98,7 +98,7 @@ func NewController(consulPS *configloader.PropertySource) *Controller {
 	return &Controller{consulPS: consulPS, consulTestProperty: configloader.GetOrDefaultString("consul.test.property", "")}
 }
 
-func (c *Controller) HelloHandler(fiberCtx *fiber.Ctx) error {
+func (c *Controller) HelloHandler(fiberCtx fiber.Ctx) error {
 	logger.Info("hello")
 	allHeaders := fiberCtx.GetReqHeaders()
 	logger.Debugf("All headers:%+v", allHeaders)
@@ -106,7 +106,7 @@ func (c *Controller) HelloHandler(fiberCtx *fiber.Ctx) error {
 	logger.Debugf("X-Version header:%+v", xVersionHeader)
 	xVersionNameHeader := c.getHeaderValue(allHeaders, "X-Version-Name")
 	logger.Debugf("X-Version-Name header:%+v", xVersionNameHeader)
-	fastHttpCtx := fiberCtx.Context()
+	fastHttpCtx := fiberCtx.RequestCtx()
 	path := string(fiberCtx.Request().URI().Path())
 	response := domain.TraceResponse{
 		ServiceName:  serviceName,
@@ -136,8 +136,8 @@ func (c *Controller) getHeaderValue(headers map[string][]string, headerName stri
 	return values[0]
 }
 
-func (c *Controller) HelloSpringHandler(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *Controller) HelloSpringHandler(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	logger.Info("hello from spring")
 	client := coretls.GetClient()
 	requestURL := springProtocol + "://mesh-test-service-spring:" + springPort + "/api/v1/mesh-test-service-spring/hello"
@@ -165,7 +165,7 @@ func (c *Controller) HelloSpringHandler(fiberCtx *fiber.Ctx) error {
 	return utils.RespondWithString(fiberCtx, fiber.StatusOK, string(body))
 }
 
-func (c *Controller) ConsulConfigHandler(fiberCtx *fiber.Ctx) error {
+func (c *Controller) ConsulConfigHandler(fiberCtx fiber.Ctx) error {
 	c.startConsulWatchOnce.Do(func() {
 		c.startConsulWatch()
 	})

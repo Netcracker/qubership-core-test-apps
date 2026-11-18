@@ -6,12 +6,12 @@ import (
 	"github.com/netcracker/qubership-core-lib-go-rest-utils/v2/consul-propertysource"
 	"github.com/netcracker/qubership-mesh-test-service-go/controller"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/health"
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/tracing"
-	fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2"
-	fibersecurity "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/security"
-	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/server"
+	fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3"
+	fibersecurity "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/security"
+	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/server"
 	routeregistration "github.com/netcracker/qubership-core-lib-go-rest-utils/v2/route-registration"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
@@ -33,7 +33,7 @@ func main() {
 	consulPS := consul.NewPropertySource()
 	configloader.InitWithSourcesArray(append(configloader.BasePropertySources(), consulPS))
 
-	fiberConfig := fiber.Config{Network: fiber.NetworkTCP, IdleTimeout: 30 * time.Second}
+	fiberConfig := fiber.Config{IdleTimeout: 30 * time.Second}
 	healthService, err := health.NewHealthService()
 	if err != nil {
 		logger.Error("Couldn't create healthService")
@@ -64,7 +64,7 @@ func main() {
 	).Register()
 
 	go func() {
-		server.StartServer(app, "http.server.bind")
+		server.StartServer(app, "http.server.bind", fiber.ListenConfig{ListenerNetwork: fiber.NetworkTCP})
 	}()
 
 	startSecondServer(fiberConfig, consulPS)
@@ -89,5 +89,5 @@ func startSecondServer(fiberConfig fiber.Config, consulPS *configloader.Property
 		},
 	).Register()
 
-	server.StartServer(app2, "http.server2.bind")
+	server.StartServer(app2, "http.server2.bind", fiber.ListenConfig{ListenerNetwork: fiber.NetworkTCP})
 }
