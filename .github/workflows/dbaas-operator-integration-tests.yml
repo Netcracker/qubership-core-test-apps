@@ -82,13 +82,15 @@ jobs:
         run: ./dbaas-operator-tests/checks.sh arm
 
       - name: Deploy Cloud Core
+        env:
+          AUX_BOOTSTRAP_ARGS: ${{ inputs.aux-bootstrap-args }}
         run: >-
           make -C core-bootstrap-repo/cloud-core-local-dev/ deploy-core
           INSTALL_ISTIO=true SERVICE_MESH_TYPE=Istio
           DBAAS_OPERATOR_ENABLED=true
           CORE_MESH_EARLY=true
           ${{ inputs.test-branch && format('TEST_BRANCH={0}', inputs.test-branch) || '' }}
-          ${{ inputs.aux-bootstrap-args }}
+          $AUX_BOOTSTRAP_ARGS
 
       - name: Check databases come from the DBaaS Operator
         run: ./dbaas-operator-tests/checks.sh assert --expect-no-legacy-secret
@@ -154,12 +156,14 @@ jobs:
         run: ./dbaas-operator-tests/checks.sh arm
 
       - name: Upgrade Cloud Core onto the DBaaS Operator
+        env:
+          AUX_BOOTSTRAP_ARGS: ${{ inputs.aux-bootstrap-args }}
         run: >-
           make -C core-bootstrap-repo/cloud-core-local-dev/ clone-repos template-values-files deploy-core
           INSTALL_ISTIO=true SERVICE_MESH_TYPE=Istio
           DBAAS_OPERATOR_ENABLED=true
           ${{ inputs.test-branch && format('TEST_BRANCH={0}', inputs.test-branch) || '' }}
-          ${{ inputs.aux-bootstrap-args }}
+          $AUX_BOOTSTRAP_ARGS
 
       - name: Check the existing databases were adopted
         run: ./dbaas-operator-tests/checks.sh assert --snapshot "$RUNNER_TEMP/databases-before.json"

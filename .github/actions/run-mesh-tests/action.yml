@@ -43,13 +43,15 @@ runs:
       env:
         GITHUB_ACTOR: ${{ github.actor }}
         GITHUB_TOKEN: ${{ inputs.github-token }}
+        MESH_NAMESPACE: ${{ inputs.namespace }}
+        MESH_TYPE: ${{ inputs.mesh-type }}
+        SPRING_TAG: ${{ inputs.spring-tag }}
+        QUARKUS_TAG: ${{ inputs.quarkus-tag }}
+        GO_TAG: ${{ inputs.go-tag }}
+        CONSUL_AUTH_MODE: ${{ inputs.consul-auth-mode }}
+        CORETPL_CHART_DIR: ${{ inputs.coretpl-chart-dir }}
       run: |
-        INSTALL_CMD="./mesh-test-install/mesh-test-apps.sh install ${{ inputs.namespace }} ${{ inputs.mesh-type }}"
-        SPRING_TAG="${{ inputs.spring-tag }}"
-        QUARKUS_TAG="${{ inputs.quarkus-tag }}"
-        GO_TAG="${{ inputs.go-tag }}"
-        CONSUL_AUTH_MODE="${{ inputs.consul-auth-mode }}"
-        CORETPL_CHART_DIR="${{ inputs.coretpl-chart-dir }}"
+        INSTALL_CMD="./mesh-test-install/mesh-test-apps.sh install $MESH_NAMESPACE $MESH_TYPE"
         if [ "$SPRING_TAG" != "latest" ] && [ -n "$SPRING_TAG" ]; then
           INSTALL_CMD="$INSTALL_CMD --spring-tag $SPRING_TAG"
         fi
@@ -66,5 +68,5 @@ runs:
           INSTALL_CMD="$INSTALL_CMD --coretpl-chart-dir $CORETPL_CHART_DIR"
         fi
         $INSTALL_CMD
-        ./run-it/run-integration-tests.sh kind-kind ${{ inputs.namespace }} kind-control-plane:10.244.0.1 mesh-integration-tests:mesh-integration-tests
-        ./mesh-test-install/mesh-test-apps.sh uninstall ${{ inputs.namespace }} ${{ inputs.mesh-type }}
+        ./run-it/run-integration-tests.sh kind-kind "$MESH_NAMESPACE" kind-control-plane:10.244.0.1 mesh-integration-tests:mesh-integration-tests
+        ./mesh-test-install/mesh-test-apps.sh uninstall "$MESH_NAMESPACE" "$MESH_TYPE"
