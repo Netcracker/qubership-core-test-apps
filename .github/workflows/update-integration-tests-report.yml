@@ -12,16 +12,13 @@ concurrency:
   group: "integration-tests-report"
   cancel-in-progress: true
 
-# The suites run against main of the core services (test-branch) and of each dependency, which the
-# bootstrap otherwise takes at a pinned release (aux-bootstrap-args).
-# Temporary: core-bootstrap is chore/remove_fallback_scenario, where the Istio smoke test no longer
-# depends on the removed public-gateway fallback. Put it back to main once that branch is merged.
+# The suites run against main of everything: core-bootstrap (its default), the core services (test-branch) and
+# each dependency, which the bootstrap otherwise takes at a pinned release (aux-bootstrap-args).
 
 jobs:
   run-tests-core-mesh:
     uses: ./.github/workflows/integration-tests.yml
     with:
-      core-bootstrap-branch: chore/remove_fallback_scenario
       install-istio: false
       install-maas: false
       mesh-type: 'Core'
@@ -34,7 +31,6 @@ jobs:
   run-tests-core-mesh-dbaas-operator:
     uses: ./.github/workflows/integration-tests.yml
     with:
-      core-bootstrap-branch: chore/remove_fallback_scenario
       install-istio: false
       install-maas: false
       mesh-type: 'Core'
@@ -49,7 +45,6 @@ jobs:
   run-tests-istio:
     uses: ./.github/workflows/integration-tests.yml
     with:
-      core-bootstrap-branch: chore/remove_fallback_scenario
       install-istio: true
       install-maas: false
       mesh-type: 'Istio'
@@ -60,14 +55,11 @@ jobs:
       
   run-tests-consul-login:
     uses: ./.github/workflows/consul-login-integration-tests.yml
-    with:
-      core-bootstrap-branch: chore/remove_fallback_scenario
 
   run-maas-failover-tests:
     uses: ./.github/workflows/maas-failover-tests.yml
     with:
       # the results are published in the report below, so a failed test must not skip it
-      core-bootstrap-branch: chore/remove_fallback_scenario
       test-branch: main
       aux-bootstrap-args: 'DBAAS_REPO_BRANCH=main MAAS_BRANCH=main ISTIO_REPO_BRANCH=main CORE_MESH_CONFIG_REPO_BRANCH=main'
       fail-on-test-failure: false
@@ -75,7 +67,6 @@ jobs:
   run-core-legacy-api-tests:
     uses: ./.github/workflows/core-legacy-api-integration-tests.yml
     with:
-      core-bootstrap-branch: chore/remove_fallback_scenario
       test-branch: main
       aux-bootstrap-args: 'DBAAS_REPO_BRANCH=main ISTIO_REPO_BRANCH=main CORE_MESH_CONFIG_REPO_BRANCH=main'
       fail-on-test-failure: false
