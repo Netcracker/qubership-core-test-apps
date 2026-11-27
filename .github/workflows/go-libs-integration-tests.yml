@@ -1,0 +1,43 @@
+name: Integration tests for a go-lib ref
+run-name: "[go-lib=${{ inputs.go-lib-repository }}@${{ inputs.go-lib-ref }}] [tests=${{ inputs.run-tests-for }}]"
+
+# Placeholder, so that the real workflow can be dispatched from a branch.
+
+on:
+  workflow_dispatch:
+    inputs:
+      go-lib-repository:
+        description: 'Go library repository, e.g. Netcracker/qubership-core-lib-go-fiber-server-utils'
+        required: true
+        type: string
+      go-lib-ref:
+        description: 'Branch, tag, commit or PR number (204, #204) of go-lib-repository'
+        required: true
+        type: string
+      services-branch:
+        description: 'Branch of the service repositories, the other libraries and the test repositories; main where it does not exist'
+        required: false
+        default: 'main'
+        type: string
+      core-bootstrap-branch:
+        description: 'Branch of core-bootstrap repo'
+        required: false
+        default: 'main'
+        type: string
+      run-tests-for:
+        description: 'Suites of integration-tests.yml: mesh-tests by default, or all, or comma-separated names (mesh-tests,paas-mediation,control-plane,site-management,maas-agent)'
+        required: false
+        default: 'mesh-tests'
+        type: string
+
+permissions: {}
+
+jobs:
+  placeholder:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Point at the branch that carries the tests
+        run: |
+          echo "This is the placeholder on the default branch; no tests ran."
+          echo "Pick the branch that carries them in the Run workflow dialog."
+          exit 1
