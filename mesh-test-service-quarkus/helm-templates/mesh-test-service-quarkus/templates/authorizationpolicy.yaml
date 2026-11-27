@@ -1,0 +1,21 @@
+{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
+# The public gateway denies every request until an ALLOW matches it. This permits the paths this service exposes.
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: '{{ .Values.SERVICE }}-public-allow'
+  labels:
+    app.kubernetes.io/instance: '{{ .Values.SERVICE }}'
+    app.kubernetes.io/managed-by: istiod
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: public-gateway
+  action: ALLOW
+  rules:
+    - to:
+        - operation:
+            paths:
+              - /api/v1/{{ .Values.SERVICE }}/*
+{{- end }}

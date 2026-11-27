@@ -39,24 +39,16 @@ jobs:
       test-branch: main
       aux-bootstrap-args: 'DBAAS_REPO_BRANCH=main ISTIO_REPO_BRANCH=main CORE_MESH_CONFIG_REPO_BRANCH=main DBAAS_OPERATOR_ENABLED=true'
 
-  run-tests-istio-mesh-fallback-mode:
-    uses: ./.github/workflows/integration-tests.yml
-    with:
-      install-istio: true
-      install-maas: false
-      mesh-type: 'Core'
-      test-usecase: 'istio-fallback'
-      run-tests-for: 'all'
-      test-branch: main
-      aux-bootstrap-args: 'DBAAS_REPO_BRANCH=main ISTIO_REPO_BRANCH=main CORE_MESH_CONFIG_REPO_BRANCH=main'
-
-  run-tests-istio-mesh-migrated-mode:
+  # Istio only. mesh-config no longer installs catch-all routes from the Istio gateways back to
+  # the control-plane gateways, so a stand with Istio installed and test apps left on Core routes
+  # (the old istio-fallback usecase) is not a supported mode.
+  run-tests-istio:
     uses: ./.github/workflows/integration-tests.yml
     with:
       install-istio: true
       install-maas: false
       mesh-type: 'Istio'
-      test-usecase: 'istio-migrated'
+      test-usecase: 'istio'
       run-tests-for: 'all'
       test-branch: main
       aux-bootstrap-args: 'DBAAS_REPO_BRANCH=main ISTIO_REPO_BRANCH=main CORE_MESH_CONFIG_REPO_BRANCH=main'
@@ -82,7 +74,7 @@ jobs:
   # A suite that fails to set up its stand publishes no results, but must not take the report down with it.
   update-report:
     if: ${{ !cancelled() }}
-    needs: [run-tests-core-mesh, run-tests-core-mesh-dbaas-operator, run-tests-istio-mesh-fallback-mode, run-tests-istio-mesh-migrated-mode, run-tests-consul-login, run-maas-failover-tests, run-core-legacy-api-tests]
+    needs: [run-tests-core-mesh, run-tests-core-mesh-dbaas-operator, run-tests-istio, run-tests-consul-login, run-maas-failover-tests, run-core-legacy-api-tests]
     runs-on: ubuntu-latest
     environment:
       name: pages
