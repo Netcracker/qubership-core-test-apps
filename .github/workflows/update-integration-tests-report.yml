@@ -72,13 +72,12 @@ jobs:
       fail-on-test-failure: false
 
   # A suite that fails to set up its stand publishes no results, but must not take the report down with it.
+  # Deploy is a later job: deploy-pages lists artifacts as soon as it starts, and in the same job
+  # the github-pages upload is often not visible yet (actions/deploy-pages#451).
   update-report:
     if: ${{ !cancelled() }}
     needs: [run-tests-core-mesh, run-tests-core-mesh-dbaas-operator, run-tests-istio, run-tests-consul-login, run-maas-failover-tests, run-core-legacy-api-tests]
     runs-on: ubuntu-latest
-    environment:
-      name: pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -169,6 +168,13 @@ jobs:
         with:
           path: './report'
 
+  deploy-report:
+    needs: update-report
+    runs-on: ubuntu-latest
+    environment:
+      name: pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5
