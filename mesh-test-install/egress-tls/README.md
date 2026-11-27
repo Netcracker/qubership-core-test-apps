@@ -165,19 +165,18 @@ Cloud-Core Mesh, because a gateway-level profile is the one case where `tls.sni`
 
 ### An unmatched path
 
-Cloud-Core Mesh has nothing to match and returns `404`. The Istio egress gateway that
-`core-mesh-config` installs carries a catch-all route to `egress-fallback-service`, so an unmatched
-path reaches that service instead:
+Neither mesh has a catch-all. Cloud-Core Mesh returns `404` when nothing matches. `core-mesh-config`
+used to send an unmatched path from the Istio egress gateway to `egress-fallback-service`; that route
+is gone, so Istio returns `404` as well:
 
 ```text
 /egress-tls/verified   headers=['tenant-id']  -> verified.external.test
-/                      headers=[]             -> egress-fallback-service.core
+/egress-tls/verified   headers=[]             -> 404
 ```
 
-`testEgressTlsHeaderMatcherIsRequired` therefore asserts that the response is not `200` and carries
-no `"sni"` field — it never reached the external host — rather than asserting a status. A rule with
-`allowed: false` is unaffected: that mapping omits `backendRefs`, so the rule matches and returns
-`404` itself, and the catch-all only sees paths matching no rule at all.
+`testEgressTlsHeaderMatcherIsRequired` asserts `404` and that the body carries no `"sni"` field.
+A rule with `allowed: false` is a different case: that mapping omits `backendRefs`, so the rule
+matches and returns `404` itself.
 
 ### What the tests do about it
 
