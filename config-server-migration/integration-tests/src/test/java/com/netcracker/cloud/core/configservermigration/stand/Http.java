@@ -23,9 +23,16 @@ public final class Http {
             .build();
 
     private final URI baseUri;
+    private final String consulToken;
 
     public Http(URL baseUrl) {
+        this(baseUrl, null);
+    }
+
+    /** Sends {@code consulToken} as {@code X-Consul-Token} with every request; {@code null} sends none. */
+    public Http(URL baseUrl, String consulToken) {
         this.baseUri = URI.create(baseUrl.toString());
+        this.consulToken = consulToken;
     }
 
     /** Waits until the service answers {@code GET path} with 200; {@code name} is for the failure message. */
@@ -50,7 +57,11 @@ public final class Http {
     }
 
     private HttpRequest.Builder request(String path) {
-        return HttpRequest.newBuilder(baseUri.resolve(path)).timeout(Duration.ofSeconds(30));
+        HttpRequest.Builder builder = HttpRequest.newBuilder(baseUri.resolve(path)).timeout(Duration.ofSeconds(30));
+        if (consulToken != null) {
+            builder.header("X-Consul-Token", consulToken);
+        }
+        return builder;
     }
 
     private static HttpRequest.BodyPublisher json(Object body) {

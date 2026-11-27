@@ -2,13 +2,18 @@ package com.netcracker.cloud.core.configservermigration.stand;
 
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ConfigMapBuilder;
+import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.NonDeletingOperation;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+
 /**
  * The names both phases address on the stand, the check that core-legacy-api stands behind the Service
- * {@code config-server}, and the ConfigMap that carries the baseline from one phase to the other.
+ * {@code config-server}, the bootstrap ACL token of Consul, and the ConfigMap that carries the baseline from one phase
+ * to the other.
  *
  * <p>The baseline lives in the cluster because the phases run as separate Maven runs.
  */
@@ -20,6 +25,7 @@ public final class Cluster {
     public static final String CONSUL_SERVER = "consul-server";
 
     private static final String CORE_LEGACY_API = "core-legacy-api";
+    private static final String CONSUL_BOOTSTRAP_TOKEN_SECRET = "consul-bootstrap-acl-token";
     private static final String BASELINE_CONFIG_MAP = "config-server-migration-baseline";
     private static final String BASELINE_KEY = "baseline.json";
 
@@ -44,6 +50,18 @@ public final class Cluster {
         if (ready == null || ready < 1) {
             throw new IllegalStateException("deployment " + CORE_LEGACY_API + " has no ready replica");
         }
+    }
+
+    /**
+     * The bootstrap ACL token of Consul, which may read any key, or {@code null} when Consul runs without ACLs and
+     * keeps no such secret.
+     */
+    public static String consulToken(KubernetesClient kubernetes) {
+        Secret secret = kubernetes.secrets().inNamespace(CONSUL_NAMESPACE).withName(CONSUL_BOOTSTRAP_TOKEN_SECRET).get();
+        if (secret == null) {
+            return null;
+        }
+        return new String(Base64.getDecoder().decode(secret.getData().get("token")), StandardCharsets.UTF_8);
     }
 
     public static void saveBaseline(KubernetesClient kubernetes, String json) {

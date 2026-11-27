@@ -82,7 +82,7 @@ on:
 
 jobs:
   works:
-    name: "works: core=${{ matrix.core }} dbaas=${{ matrix.dbaas }} maas=${{ matrix.maas }}"
+    name: "works: core=${{ matrix.core }} dbaas=${{ matrix.dbaas }} maas=${{ matrix.maas }}${{ matrix.consul-acls && ' consul=acl' || '' }}"
     strategy:
       fail-fast: false
       matrix:
@@ -98,6 +98,8 @@ jobs:
           - { core: hybrid, dbaas: legacy, maas: k8s, tests: 'control-plane,paas-mediation,site-management,maas-agent' }
           - { core: k8s, dbaas: hybrid, maas: hybrid, tests: 'control-plane,paas-mediation,site-management' }
           - { core: k8s, dbaas: k8s, maas: k8s, tests: 'control-plane,paas-mediation,site-management' }
+          - { core: hybrid, dbaas: hybrid, maas: hybrid, consul-acls: true, tests: 'control-plane,paas-mediation,site-management,maas-agent' }
+          - { core: k8s, dbaas: k8s, maas: k8s, consul-acls: true, tests: 'control-plane,paas-mediation,site-management' }
     uses: ./.github/workflows/integration-tests.yml
     with:
       core-bootstrap-branch: ${{ inputs.core-bootstrap-branch || 'main' }}
@@ -106,13 +108,14 @@ jobs:
       install-istio: false
       mesh-type: 'Core'
       m2m-auth-mode: ${{ matrix.core }}
+      consul-acls: ${{ matrix.consul-acls || false }}
       aux-bootstrap-args: >-
         DBAAS_M2M_AUTH_MODE=${{ matrix.dbaas }}
         MAAS_M2M_AUTH_MODE=${{ matrix.maas }}
         DBAAS_REPO_BRANCH=${{ inputs.dbaas-repo-branch || 'main' }}
         MAAS_BRANCH=${{ inputs.maas-branch || 'main' }}
         ${{ inputs.aux-bootstrap-args }}
-      test-usecase: m2m-${{ matrix.core }}-${{ matrix.dbaas }}-${{ matrix.maas }}
+      test-usecase: m2m-${{ matrix.core }}-${{ matrix.dbaas }}-${{ matrix.maas }}${{ matrix.consul-acls && '-consul-acl' || '' }}
       run-tests-for: ${{ matrix.tests }}
 
   fails:
