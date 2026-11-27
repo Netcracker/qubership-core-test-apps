@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 )
 
@@ -16,11 +16,11 @@ type loginStatus struct {
 	ConsulMarker string `json:"consulMarker"`
 }
 
-func loginStatusHandler(ctx *fiber.Ctx) error {
+func loginStatusHandler(ctx fiber.Ctx) error {
 	return ctx.JSON(loginStatus{
 		LoginMode:    configloader.GetOrDefaultString("consul.auth.mode", "UNSET"),
 		AuthMethod:   configloader.GetOrDefaultString("consul.auth.method", "UNSET"),
 		Audience:     configloader.GetOrDefaultString("consul.auth.audience", "UNSET"),
 		ConsulMarker: configloader.GetOrDefaultString("service.marker", "ABSENT"),
-	})
+	}, fiber.MIMEApplicationJSON)
 }

@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-maas-failover-test-service-go/probe"
 	"github.com/netcracker/qubership-maas-failover-test-service-go/workload"
 )
@@ -32,19 +32,19 @@ func (c *Controller) Register(router fiber.Router) {
 	router.Get("/diag", c.Diag)
 }
 
-func (c *Controller) Init(ctx *fiber.Ctx) error {
+func (c *Controller) Init(ctx fiber.Ctx) error {
 	storageType := ctx.Params("type")
 	probe, err := c.workload.Probe(storageType)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
-	if err = probe.Init(ctx.UserContext()); err != nil {
+	if err = probe.Init(ctx.Context()); err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
-	return ctx.JSON(fiber.Map{"storage": storageType, "initialised": true})
+	return ctx.JSON(fiber.Map{"storage": storageType, "initialised": true}, fiber.MIMEApplicationJSON)
 }
 
-func (c *Controller) Write(ctx *fiber.Ctx) error {
+func (c *Controller) Write(ctx fiber.Ctx) error {
 	storageType := ctx.Params("type")
 	probe, err := c.workload.Probe(storageType)
 	if err != nil {
@@ -52,37 +52,37 @@ func (c *Controller) Write(ctx *fiber.Ctx) error {
 	}
 	key := ctx.Query("key")
 	value := ctx.Query("value")
-	read, err := probe.WriteAndRead(ctx.UserContext(), handleMode(ctx), key, value)
+	read, err := probe.WriteAndRead(ctx.Context(), handleMode(ctx), key, value)
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
-	return ctx.JSON(fiber.Map{"storage": storageType, "key": key, "value": read})
+	return ctx.JSON(fiber.Map{"storage": storageType, "key": key, "value": read}, fiber.MIMEApplicationJSON)
 }
 
-func (c *Controller) Start(ctx *fiber.Ctx) error {
+func (c *Controller) Start(ctx fiber.Ctx) error {
 	storageType := ctx.Query("storage")
 	mode := handleMode(ctx)
-	operationsPerSecond := ctx.QueryInt("operationsPerSecond", defaultOperationsPerSecond)
+	operationsPerSecond := fiber.Query[int](ctx, "operationsPerSecond", defaultOperationsPerSecond)
 
-	if err := c.workload.Start(ctx.UserContext(), storageType, mode, operationsPerSecond); err != nil {
+	if err := c.workload.Start(ctx.Context(), storageType, mode, operationsPerSecond); err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 	return ctx.JSON(fiber.Map{"storage": storageType, "handleMode": mode,
-		"operationsPerSecond": operationsPerSecond, "running": true})
+		"operationsPerSecond": operationsPerSecond, "running": true}, fiber.MIMEApplicationJSON)
 }
 
-func (c *Controller) Stop(ctx *fiber.Ctx) error {
+func (c *Controller) Stop(ctx fiber.Ctx) error {
 	c.workload.Stop()
-	return ctx.JSON(fiber.Map{"running": false})
+	return ctx.JSON(fiber.Map{"running": false}, fiber.MIMEApplicationJSON)
 }
 
-func (c *Controller) Stats(ctx *fiber.Ctx) error {
-	return ctx.JSON(c.workload.Stats())
+func (c *Controller) Stats(ctx fiber.Ctx) error {
+	return ctx.JSON(c.workload.Stats(), fiber.MIMEApplicationJSON)
 }
 
 // Diag reports what the leak scenario compares: after N fault cycles these must return to
 // baseline. threadCount is the goroutine count, which is this runtime's equivalent.
-func (c *Controller) Diag(ctx *fiber.Ctx) error {
+func (c *Controller) Diag(ctx fiber.Ctx) error {
 	var memory runtime.MemStats
 	runtime.ReadMemStats(&memory)
 
@@ -96,7 +96,7 @@ func (c *Controller) Diag(ctx *fiber.Ctx) error {
 		"openFileDescriptors":  openFileDescriptors(),
 		"heapUsedBytes":        memory.HeapAlloc,
 		"storages":             storages,
-	})
+	}, fiber.MIMEApplicationJSON)
 }
 
 // goroutinesByFunction counts goroutines by the function each was started in, which is
@@ -125,7 +125,7 @@ func goroutinesByFunction() map[string]int {
 	return byFunction
 }
 
-func handleMode(ctx *fiber.Ctx) probe.HandleMode {
+func handleMode(ctx fiber.Ctx) probe.HandleMode {
 	if ctx.Query("handleMode") == string(probe.LongHeld) {
 		return probe.LongHeld
 	}

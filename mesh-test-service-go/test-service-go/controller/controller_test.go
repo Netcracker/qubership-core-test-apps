@@ -10,9 +10,9 @@ import (
 
 	"github.com/netcracker/qubership-mesh-test-service-go/domain"
 
-	"github.com/gofiber/fiber/v2"
-	fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2"
-	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/security"
+	"github.com/gofiber/fiber/v3"
+	fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3"
+	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/security"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/serviceloader"
 	"github.com/stretchr/testify/assert"
@@ -31,11 +31,11 @@ func TestController_HelloHandler(t *testing.T) {
 
 	app, err := fiberserver.New().Process()
 	assert.Nil(t, err)
-	app.Get("api/v1/hello", func(ctx *fiber.Ctx) error {
+	app.Get("api/v1/hello", func(ctx fiber.Ctx) error {
 		return control.HelloHandler(ctx)
 	})
 
-	respMock, err := app.Test(makeRequestWithoutBody("api/v1/hello", http.MethodGet), -1)
+	respMock, err := app.Test(makeRequestWithoutBody("api/v1/hello", http.MethodGet), fiber.TestConfig{Timeout: 0})
 	defer respMock.Body.Close()
 	assert.Nil(t, err)
 	bodyBytes, err := io.ReadAll(respMock.Body)
