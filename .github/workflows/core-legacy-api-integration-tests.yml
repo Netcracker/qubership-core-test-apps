@@ -53,6 +53,16 @@ on:
 jobs:
   core-legacy-api-integration-tests:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: core-legacy-api-legacy
+            consul-args: M2M_AUTH_MODE=legacy
+          - suite: core-legacy-api-consul-acl-k8s
+            consul-args: CONSUL_ACLS=true M2M_AUTH_MODE=k8s
+          - suite: core-legacy-api-consul-acl-hybrid
+            consul-args: CONSUL_ACLS=true M2M_AUTH_MODE=hybrid
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -65,8 +75,7 @@ jobs:
           test-branch: ${{ inputs.test-branch }}
           install-istio: 'false'
           aux-bootstrap-args: >-
-            INSTALL_CONFIG_SERVER=false
-            INSTALL_CORE_LEGACY_API=true
+            ${{ matrix.consul-args }}
             ${{ inputs.aux-bootstrap-args }}
 
       - name: Run the core-legacy-api integration tests
@@ -79,28 +88,30 @@ jobs:
       # The name of the artifact and the layout inside it are what the report job expects.
       - name: Aggregate Surefire reports
         if: always()
+        env:
+          SUITE: ${{ matrix.suite }}
         run: |
           module=config-server-migration/integration-tests
           mvn -B -ntp -f "$module/pom.xml" surefire-report:report-only || true
-          mkdir -p artifacts/core-legacy-api
-          cp -r "$module/target/surefire-reports" artifacts/core-legacy-api/ || true
+          mkdir -p "artifacts/$SUITE"
+          cp -r "$module/target/surefire-reports" "artifacts/$SUITE/" || true
           if [ -d "$module/target/reports" ]; then
-            cp -r "$module/target/reports" artifacts/core-legacy-api/ || true
+            cp -r "$module/target/reports" "artifacts/$SUITE/" || true
           fi
 
       - name: Upload Surefire reports
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: surefire-reports-core-legacy-api
+          name: surefire-reports-${{ matrix.suite }}
           path: artifacts/*
 
       - name: Collect Kubernetes diagnostics
         if: ${{ failure() || steps.core_legacy_api_tests.outcome == 'failure' }}
         uses: ./.github/actions/collect-k8s-diagnostics
         with:
-          collect-logs-for: 'name=core-legacy-api'
-          artifact-suffix: '-core-legacy-api'
+          collect-logs-for: 'name=core-legacy-api,name=core-operator'
+          artifact-suffix: -${{ matrix.suite }}
 
       - name: Report the test outcome
         if: ${{ steps.core_legacy_api_tests.outcome == 'failure' }}
